@@ -1,0 +1,633 @@
+﻿import { prisma } from '../utils/database';
+
+export interface DashboardData {
+    propertiesCount: number;
+    unitsCount: number;
+    occupiedUnitsCount: number;
+    occupancyRate: number;
+    activeLeasesCount: number;
+    pendingInvitationsCount: number;
+    recentInvitations: Array<{
+        id: string;
+        tenantId: string;
+        status: string;
+        createdAt: Date;
+        respondedAt: Date | null;
+        property: {
+            name: string;
+            location: string | null;
+        };
+        unit: {
+            unitNumber: string;
+        };
+    }>;
+    recentPayments: Array<{
+        id: string;
+        amount: number;
+        status: string;
+        paymentDate: Date;
+        tenantId: string;
+        property: {
+            name: string;
+        };
+        unit: {
+            unitNumber: string;
+        };
+    }>;
+}
+
+export interface ManagerLeasesFilters {
+    propertyId?: string;
+    status?: string;
+}
+
+export interface ManagerInvitationsFilters {
+    propertyId?: string;
+    status?: string;
+}
+
+export const getDashboardData = async (managerId: string): Promise<DashboardData> => {
+    try {
+        // Get properties that this manager has sent invitations for
+        const managerProperties = await prisma.tenantInvitation.findMany({
+            where: {
+                invitedByUserId: managerId
+            },
+            select: {
+                propertyId: true
+            },
+            distinct: ['propertyId']
+        });
+
+        const propertyIds = managerProperties.map(inv => inv.propertyId);
+
+        // Get properties with units and leases
+        const properties = await prisma.property.findMany({
+            where: {
+                id: {
+                    in: propertyIds
+                }
+            },
+            include: {
+                units: {
+                    include: {
+                        leases: {
+                            where: { status: 'ACTIVE' }
+                        }
+                    }
+                }
+            }
+        });
+
+        const propertiesCount = properties.length;
+        const unitsCount = properties.reduce((sum: number, prop: any) => sum + prop.units.length, 0);
+        const occupiedUnitsCount = properties.reduce((sum: number, prop: any) =>
+            sum + prop.units.filter((unit: any) => unit.isOccupied).length, 0
+        );
+        const activeLeasesCount = properties.reduce((sum: number, prop: any) =>
+            sum + prop.units.reduce((unitSum: number, unit: any) => unitSum + unit.leases.length, 0), 0
+        );
+
+        const occupancyRate = unitsCount > 0 ? (occupiedUnitsCount / unitsCount) * 100 : 0;
+
+        // Get pending invitations
+        const pendingInvitationsCount = await prisma.tenantInvitation.count({
+            where: {
+                invitedByUserId: managerId,
+                status: 'PENDING'
+            }
+        });
+
+        // Get recent invitations (last 10)
+        const recentInvitations = await prisma.tenantInvitation.findMany({
+            where: {
+                invitedByUserId: managerId
+            },
+            include: {
+                property: {
+                    select: {
+                        name: true,
+                        location: true
+                    }
+                },
+                unit: {
+                    select: {
+                        unitNumber: true
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'desc'
+            },
+            take: 10
+        });
+
+        // Get recent payments (last 10) for properties this manager manages
+        const recentPayments = await prisma.payment.findMany({
+            where: {
+                propertyId: {
+                    in: propertyIds
+                }
+            },
+            include: {
+                property: {
+                    select: {
+                        name: true
+                    }
+                },
+                unit: {
+                    select: {
+                        unitNumber: true
+                    }
+                }
+            },
+            orderBy: {
+                paymentDate: 'desc'
+            },
+            take: 10
+        });
+
+        return {
+            propertiesCount,
+            unitsCount,
+            occupiedUnitsCount,
+            occupancyRate,
+            activeLeasesCount,
+            pendingInvitationsCount,
+            recentInvitations: recentInvitations.map((inv: any) => ({
+                id: inv.id,
+                tenantId: inv.tenantId,
+                status: inv.status,
+                createdAt: inv.createdAt,
+                respondedAt: inv.respondedAt,
+                property: inv.property,
+                unit: inv.unit
+            })),
+            recentPayments: recentPayments.map((payment: any) => ({
+                id: payment.id,
+                amount: payment.amount,
+                status: payment.status,
+                paymentDate: payment.paymentDate,
+                tenantId: payment.tenantId,
+                property: payment.property,
+                unit: payment.unit
+            }))
+        };
+    } catch (error) {
+        console.error('Error getting dashboard data:', error);
+        throw error;
+    }
+};
+
+export const getManagerLeases = async (managerId: string, filters: ManagerLeasesFilters) => {
+    try {
+        // Get properties this manager manages
+        const managerProperties = await prisma.tenantInvitation.findMany({
+            where: {
+                invitedByUserId: managerId
+            },
+            select: {
+                propertyId: true
+            },
+            distinct: ['propertyId']
+        });
+
+        const propertyIds = managerProperties.map(inv => inv.propertyId);
+
+        const leases = await prisma.lease.findMany({
+            where: {
+                propertyId: {
+                    in: propertyIds
+                },
+                ...(filters.propertyId && { propertyId: filters.propertyId }),
+                ...(filters.status && { status: filters.status as any })
+            },
+            include: {
+                tenantIdentity: {
+                    select: {
+                        name: true,
+                        email: true,
+                        tenantId: true
+                    }
+                },
+                property: {
+                    select: {
+                        name: true,
+                        location: true
+                    }
+                },
+                unit: {
+                    select: {
+                        unitNumber: true
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+
+        return leases;
+    } catch (error) {
+        console.error('Error getting manager leases:', error);
+        throw error;
+    }
+};
+
+export const getManagerInvitations = async (managerId: string, filters: ManagerInvitationsFilters) => {
+    try {
+        const invitations = await prisma.tenantInvitation.findMany({
+            where: {
+                invitedByUserId: managerId,
+                ...(filters.propertyId && { propertyId: filters.propertyId }),
+                ...(filters.status && { status: filters.status as any })
+            },
+            include: {
+                property: {
+                    select: {
+                        name: true,
+                        location: true
+                    }
+                },
+                unit: {
+                    select: {
+                        unitNumber: true
+                    }
+                },
+                tenantIdentity: {
+                    select: {
+                        name: true,
+                        email: true,
+                        tenantId: true
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+
+        return invitations;
+    } catch (error) {
+        console.error('Error getting manager invitations:', error);
+        throw error;
+    }
+};
+
+// GET: Get all tenants with active leases for this manager
+export const getAllTenants = async (managerId: string) =\u003e {
+    try {
+        // Get properties this manager manages
+        const managerProperties = await prisma.tenantInvitation.findMany({
+            where: {
+                invitedByUserId: managerId
+            },
+            select: {
+                propertyId: true
+            },
+            distinct: ['propertyId']
+        });
+
+const propertyIds = managerProperties.map(inv =\u003e inv.propertyId);
+
+// Get all active leases for these properties
+const leases = await prisma.lease.findMany({
+    where: {
+        propertyId: {
+            in: propertyIds
+        },
+        status: 'ACTIVE'
+    },
+    include: {
+        tenantIdentity: {
+            select: {
+                name: true,
+                email: true,
+                phoneNumber: true,
+                tenantId: true
+            }
+        },
+        property: {
+            select: {
+                name: true,
+                id: true
+            }
+        },
+        unit: {
+            select: {
+                id: true,
+                unitNumber: true
+            }
+        }
+    }
+});
+
+// Get payment status for each tenant
+const tenantsWithPayments = await Promise.all(leases.map(async(lease) =\u003e {
+    const now = new Date();
+
+    // Get overdue payments
+    const overduePayments = await prisma.payment.findMany({
+        where: {
+            tenantId: lease.tenantId,
+            status: 'OVERDUE',
+            dueDate: {
+                lt: now
+            }
+        }
+    });
+
+    const amountOwed = overduePayments.reduce((sum, p) =\u003e sum + p.amount, 0);
+
+    return {
+        id: lease.id,
+        tenantId: lease.tenantIdentity.tenantId,
+        name: lease.tenantIdentity.name,
+        email: lease.tenantIdentity.email,
+        phoneNumber: lease.tenantIdentity.phoneNumber || '',
+        propertyId: lease.propertyId,
+        propertyName: lease.property.name,
+        unitId: lease.unitId,
+        unitNumber: lease.unit.unitNumber,
+        rentAmount: lease.rentAmount,
+        paymentStatus: overduePayments.length \u003e 0? 'overdue' : 'current',
+        amountOwed,
+        leaseId: lease.id
+    };
+}));
+
+return tenantsWithPayments;
+    } catch (error) {
+    console.error('Error getting all tenants:', error);
+    throw error;
+}
+};
+
+// GET: Get specific tenant by tenantId
+export const getTenantById = async (managerId: string, tenantId: string) =\u003e {
+    try {
+        // Get properties this manager manages
+        const managerProperties = await prisma.tenantInvitation.findMany({
+            where: {
+                invitedByUserId: managerId
+            },
+            select: {
+                propertyId: true
+            },
+            distinct: ['propertyId']
+        });
+
+const propertyIds = managerProperties.map(inv =\u003e inv.propertyId);
+
+// Find active lease for this tenant in manager's properties
+const lease = await prisma.lease.findFirst({
+    where: {
+        tenantId: tenantId,
+        propertyId: {
+            in: propertyIds
+        },
+        status: 'ACTIVE'
+    },
+    include: {
+        tenantIdentity: {
+            select: {
+                name: true,
+                email: true,
+                phoneNumber: true,
+                tenantId: true
+            }
+        },
+        property: {
+            select: {
+                name: true,
+                id: true
+            }
+        },
+        unit: {
+            select: {
+                id: true,
+                unitNumber: true
+            }
+        }
+    }
+});
+
+if (!lease) {
+    return null;
+}
+
+// Get payment status
+const overduePayments = await prisma.payment.findMany({
+    where: {
+        tenantId: lease.tenantId,
+        status: 'OVERDUE',
+        dueDate: {
+            lt: new Date()
+        }
+    }
+});
+
+const amountOwed = overduePayments.reduce((sum, p) =\u003e sum + p.amount, 0);
+
+return {
+    id: lease.id,
+    tenantId: lease.tenantIdentity.tenantId,
+    name: lease.tenantIdentity.name,
+    email: lease.tenantIdentity.email,
+    phoneNumber: lease.tenantIdentity.phoneNumber || '',
+    propertyId: lease.propertyId,
+    propertyName: lease.property.name,
+    unitId: lease.unitId,
+    unitNumber: lease.unit.unitNumber,
+    rentAmount: lease.rentAmount,
+    paymentStatus: overduePayments.length \u003e 0? 'overdue' : 'current',
+    amountOwed,
+    leaseId: lease.id
+};
+    } catch (error) {
+    console.error('Error getting tenant by ID:', error);
+    throw error;
+}
+};
+
+// GET: Get tenants by property
+export const getTenantsByProperty = async (managerId: string, propertyId: string) =\u003e {
+    try {
+        // Verify manager has access to this property
+        const hasAccess = await prisma.tenantInvitation.findFirst({
+            where: {
+                invitedByUserId: managerId,
+                propertyId: propertyId
+            }
+        });
+
+if (!hasAccess) {
+    throw new Error('No access to this property');
+}
+
+// Get all active leases for this property
+const leases = await prisma.lease.findMany({
+    where: {
+        propertyId: propertyId,
+        status: 'ACTIVE'
+    },
+    include: {
+        tenantIdentity: {
+            select: {
+                name: true,
+                email: true,
+                phoneNumber: true,
+                tenantId: true
+            }
+        },
+        property: {
+            select: {
+                name: true,
+                id: true
+            }
+        },
+        unit: {
+            select: {
+                id: true,
+                unitNumber: true
+            }
+        }
+    }
+});
+
+const tenantsWithPayments = await Promise.all(leases.map(async(lease) =\u003e {
+    const overduePayments = await prisma.payment.findMany({
+        where: {
+            tenantId: lease.tenantId,
+            status: 'OVERDUE',
+            dueDate: {
+                lt: new Date()
+            }
+        }
+    });
+
+    const amountOwed = overduePayments.reduce((sum, p) =\u003e sum + p.amount, 0);
+
+    return {
+        id: lease.id,
+        tenantId: lease.tenantIdentity.tenantId,
+        name: lease.tenantIdentity.name,
+        email: lease.tenantIdentity.email,
+        phoneNumber: lease.tenantIdentity.phoneNumber || '',
+        propertyId: lease.propertyId,
+        propertyName: lease.property.name,
+        unitId: lease.unitId,
+        unitNumber: lease.unit.unitNumber,
+        rentAmount: lease.rentAmount,
+        paymentStatus: overduePayments.length \u003e 0? 'overdue' : 'current',
+        amountOwed,
+        leaseId: lease.id
+    };
+}));
+
+return tenantsWithPayments;
+    } catch (error) {
+    console.error('Error getting tenants by property:', error);
+    throw error;
+}
+};
+
+// GET: Get overdue tenants
+export const getOverdueTenants = async (managerId: string) =\u003e {
+    try {
+        // Get all tenants first
+        const allTenants = await getAllTenants(managerId);
+
+// Filter for overdue tenants
+return allTenants.filter(tenant =\u003e tenant.paymentStatus === 'overdue' \u0026\u0026 tenant.amountOwed \u003e 0);
+    } catch (error) {
+    console.error('Error getting overdue tenants:', error);
+    throw error;
+}
+};
+
+// POST: Create invitation
+export interface CreateInvitationData {
+    tenantId: string;
+    propertyId: string;
+    unitId: string;
+    rentAmount: number;
+}
+
+export const createInvitation = async (managerId: string, data: CreateInvitationData) =\u003e {
+    try {
+        // Verify tenant identity exists
+        const tenantIdentity = await prisma.tenantIdentity.findUnique({
+            where: { tenantId: data.tenantId }
+        });
+
+if (!tenantIdentity) {
+    throw new Error('Tenant not found');
+}
+
+// Verify unit exists and is not occupied
+const unit = await prisma.unit.findUnique({
+    where: { id: data.unitId }
+});
+
+if (!unit) {
+    throw new Error('Unit not found');
+}
+
+if (unit.isOccupied) {
+    throw new Error('Unit is already occupied');
+}
+
+// Check if invitation already exists
+const existingInvitation = await prisma.tenantInvitation.findFirst({
+    where: {
+        tenantId: data.tenantId,
+        propertyId: data.propertyId,
+        unitId: data.unitId,
+        status: 'PENDING'
+    }
+});
+
+if (existingInvitation) {
+    throw new Error('Invitation already exists');
+}
+
+// Create invitation
+const invitation = await prisma.tenantInvitation.create({
+    data: {
+        tenantId: data.tenantId,
+        propertyId: data.propertyId,
+        unitId: data.unitId,
+        rentAmount: data.rentAmount,
+        invitedByUserId: managerId,
+        status: 'PENDING'
+    },
+    include: {
+        property: {
+            select: {
+                name: true,
+                location: true
+            }
+        },
+        unit: {
+            select: {
+                unitNumber: true
+            }
+        },
+        tenantIdentity: {
+            select: {
+                name: true,
+                email: true,
+                tenantId: true
+            }
+        }
+    }
+});
+
+return invitation;
+    } catch (error) {
+    console.error('Error creating invitation:', error);
+    throw error;
+}
+};
+

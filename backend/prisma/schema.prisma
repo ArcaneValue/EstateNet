@@ -1,0 +1,209 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  phoneNumber  String?
+  role         UserRole @default(TENANT)
+  tenantId     String?  @unique
+  profileImage String?
+  notificationPrefs Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  tenantIdentity TenantIdentity? @relation(fields: [tenantId], references: [tenantId])
+  sentInvitations TenantInvitation[]
+  sentMessages    Message[]       @relation("MessageFromUser")
+  receivedMessages Message[]      @relation("MessageToUser")
+  notifications    Notification[]
+
+  @@map("users")
+}
+
+model TenantIdentity {
+  id           String   @id @default(cuid())
+  tenantId     String   @unique
+  name         String
+  email        String   @unique
+  phoneNumber  String?
+  profileImage String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  user User?
+  leases Lease[]
+  invitations TenantInvitation[]
+  payments Payment[]
+
+  @@map("tenant_identities")
+}
+
+enum UserRole {
+  MANAGER
+  TENANT
+}
+
+enum LeaseStatus {
+  ACTIVE
+  ENDED
+  EVICTED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PAID
+  PENDING
+  OVERDUE
+}
+
+model Property {
+  id        String   @id @default(cuid())
+  name      String
+  location  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  units       Unit[]
+  leases      Lease[]
+  invitations TenantInvitation[]
+  payments    Payment[]
+
+  @@map("properties")
+}
+
+model Unit {
+  id         String   @id @default(cuid())
+  propertyId String
+  unitNumber String
+  rentAmount Int
+  isOccupied Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  leases     Lease[]
+  invitations TenantInvitation[]
+  payments   Payment[]
+
+  @@unique([propertyId, unitNumber])
+  @@map("units")
+}
+
+model Lease {
+  id        String     @id @default(cuid())
+  tenantId  String     // references TenantIdentity.tenantId (not the cuid)
+  propertyId String
+  unitId    String
+  rentAmount Int
+  startDate DateTime   @default(now())
+  endDate   DateTime?
+  status    LeaseStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  property  Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unit      Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  tenantIdentity TenantIdentity @relation(fields: [tenantId], references: [tenantId], onDelete: Restrict)
+  messages       Message[]
+
+  @@index([tenantId, status])
+  @@map("leases")
+}
+
+model TenantInvitation {
+  id          String           @id @default(cuid())
+  tenantId    String
+  propertyId  String
+  unitId      String
+  rentAmount  Int
+  status      InvitationStatus @default(PENDING)
+  invitedByUserId String       // manager user id
+  createdAt   DateTime @default(now())
+  respondedAt DateTime?
+
+  // Relations
+  tenantIdentity TenantIdentity @relation(fields: [tenantId], references: [tenantId], onDelete: Cascade)
+  property  Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unit      Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  invitingUser   User           @relation(fields: [invitedByUserId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_invitations")
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  tenantId      String
+  propertyId    String
+  unitId        String
+  amount        Int
+  status        PaymentStatus @default(PENDING)
+  paymentMethod String?
+  transactionId String?
+  paymentDate   DateTime
+  dueDate       DateTime
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  tenantIdentity TenantIdentity @relation(fields: [tenantId], references: [tenantId], onDelete: Cascade)
+  property       Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unit           Unit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  leaseId    String?
+  subject    String?
+  body       String
+  createdAt  DateTime @default(now())
+  readAt     DateTime?
+  archived   Boolean  @default(false)
+
+  fromUser User  @relation("MessageFromUser", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User  @relation("MessageToUser", fields: [toUserId], references: [id], onDelete: Cascade)
+  lease    Lease? @relation(fields: [leaseId], references: [id], onDelete: SetNull)
+
+  @@index([toUserId, createdAt])
+  @@index([fromUserId, createdAt])
+  @@index([leaseId, createdAt])
+  @@map("messages")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  metadata  Json?
+  createdAt DateTime @default(now())
+  readAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
