@@ -26,6 +26,7 @@ model User {
   sentMessages    Message[]       @relation("MessageFromUser")
   receivedMessages Message[]      @relation("MessageToUser")
   notifications    Notification[]
+  managedProperties Property[]    // Manager's properties
 
   @@map("users")
 }
@@ -65,6 +66,7 @@ enum InvitationStatus {
   ACCEPTED
   DECLINED
   EXPIRED
+  CANCELLED
 }
 
 enum PaymentStatus {
@@ -77,10 +79,12 @@ model Property {
   id        String   @id @default(cuid())
   name      String
   location  String
+  managerId String   // Required: property must have a manager
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
+  manager     User   @relation(fields: [managerId], references: [id], onDelete: Cascade)
   units       Unit[]
   leases      Lease[]
   invitations TenantInvitation[]
@@ -94,7 +98,6 @@ model Unit {
   propertyId String
   unitNumber String
   rentAmount Int
-  isOccupied Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

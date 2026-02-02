@@ -104,8 +104,14 @@ export class TenantService {
         throw new Error('Invitation is no longer pending');
       }
 
-      // Validate unit availability
-      if (invitation.unit.isOccupied) {
+      // Validate unit availability - check for ACTIVE lease
+      const unitOccupancyCheck = await tx.lease.findFirst({
+        where: {
+          unitId: invitation.unitId,
+          status: 'ACTIVE'
+        }
+      });
+      if (unitOccupancyCheck) {
         throw new Error('Unit is already occupied');
       }
 
@@ -150,12 +156,6 @@ export class TenantService {
         }
       });
 
-      // Update unit status
-      await tx.unit.update({
-        where: { id: invitation.unitId },
-        data: { isOccupied: true }
-      });
-
       // Update invitation status
       await tx.tenantInvitation.update({
         where: { id: invitationId },
@@ -189,6 +189,58 @@ export class TenantService {
       data: {
         status: 'DECLINED',
         respondedAt: new Date()
+      }
+    });
+  }
+
+  async cancelInvitation(invitationId: string, managerId: string): Promise<TenantInvitation> {
+    // Get invitation with property to verify ownership
+    const invitation = await (prisma as any).tenantInvitation.findUnique({
+      where: { id: invitationId },
+      include: {
+        property: {
+          select: {
+            managerId: true
+          }
+        }
+      }
+    });
+
+    if (!invitation) {
+      throw new Error('Invitation not found');
+    }
+
+    // Verify the manager owns the property
+    if (invitation.property?.managerId !== managerId) {
+      throw new Error('You can only cancel invitations for your own properties');
+    }
+
+    // Validate invitation status - can only cancel PENDING invitations
+    if (invitation.status === 'ACCEPTED') {
+      throw new Error('Cannot cancel an already accepted invitation');
+    }
+
+    if (invitation.status === 'DECLINED') {
+      throw new Error('Cannot cancel an already declined invitation');
+    }
+
+    if (invitation.status === 'CANCELLED') {
+      throw new Error('Invitation is already cancelled');
+    }
+
+    await (prisma as any).$executeRaw`
+      UPDATE "tenant_invitations"
+      SET status = 'CANCELLED', "respondedAt" = NOW()
+      WHERE id = ${invitationId}
+    `;
+
+    // Fetch and return the updated invitation
+    return await (prisma as any).tenantInvitation.findUnique({
+      where: { id: invitationId },
+      include: {
+        tenantIdentity: { select: { name: true, email: true, tenantId: true } },
+        property: { select: { name: true, location: true } },
+        unit: { select: { unitNumber: true } }
       }
     });
   }
@@ -275,14 +327,6 @@ export class TenantService {
         }
       }
     });
-
-    // If this was the active lease, update unit status
-    if (lease.status === 'ACTIVE') {
-      await (prisma as any).unit.update({
-        where: { id: lease.unitId },
-        data: { isOccupied: false }
-      });
-    }
 
     return updatedLease;
   }

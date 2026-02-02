@@ -69,6 +69,14 @@ export const createMessage = async (req: AuthenticatedRequest, res: Response): P
       return;
     }
 
+    if (!leaseId || typeof leaseId !== 'string') {
+      res.status(400).json({
+        success: false,
+        message: 'leaseId is required for messaging',
+      });
+      return;
+    }
+
     const recipient = await prisma.user.findUnique({
       where: { id: toUserId },
       select: { id: true },
@@ -84,45 +92,94 @@ export const createMessage = async (req: AuthenticatedRequest, res: Response): P
 
     let validatedLeaseId: string | undefined;
 
-    if (leaseId) {
-      const lease = await (prisma as any).lease.findUnique({
-        where: { id: leaseId },
+    // At this point leaseId is a non-empty string
+    const lease = await (prisma as any).lease.findUnique({
+      where: { id: leaseId },
+    });
+
+    if (!lease) {
+      res.status(404).json({
+        success: false,
+        message: 'Lease not found',
       });
+      return;
+    }
 
-      if (!lease) {
-        res.status(404).json({
-          success: false,
-          message: 'Lease not found',
-        });
-        return;
-      }
+    const isTenantOnLease = req.user.tenantId && lease.tenantId === req.user.tenantId;
 
-      const isTenantOnLease = req.user.tenantId && lease.tenantId === req.user.tenantId;
+    let isManagerForLease = false;
+    if (!isTenantOnLease) {
+      const managerInvitation = await (prisma as any).tenantInvitation.findFirst({
+        where: {
+          tenantId: lease.tenantId,
+          propertyId: lease.propertyId,
+          unitId: lease.unitId,
+          status: 'ACCEPTED',
+          invitedByUserId: req.user.id,
+        },
+      });
+      isManagerForLease = !!managerInvitation;
+    }
 
-      let isManagerForLease = false;
+    if (!isTenantOnLease && !isManagerForLease) {
+      res.status(403).json({
+        success: false,
+        message: 'You are not authorized to reference this lease in a message',
+      });
+      return;
+    }
+
+    // Enforce that messages are only between the tenant for this lease and their inviting manager
+    const senderRole = req.user.role;
+
+    if (senderRole === 'TENANT') {
       if (!isTenantOnLease) {
-        const invitation = await (prisma as any).tenantInvitation.findFirst({
-          where: {
-            tenantId: lease.tenantId,
-            propertyId: lease.propertyId,
-            unitId: lease.unitId,
-            status: 'ACCEPTED',
-            invitedByUserId: req.user.id,
-          },
-        });
-        isManagerForLease = !!invitation;
-      }
-
-      if (!isTenantOnLease && !isManagerForLease) {
         res.status(403).json({
           success: false,
-          message: 'You are not authorized to reference this lease in a message',
+          message: 'Only the tenant on this lease can send tenant messages',
         });
         return;
       }
 
-      validatedLeaseId = leaseId;
+      const invitation = await (prisma as any).tenantInvitation.findFirst({
+        where: {
+          tenantId: lease.tenantId,
+          propertyId: lease.propertyId,
+          unitId: lease.unitId,
+          status: 'ACCEPTED',
+        },
+      });
+
+      if (!invitation || invitation.invitedByUserId !== toUserId) {
+        res.status(403).json({
+          success: false,
+          message: 'You can only message the manager who invited you for this lease',
+        });
+        return;
+      }
+    } else if (senderRole === 'MANAGER') {
+      if (!isManagerForLease) {
+        res.status(403).json({
+          success: false,
+          message: 'You are not authorized to send messages for this lease',
+        });
+        return;
+      }
+
+      const tenantUser = await (prisma as any).user.findFirst({
+        where: { tenantId: lease.tenantId },
+      });
+
+      if (!tenantUser || tenantUser.id !== toUserId) {
+        res.status(403).json({
+          success: false,
+          message: 'You can only message the tenant for this lease',
+        });
+        return;
+      }
     }
+
+    validatedLeaseId = leaseId;
 
     const message = await messageService.createMessage({
       fromUserId: req.user.id,

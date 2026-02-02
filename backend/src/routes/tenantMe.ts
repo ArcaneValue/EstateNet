@@ -5,8 +5,27 @@ import { getTenantMessageTargets } from '../controllers/tenantController';
 import { authenticateToken } from '../middlewares/auth';
 import { requireUserRole } from '../middlewares/requireUserRole';
 import { UserRole } from '../types/prisma';
+import { AuthenticatedRequest } from '../middlewares/auth';
 
 const router = Router();
+
+// GET /api/tenant/me - Get current tenant profile
+router.get(
+  '/me',
+  authenticateToken,
+  requireUserRole(UserRole.TENANT),
+  (req: AuthenticatedRequest, res) => {
+    res.json({
+      success: true,
+      data: {
+        id: req.user?.id,
+        tenantId: req.user?.tenantId,
+        email: req.user?.email,
+        role: req.user?.role
+      }
+    });
+  }
+);
 
 // GET /api/tenant/me/rent-status - Get current tenant rent status
 router.get(

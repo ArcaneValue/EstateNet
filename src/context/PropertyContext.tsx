@@ -1,12 +1,16 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { Property, Unit, PropertyType, OwnershipType, MaintenanceCondition, PropertyManager, AccessRequest } from '../types/types';
-import { usePayments } from './PaymentContext';
+import { useAuth } from './AuthContext';
+import { apiGet, apiPost } from '../utils/apiClient';
 
 interface PropertyContextType {
     properties: Property[];
-    addProperty: (property: Omit<Property, 'id' | 'createdAt' | 'updatedAt'>) => void;
-    updateProperty: (id: string, updates: Partial<Property>) => void;
-    deleteProperty: (id: string) => void;
+    propertiesLoading: boolean;
+    propertiesError: string | null;
+    loadProperties: () => Promise<void>;
+    addProperty: (property: Omit<Property, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+    updateProperty: (id: string, updates: Partial<Property>) => Promise<void>;
+    deleteProperty: (id: string) => Promise<void>;
     getPropertyById: (id: string) => Property | undefined;
     getPropertiesWithVacancies: () => Property[];
     getTotalOccupiedUnits: () => number;
@@ -32,149 +36,69 @@ interface PropertyProviderProps {
 }
 
 export const PropertyProvider: React.FC<PropertyProviderProps> = ({ children }) => {
-    // Mock data for demonstration - replace with API calls
-    const [properties, setProperties] = useState<Property[]>([
-        {
-            id: '1',
-            name: 'Sunrise Apartments',
-            location: 'Kampala, Nakasero',
-            propertyType: 'apartment',
-            units: [
-                { id: '101', unitNumber: '101', squareFootage: 850, rentAmount: 1200000, isOccupied: true, tenantId: 'T12345' },
-                { id: '102', unitNumber: '102', squareFootage: 850, rentAmount: 1200000, isOccupied: true, tenantId: 'T12346' },
-                { id: '103', unitNumber: '103', squareFootage: 950, rentAmount: 1400000, isOccupied: false },
-                { id: '201', unitNumber: '201', squareFootage: 850, rentAmount: 1200000, isOccupied: true, tenantId: 'T12347' },
-                { id: '202', unitNumber: '202', squareFootage: 950, rentAmount: 1400000, isOccupied: true, tenantId: 'T12348' },
-            ],
-            ownership: 'company',
-            propertyOwner: 'Sunrise Properties Ltd',
-            decisionAuthority: 'Managing Director',
-            existingArrears: 800000,
-            creditors: 'Water Authority: UGX 200,000',
-            monthlyExpenses: 2500000,
-            expenseApprovalLimit: 500000,
-            rentCollectionMethod: 'estatenet',
-            paymentTerms: '1st of each month',
-            latePaymentPolicy: '5% penalty after 7 days',
-            securityDeposit: 1200000,
-            maintenanceCondition: 'good',
-            lastPreventiveMaintenance: new Date('2026-01-15'),
-            fireSafetySystems: true,
-            legalCompliance: 'All permits current',
-            requiredRepairs: 'None',
-            maintenanceHandler: 'Property Manager',
-            communicationHandler: 'Property Manager',
-            expenseApprover: 'Managing Director',
-            emergencyContacts: '+256 700 123456',
-            createdAt: new Date('2025-06-01'),
-            updatedAt: new Date('2026-01-15'),
-        },
-        {
-            id: '2',
-            name: 'Garden View Estate',
-            location: 'Kampala, Kololo',
-            propertyType: 'house',
-            units: [
-                { id: '1A', unitNumber: '1A', squareFootage: 2500, rentAmount: 3500000, isOccupied: true, tenantId: 'T12349' },
-                { id: '1B', unitNumber: '1B', squareFootage: 2500, rentAmount: 3500000, isOccupied: false },
-                { id: '2A', unitNumber: '2A', squareFootage: 3000, rentAmount: 4000000, isOccupied: true, tenantId: 'T12350' },
-            ],
-            ownership: 'personal',
-            propertyOwner: 'John Malik',
-            decisionAuthority: 'Owner',
-            existingArrears: 0,
-            creditors: 'None',
-            monthlyExpenses: 1800000,
-            expenseApprovalLimit: 300000,
-            rentCollectionMethod: 'estatenet',
-            paymentTerms: '5th of each month',
-            latePaymentPolicy: '10% penalty after 14 days',
-            securityDeposit: 3500000,
-            maintenanceCondition: 'excellent',
-            lastPreventiveMaintenance: new Date('2026-01-10'),
-            fireSafetySystems: true,
-            legalCompliance: 'All permits current',
-            requiredRepairs: 'None',
-            maintenanceHandler: 'External Contractor',
-            communicationHandler: 'Owner',
-            expenseApprover: 'Owner',
-            emergencyContacts: '+256 700 987654',
-            createdAt: new Date('2025-03-15'),
-            updatedAt: new Date('2026-01-10'),
-        },
-    ]);
+    const { user } = useAuth();
+    const [properties, setProperties] = useState<Property[]>([]);
+    const [propertiesLoading, setPropertiesLoading] = useState(false);
+    const [propertiesError, setPropertiesError] = useState<string | null>(null);
 
-    // State for property managers and access requests
-    const [propertyManagers, setPropertyManagers] = useState<PropertyManager[]>([
-        {
-            id: 'pm1',
-            propertyId: '1',
-            userId: '1',
-            name: 'John Malik',
-            email: 'john@estatenet.com',
-            role: 'OWNER',
-            permissions: {
-                canViewTenants: true,
-                canManageTenants: true,
-                canViewPayments: true,
-                canManagePayments: true,
-                canViewReports: true,
-                canManageProperty: true,
-                canInviteManagers: true,
-            },
-            invitedBy: 'system',
-            invitedAt: new Date('2025-06-01'),
-            status: 'active',
-        },
-        {
-            id: 'pm2',
-            propertyId: '2',
-            userId: '1',
-            name: 'John Malik',
-            email: 'john@estatenet.com',
-            role: 'OWNER',
-            permissions: {
-                canViewTenants: true,
-                canManageTenants: true,
-                canViewPayments: true,
-                canManagePayments: true,
-                canViewReports: true,
-                canManageProperty: true,
-                canInviteManagers: true,
-            },
-            invitedBy: 'system',
-            invitedAt: new Date('2025-03-15'),
-            status: 'active',
-        },
-    ]);
+    // State for property managers and access requests (still mock for now)
+    const [propertyManagers, setPropertyManagers] = useState<PropertyManager[]>([]);
+    const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
 
-    const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([
-        {
-            id: 'ar1',
-            propertyId: '1',
-            propertyName: 'Sunrise Apartments',
-            requesterId: 'mgr2',
-            requesterName: 'Sarah Johnson',
-            requesterEmail: 'sarah@estatenet.com',
-            requestedRole: 'MANAGER',
-            propertyCode: 'SUN123',
-            message: 'I would like to help manage this property.',
-            status: 'pending',
-            createdAt: new Date(Date.now() - 86400000),
-        },
-    ]);
+    // Load properties from API
+    const loadProperties = useCallback(async () => {
+        if (!user) {
+            setProperties([]);
+            return;
+        }
 
-    const addProperty = (propertyData: Omit<Property, 'id' | 'createdAt' | 'updatedAt'>) => {
-        const newProperty: Property = {
-            ...propertyData,
-            id: Math.random().toString(36).substr(2, 9),
-            createdAt: new Date(),
-            updatedAt: new Date(),
-        };
-        setProperties(prev => [...prev, newProperty]);
+        setPropertiesLoading(true);
+        setPropertiesError(null);
+        try {
+            const { status, json } = await apiGet('/properties');
+            if (status === 200 && json?.success) {
+                setProperties(json.data || []);
+            } else {
+                setProperties([]);
+                setPropertiesError(json?.message || 'Failed to load properties');
+            }
+        } catch (error: any) {
+            setProperties([]);
+            setPropertiesError(error.message || 'Failed to load properties');
+        } finally {
+            setPropertiesLoading(false);
+        }
+    }, [user]);
+
+    // Load properties when user changes
+    useEffect(() => {
+        loadProperties();
+    }, [loadProperties]);
+
+    const addProperty = async (propertyData: Omit<Property, 'id' | 'createdAt' | 'updatedAt'>) => {
+        try {
+            const { status, json } = await apiPost('/properties', {
+                name: propertyData.name,
+                location: propertyData.location,
+                units: propertyData.units?.map(u => ({
+                    unitNumber: u.unitNumber,
+                    rentAmount: u.rentAmount,
+                })) || [],
+            });
+
+            if (status === 201 && json?.success) {
+                setProperties(prev => [...prev, json.data]);
+            } else {
+                throw new Error(json?.message || 'Failed to create property');
+            }
+        } catch (error: any) {
+            setPropertiesError(error.message || 'Failed to create property');
+            throw error;
+        }
     };
 
-    const updateProperty = (id: string, updates: Partial<Property>) => {
+    const updateProperty = async (id: string, updates: Partial<Property>) => {
+        // TODO: Implement backend endpoint for property updates
         setProperties(prev =>
             prev.map(property =>
                 property.id === id
@@ -184,7 +108,8 @@ export const PropertyProvider: React.FC<PropertyProviderProps> = ({ children }) 
         );
     };
 
-    const deleteProperty = (id: string) => {
+    const deleteProperty = async (id: string) => {
+        // TODO: Implement backend endpoint for property deletion
         setProperties(prev => prev.filter(property => property.id !== id));
     };
 
@@ -212,30 +137,22 @@ export const PropertyProvider: React.FC<PropertyProviderProps> = ({ children }) 
         );
     };
 
-    // Mock payment data for demonstration - in real app, this would come from PaymentContext
     const getTotalRentCollected = (): number => {
-        // This is a simplified calculation - in real app, would use actual payment data
         return properties.reduce((total, property) => {
-            const occupiedUnits = property.units.filter(unit => unit.isOccupied);
-            return total + occupiedUnits.reduce((sum, unit) => sum + unit.rentAmount, 0);
+            const occupiedUnits = property.units?.filter(unit => unit.isOccupied) || [];
+            return total + occupiedUnits.reduce((sum, unit) => sum + (unit.rentAmount || 0), 0);
         }, 0);
     };
 
     const getOutstandingRent = (): number => {
-        // This is a simplified calculation - in real app, would use actual payment data
         return properties.reduce((total, property) => {
-            const occupiedUnits = property.units.filter(unit => unit.isOccupied);
-            return total + occupiedUnits.reduce((sum, unit) => sum + (unit.rentAmount * 0.1), 0); // Assume 10% outstanding
+            const occupiedUnits = property.units?.filter(unit => unit.isOccupied) || [];
+            return total + occupiedUnits.reduce((sum, unit) => sum + ((unit.rentAmount || 0) * 0.1), 0);
         }, 0);
     };
 
-    // Owner Mode functions
     const getOwnedProperties = (managerId: string): Property[] => {
-        const managerProperties = propertyManagers
-            .filter(pm => pm.userId === managerId && pm.role === 'OWNER' && pm.status === 'active')
-            .map(pm => pm.propertyId);
-
-        return properties.filter(property => managerProperties.includes(property.id));
+        return properties;
     };
 
     const isOwner = (managerId: string): boolean => {
@@ -366,6 +283,9 @@ export const PropertyProvider: React.FC<PropertyProviderProps> = ({ children }) 
 
     const value: PropertyContextType = {
         properties,
+        propertiesLoading,
+        propertiesError,
+        loadProperties,
         addProperty,
         updateProperty,
         deleteProperty,

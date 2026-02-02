@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { TenantService } from '../services/tenantService';
 import { AuthenticatedRequest } from '../middlewares/auth';
 import { LeaseStatus } from '../types/prisma';
+import { prisma } from '../utils/database';
 
 const tenantService = new TenantService();
 
@@ -48,6 +49,55 @@ export const endLease = async (req: AuthenticatedRequest, res: Response): Promis
       res.status(400).json({
         success: false,
         message: 'Invalid reason. Must be ENDED or EVICTED'
+      });
+      return;
+    }
+    if (!req.user || req.user.role !== 'MANAGER' || !req.user.id) {
+      res.status(403).json({
+        success: false,
+        message: 'Only managers can end leases'
+      });
+      return;
+    }
+
+    // Derive properties this manager manages via TenantInvitation
+    const managerProperties = await (prisma as any).tenantInvitation.findMany({
+      where: {
+        invitedByUserId: req.user.id
+      },
+      select: {
+        propertyId: true
+      },
+      distinct: ['propertyId']
+    });
+
+    const allowedPropertyIds: string[] = managerProperties.map((inv: any) => inv.propertyId);
+
+    if (allowedPropertyIds.length === 0) {
+      res.status(403).json({
+        success: false,
+        message: 'You are not authorized to end any leases'
+      });
+      return;
+    }
+
+    // Fetch lease to validate it belongs to one of the manager's properties
+    const leaseRecord = await (prisma as any).lease.findUnique({
+      where: { id: leaseId }
+    });
+
+    if (!leaseRecord) {
+      res.status(404).json({
+        success: false,
+        message: 'Lease not found'
+      });
+      return;
+    }
+
+    if (!allowedPropertyIds.includes(leaseRecord.propertyId)) {
+      res.status(403).json({
+        success: false,
+        message: 'You are not authorized to end leases for this property'
       });
       return;
     }

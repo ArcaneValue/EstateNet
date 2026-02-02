@@ -94,7 +94,7 @@ export class PaymentService {
     });
   }
 
-  async getPayments(tenantId?: string, propertyId?: string): Promise<Payment[]> {
+  async getPayments(tenantId?: string, propertyId?: string, allowedPropertyIds?: string[]): Promise<Payment[]> {
     const whereClause: any = {};
 
     if (tenantId) {
@@ -103,6 +103,11 @@ export class PaymentService {
 
     if (propertyId) {
       whereClause.propertyId = propertyId;
+    } else if (allowedPropertyIds && allowedPropertyIds.length > 0) {
+      // When called for a manager without an explicit property filter, scope to allowed properties only
+      whereClause.propertyId = {
+        in: allowedPropertyIds
+      };
     }
 
     return await (prisma as any).payment.findMany({

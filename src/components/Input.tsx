@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
     TextInput as RNTextInput,
     View,
@@ -19,7 +19,7 @@ interface InputProps extends RNTextInputProps {
     containerStyle?: ViewStyle;
 }
 
-export const Input: React.FC<InputProps> = ({
+const InputComponent: React.FC<InputProps> = ({
     label,
     error,
     hint,
@@ -27,10 +27,28 @@ export const Input: React.FC<InputProps> = ({
     rightIcon,
     containerStyle,
     style,
+    onFocus,
+    onBlur,
     ...props
 }) => {
     const { colors, spacing, borderRadius, typography, shadows } = useTheme();
     const [isFocused, setIsFocused] = useState(false);
+
+    // Memoize dynamic styles to prevent re-renders
+    const labelStyle = useMemo(() => ({
+        color: isFocused ? colors.accent : colors.textSecondary,
+        marginBottom: spacing.sm,
+        fontWeight: '600' as const,
+        letterSpacing: 0.3,
+    }), [isFocused, colors.accent, colors.textSecondary, spacing.sm]);
+
+    const containerStyleMemo = useMemo(() => ({
+        backgroundColor: isFocused ? colors.surface : colors.background,
+        borderColor: error ? colors.error : isFocused ? colors.accent : colors.border,
+        borderRadius: borderRadius.md,
+        paddingHorizontal: spacing.base,
+        borderWidth: 2,
+    }), [isFocused, error, colors.surface, colors.background, colors.error, colors.accent, colors.border, borderRadius.md, spacing.base]);
 
     const getBorderColor = () => {
         if (error) return colors.error;
@@ -43,19 +61,22 @@ export const Input: React.FC<InputProps> = ({
         return colors.background;
     };
 
+    const handleFocus = useCallback((e: any) => {
+        setIsFocused(true);
+        onFocus?.(e);
+    }, [onFocus]);
+
+    const handleBlur = useCallback((e: any) => {
+        setIsFocused(false);
+        onBlur?.(e);
+    }, [onBlur]);
+
     return (
         <View style={[styles.container, { marginBottom: spacing.base }, containerStyle]}>
             {label && (
                 <Text
-                    style={[
-                        typography.bodySmall,
-                        {
-                            color: isFocused ? colors.accent : colors.textSecondary,
-                            marginBottom: spacing.sm,
-                            fontWeight: '600',
-                            letterSpacing: 0.3,
-                        },
-                    ]}
+                    style={labelStyle}
+                    pointerEvents="none"
                 >
                     {label}
                 </Text>
@@ -64,13 +85,7 @@ export const Input: React.FC<InputProps> = ({
             <View
                 style={[
                     styles.inputContainer,
-                    {
-                        backgroundColor: getBackgroundColor(),
-                        borderColor: getBorderColor(),
-                        borderRadius: borderRadius.md,
-                        paddingHorizontal: spacing.base,
-                        borderWidth: 2,
-                    },
+                    containerStyleMemo,
                     isFocused && shadows.sm,
                 ]}
             >
@@ -83,22 +98,12 @@ export const Input: React.FC<InputProps> = ({
                     {...props}
                     style={[
                         typography.body,
-                        {
-                            flex: 1,
-                            color: colors.text,
-                            paddingVertical: spacing.md + 2,
-                        },
+                        inputStyle,
                         style,
                     ]}
                     placeholderTextColor={colors.textTertiary}
-                    onFocus={(e) => {
-                        setIsFocused(true);
-                        props.onFocus?.(e);
-                    }}
-                    onBlur={(e) => {
-                        setIsFocused(false);
-                        props.onBlur?.(e);
-                    }}
+                    onFocus={handleFocus}
+                    onBlur={handleBlur}
                 />
                 {rightIcon && (
                     <View style={[styles.iconContainer, { marginLeft: spacing.sm }]}>
@@ -131,8 +136,20 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
     },
+    input: {
+        flex: 1,
+    },
     iconContainer: {
         justifyContent: 'center',
         alignItems: 'center',
     },
 });
+
+// Static input style
+const inputStyle = {
+    flex: 1,
+    paddingVertical: 14,
+};
+
+// Export memoized version to prevent unnecessary re-renders
+export const Input = React.memo(InputComponent);

@@ -7,6 +7,9 @@ export interface DashboardData {
     occupancyRate: number;
     activeLeasesCount: number;
     pendingInvitationsCount: number;
+    outstandingRentAmount: number;
+    overdueCount: number;
+    rentCollectedAmount: number;
     recentInvitations: Array<{
         id: string;
         tenantId: string;
@@ -48,32 +51,23 @@ export interface ManagerInvitationsFilters {
 
 export const getDashboardData = async (managerId: string): Promise<DashboardData> => {
     try {
-        // Get properties that this manager has sent invitations for
-        const managerProperties = await prisma.tenantInvitation.findMany({
-            where: {
-                invitedByUserId: managerId
-            },
-            select: {
-                propertyId: true
-            },
-            distinct: ['propertyId']
+        // Get properties owned by this manager
+        const ownedProperties = await prisma.property.findMany({
+            where: { managerId },
+            select: { id: true }
         });
 
-        const propertyIds = managerProperties.map(inv => inv.propertyId);
+        const propertyIds = ownedProperties.map(p => p.id);
 
         // Get properties with units and leases
         const properties = await prisma.property.findMany({
             where: {
-                id: {
-                    in: propertyIds
-                }
+                id: { in: propertyIds }
             },
             include: {
                 units: {
                     include: {
-                        leases: {
-                            where: { status: 'ACTIVE' }
-                        }
+                        leases: { where: { status: 'ACTIVE' } }
                     }
                 }
             }
@@ -90,62 +84,76 @@ export const getDashboardData = async (managerId: string): Promise<DashboardData
 
         const occupancyRate = unitsCount > 0 ? (occupiedUnitsCount / unitsCount) * 100 : 0;
 
-        // Get pending invitations
+        // Get pending invitations for manager's properties
         const pendingInvitationsCount = await prisma.tenantInvitation.count({
             where: {
-                invitedByUserId: managerId,
+                propertyId: { in: propertyIds },
                 status: 'PENDING'
             }
         });
 
-        // Get recent invitations (last 10)
-        const recentInvitations = await prisma.tenantInvitation.findMany({
+        // Get outstanding rent and overdue count
+        const now = new Date();
+
+        // OVERDUE payments
+        const overduePayments = await prisma.payment.findMany({
             where: {
-                invitedByUserId: managerId
+                propertyId: { in: propertyIds },
+                status: 'OVERDUE'
             },
+            select: { amount: true, tenantId: true }
+        });
+
+        // PENDING payments past due date
+        const pendingOverduePayments = await prisma.payment.findMany({
+            where: {
+                propertyId: { in: propertyIds },
+                status: 'PENDING',
+                dueDate: { lt: now }
+            },
+            select: { amount: true, tenantId: true }
+        });
+
+        const outstandingRentAmount = overduePayments.reduce((sum, p) => sum + p.amount, 0) +
+            pendingOverduePayments.reduce((sum, p) => sum + p.amount, 0);
+
+        const uniqueOverdueTenants = new Set([
+            ...overduePayments.map(p => p.tenantId),
+            ...pendingOverduePayments.map(p => p.tenantId)
+        ]);
+        const overdueCount = uniqueOverdueTenants.size;
+
+        // Get recent invitations for manager's properties
+        const recentInvitations = await prisma.tenantInvitation.findMany({
+            where: { propertyId: { in: propertyIds } },
             include: {
-                property: {
-                    select: {
-                        name: true,
-                        location: true
-                    }
-                },
-                unit: {
-                    select: {
-                        unitNumber: true
-                    }
-                }
+                property: { select: { name: true, location: true } },
+                unit: { select: { unitNumber: true } }
             },
-            orderBy: {
-                createdAt: 'desc'
-            },
+            orderBy: { createdAt: 'desc' },
             take: 10
         });
 
-        // Get recent payments (last 10) for properties this manager manages
+        // Get recent payments for manager's properties
         const recentPayments = await prisma.payment.findMany({
-            where: {
-                propertyId: {
-                    in: propertyIds
-                }
-            },
+            where: { propertyId: { in: propertyIds } },
             include: {
-                property: {
-                    select: {
-                        name: true
-                    }
-                },
-                unit: {
-                    select: {
-                        unitNumber: true
-                    }
-                }
+                property: { select: { name: true } },
+                unit: { select: { unitNumber: true } }
             },
-            orderBy: {
-                paymentDate: 'desc'
-            },
+            orderBy: { paymentDate: 'desc' },
             take: 10
         });
+
+        // Calculate rent collected amount (PAID payments)
+        const paidPayments = await prisma.payment.findMany({
+            where: {
+                propertyId: { in: propertyIds },
+                status: 'PAID'
+            },
+            select: { amount: true }
+        });
+        const rentCollectedAmount = paidPayments.reduce((sum, p) => sum + p.amount, 0);
 
         return {
             propertiesCount,
@@ -154,6 +162,9 @@ export const getDashboardData = async (managerId: string): Promise<DashboardData
             occupancyRate,
             activeLeasesCount,
             pendingInvitationsCount,
+            outstandingRentAmount,
+            overdueCount,
+            rentCollectedAmount,
             recentInvitations: recentInvitations.map((inv: any) => ({
                 id: inv.id,
                 tenantId: inv.tenantId,
@@ -592,16 +603,22 @@ export const createInvitation = async (
             throw new Error('Tenant not found');
         }
 
-        // Verify unit exists and is not occupied
+        // Verify unit exists and is not occupied (check for ACTIVE lease)
         const unit = await prisma.unit.findUnique({
             where: { id: data.unitId },
+            include: {
+                leases: {
+                    where: { status: 'ACTIVE' },
+                    select: { id: true }
+                }
+            }
         });
 
         if (!unit) {
             throw new Error('Unit not found');
         }
 
-        if (unit.isOccupied) {
+        if (unit.leases.length > 0) {
             throw new Error('Unit is already occupied');
         }
 

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Modal as RNModal } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, FlatList, TouchableOpacity, Modal as RNModal, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { PropertyListItem } from '../../components/PropertyListItem';
@@ -7,21 +7,77 @@ import { Modal } from '../../components/Modal';
 import { Button } from '../../components/Button';
 import { TenantListItem } from '../../components/TenantListItem';
 import { AddPropertyForm } from '../../components/AddPropertyForm';
-import { useProperties } from '../../context/PropertyContext';
-import { useTenants } from '../../context/TenantContext';
-import { Property } from '../../types/types';
+import { useManagerProperties, Property } from '../../hooks/useManagerProperties';
+import { apiGet } from '../../utils/apiClient';
 import { Ionicons } from '@expo/vector-icons';
+
+interface PropertyTenant {
+    id: string;
+    tenantId: string;
+    name: string;
+    email: string;
+    phoneNumber: string;
+    propertyId: string;
+    unitId: string;
+    rentAmount: number;
+    paymentStatus: 'current' | 'overdue';
+}
 
 export const PropertiesScreen: React.FC<any> = ({ navigation }) => {
     const { colors, spacing, typography } = useTheme();
-    const { properties, addProperty } = useProperties();
-    const { getTenantsByProperty } = useTenants();
+    const { data: properties, loading, error, refetch, createProperty, deleteProperty } = useManagerProperties();
     const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [propertyTenants, setPropertyTenants] = useState<PropertyTenant[]>([]);
+    const [tenantsLoading, setTenantsLoading] = useState(false);
 
-    const handleAddProperty = (newProperty: Omit<Property, 'id' | 'createdAt' | 'updatedAt'>) => {
-        addProperty(newProperty);
-        setShowAddModal(false);
+    const handleAddProperty = async (newProperty: any) => {
+        const success = await createProperty({
+            name: newProperty.name,
+            location: newProperty.location,
+            units: newProperty.units?.map((u: any) => ({
+                unitNumber: u.unitNumber,
+                rentAmount: u.rentAmount
+            }))
+        });
+        if (success) {
+            setShowAddModal(false);
+        }
+    };
+
+    const handleDeleteProperty = async (id: string) => {
+        const success = await deleteProperty(id);
+        if (success) {
+            setSelectedProperty(null);
+        }
+    };
+
+    // Fetch tenants when a property is selected
+    useEffect(() => {
+        if (selectedProperty) {
+            fetchPropertyTenants(selectedProperty.id);
+        } else {
+            setPropertyTenants([]);
+        }
+    }, [selectedProperty]);
+
+    const fetchPropertyTenants = async (propertyId: string) => {
+        setTenantsLoading(true);
+        try {
+            const { status, json } = await apiGet('/manager/tenants');
+            if (status === 200 && json?.success && Array.isArray(json.data)) {
+                // Filter tenants for this property
+                const filtered = json.data.filter((t: any) => t.propertyId === propertyId);
+                setPropertyTenants(filtered);
+            } else {
+                setPropertyTenants([]);
+            }
+        } catch (err) {
+            console.error('Failed to load property tenants:', err);
+            setPropertyTenants([]);
+        } finally {
+            setTenantsLoading(false);
+        }
     };
 
     const getOccupiedCount = (property: Property) => {
@@ -29,14 +85,45 @@ export const PropertiesScreen: React.FC<any> = ({ navigation }) => {
     };
 
     const getMonthlyRent = (property: Property) => {
-        const tenants = getTenantsByProperty(property.id);
-        return tenants.reduce((sum, t) => sum + t.rentAmount, 0);
+        return property.units.reduce((sum, u) => sum + u.rentAmount, 0);
     };
+
+    if (loading && properties.length === 0) {
+        return (
+            <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.md }]}>
+                    Loading properties...
+                </Text>
+            </SafeAreaView>
+        );
+    }
+
+    if (error && properties.length === 0) {
+        return (
+            <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
+                <Ionicons name="alert-circle-outline" size={64} color={colors.error} />
+                <Text style={[typography.h3, { color: colors.text, marginTop: spacing.md, textAlign: 'center' }]}>
+                    Failed to load properties
+                </Text>
+                <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}>
+                    {error}
+                </Text>
+                <Button
+                    title="Retry"
+                    onPress={refetch}
+                    style={{ marginTop: spacing.lg }}
+                />
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
             <FlatList
                 data={properties}
+                refreshing={loading}
+                onRefresh={refetch}
                 ListHeaderComponent={
                     <View>
                         {/* Header */}
@@ -82,6 +169,17 @@ export const PropertiesScreen: React.FC<any> = ({ navigation }) => {
                 keyExtractor={item => item.id}
                 contentContainerStyle={{ padding: spacing.base, paddingBottom: spacing.xl }}
                 showsVerticalScrollIndicator={false}
+                ListEmptyComponent={
+                    <View style={{ alignItems: 'center', marginTop: spacing['3xl'] }}>
+                        <Ionicons name="home-outline" size={64} color={colors.textTertiary} />
+                        <Text style={[typography.h3, { color: colors.textSecondary, marginTop: spacing.md }]}>
+                            No properties yet
+                        </Text>
+                        <Text style={[typography.body, { color: colors.textTertiary, marginTop: spacing.sm, textAlign: 'center' }]}>
+                            Tap "Add Property" to create your first property
+                        </Text>
+                    </View>
+                }
             />
 
             {/* Add Property Modal */}
@@ -113,7 +211,6 @@ export const PropertiesScreen: React.FC<any> = ({ navigation }) => {
                             </Text>
                             <View style={{ gap: spacing.sm }}>
                                 <InfoRow label="Location" value={selectedProperty.location} colors={colors} typography={typography} />
-                                <InfoRow label="Type" value={selectedProperty.propertyType} colors={colors} typography={typography} />
                                 <InfoRow label="Total Units" value={selectedProperty.units.length.toString()} colors={colors} typography={typography} />
                                 <InfoRow label="Occupied" value={`${getOccupiedCount(selectedProperty)} units`} colors={colors} typography={typography} />
                                 <InfoRow label="Vacant" value={`${selectedProperty.units.length - getOccupiedCount(selectedProperty)} units`} colors={colors} typography={typography} />
@@ -121,28 +218,46 @@ export const PropertiesScreen: React.FC<any> = ({ navigation }) => {
                             </View>
                         </View>
 
+                        {/* Actions */}
+                        <View style={{ flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg }}>
+                            <Button
+                                title="Delete Property"
+                                onPress={() => handleDeleteProperty(selectedProperty.id)}
+                                variant="outline"
+                                style={{ flex: 1, borderColor: colors.error }}
+                            />
+                        </View>
+
                         {/* Tenants */}
                         <View>
                             <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md }]}>
                                 Tenants
                             </Text>
-                            {getTenantsByProperty(selectedProperty.id).map((item) => {
-                                const unit = selectedProperty.units.find(u => u.id === item.unitId);
-                                return (
-                                    <TenantListItem
-                                        key={item.id}
-                                        name={item.name}
-                                        tenantId={item.tenantId}
-                                        propertyName={selectedProperty.name}
-                                        unitNumber={unit?.unitNumber}
-                                        rentAmount={item.rentAmount}
-                                        paymentStatus={item.paymentStatus}
-                                        phoneNumber={item.phoneNumber}
-                                        showArrow={false}
-                                        clickable={false}
-                                    />
-                                );
-                            })}
+                            {tenantsLoading ? (
+                                <ActivityIndicator size="small" color={colors.primary} />
+                            ) : propertyTenants.length === 0 ? (
+                                <Text style={[typography.body, { color: colors.textSecondary }]}>
+                                    No tenants assigned to this property
+                                </Text>
+                            ) : (
+                                propertyTenants.map((item: PropertyTenant) => {
+                                    const unit = selectedProperty.units.find(u => u.id === item.unitId);
+                                    return (
+                                        <TenantListItem
+                                            key={item.id}
+                                            name={item.name}
+                                            tenantId={item.tenantId}
+                                            propertyName={selectedProperty.name}
+                                            unitNumber={unit?.unitNumber}
+                                            rentAmount={item.rentAmount}
+                                            paymentStatus={item.paymentStatus}
+                                            phoneNumber={item.phoneNumber}
+                                            showArrow={false}
+                                            clickable={false}
+                                        />
+                                    );
+                                })
+                            )}
                         </View>
                     </View>
                 </Modal>

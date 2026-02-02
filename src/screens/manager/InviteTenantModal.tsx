@@ -1,22 +1,22 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, TextInput, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Modal } from '../../components/Modal';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
 import { useTheme } from '../../theme/ThemeContext';
 import { useProperties } from '../../context/PropertyContext';
-import { useTenants } from '../../context/TenantContext';
+import { apiGet, apiPost } from '../../utils/apiClient';
 import { Ionicons } from '@expo/vector-icons';
 
 interface InviteTenantModalProps {
     visible: boolean;
     onClose: () => void;
+    onSuccess?: () => void;
 }
 
-export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, onClose }) => {
+export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, onClose, onSuccess }) => {
     const { colors, spacing, typography } = useTheme();
     const { properties } = useProperties();
-    const { getTenantByTenantId, inviteTenantById } = useTenants();
 
     const [selectedPropertyId, setSelectedPropertyId] = useState('');
     const [tenantIdInput, setTenantIdInput] = useState('');
@@ -24,19 +24,47 @@ export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, o
     const [rentAmount, setRentAmount] = useState('');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
-
-    const tenant = tenantIdInput.length >= 10 ? getTenantByTenantId(tenantIdInput) : null;
+    const [isLoading, setIsLoading] = useState(false);
+    const [tenantLookupLoading, setTenantLookupLoading] = useState(false);
+    const [tenantData, setTenantData] = useState<{ name: string; email: string } | null>(null);
     const selectedProperty = properties.find(p => p.id === selectedPropertyId);
     const vacantUnits = selectedProperty?.units.filter(u => !u.isOccupied) || [];
 
-    const handleInvite = () => {
+    // Lookup tenant when ID changes
+    const handleTenantIdChange = async (text: string) => {
+        const upperText = text.toUpperCase();
+        setTenantIdInput(upperText);
+        setError('');
+        setTenantData(null);
+
+        if (upperText.length >= 10) {
+            setTenantLookupLoading(true);
+            try {
+                const { status, json } = await apiGet(`/identities/${upperText}`);
+                if (status === 200 && json?.success && json.data?.identity) {
+                    setTenantData({
+                        name: json.data.identity.name,
+                        email: json.data.identity.email
+                    });
+                } else {
+                    setError('Tenant ID not found in system');
+                }
+            } catch (err) {
+                setError('Failed to lookup tenant');
+            } finally {
+                setTenantLookupLoading(false);
+            }
+        }
+    };
+
+    const handleInvite = async () => {
         if (!selectedPropertyId || !tenantIdInput || !selectedUnitId || !rentAmount) {
             setError('All fields are required');
             return;
         }
 
-        if (!tenant) {
-            setError('Tenant ID not found in system');
+        if (!tenantData) {
+            setError('Please enter a valid Tenant ID');
             return;
         }
 
@@ -48,27 +76,36 @@ export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, o
             return;
         }
 
-        const success = inviteTenantById(
-            tenantIdInput,
-            selectedPropertyId,
-            selectedUnitId,
-            parseFloat(rentAmount),
-            selectedProperty.name,
-            selectedUnit.unitNumber,
-            'manager-1' // Manager ID - update this based on logged-in manager
-        );
-        if (success) {
-            setSuccess(true);
-            setTimeout(() => {
-                onClose();
-                setSuccess(false);
-                setSelectedPropertyId('');
-                setTenantIdInput('');
-                setSelectedUnitId('');
-                setRentAmount('');
-            }, 2000);
-        } else {
-            setError('Failed to invite tenant');
+        setIsLoading(true);
+        setError('');
+
+        try {
+            const { status, json } = await apiPost('/tenants/invite', {
+                tenantId: tenantIdInput,
+                propertyId: selectedPropertyId,
+                unitId: selectedUnitId,
+                rentAmount: parseFloat(rentAmount)
+            });
+
+            if (status === 200 || status === 201) {
+                setSuccess(true);
+                setTimeout(() => {
+                    onClose();
+                    setSuccess(false);
+                    setSelectedPropertyId('');
+                    setTenantIdInput('');
+                    setSelectedUnitId('');
+                    setRentAmount('');
+                    setTenantData(null);
+                    onSuccess?.();
+                }, 2000);
+            } else {
+                setError(json?.message || 'Failed to invite tenant');
+            }
+        } catch (err) {
+            setError('Network error. Please try again.');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -84,21 +121,19 @@ export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, o
                         label="Tenant ID"
                         placeholder="Enter 10-character Tenant ID"
                         value={tenantIdInput}
-                        onChangeText={(text) => {
-                            setTenantIdInput(text.toUpperCase());
-                            setError('');
-                        }}
+                        onChangeText={handleTenantIdChange}
                         maxLength={10}
                         icon={<Ionicons name="card-outline" size={20} color={colors.textSecondary} />}
+                        rightIcon={tenantLookupLoading ? <ActivityIndicator size="small" color={colors.primary} /> : undefined}
                     />
 
-                    {tenant && (
+                    {tenantData && (
                         <View style={[styles.tenantFound, { backgroundColor: colors.successLight, padding: spacing.md, borderRadius: 8, marginTop: spacing.sm }]}>
                             <Ionicons name="checkmark-circle" size={24} color={colors.success} />
                             <View style={{ marginLeft: spacing.sm, flex: 1 }}>
                                 <Text style={[typography.h4, { color: colors.success }]}>Tenant Found</Text>
                                 <Text style={[typography.bodySmall, { color: colors.text, marginTop: 4 }]}>
-                                    {tenant.name} • {tenant.email}
+                                    {tenantData.name} • {tenantData.email}
                                 </Text>
                             </View>
                         </View>
@@ -159,12 +194,13 @@ export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, o
                     )}
 
                     <Button
-                        title="Send Invitation"
+                        title={isLoading ? 'Sending...' : 'Send Invitation'}
                         onPress={handleInvite}
                         variant="primary"
                         size="large"
                         style={{ marginTop: spacing.lg }}
-                        disabled={!tenantIdInput || !selectedPropertyId || !selectedUnitId || !rentAmount}
+                        disabled={!tenantIdInput || !selectedPropertyId || !selectedUnitId || !rentAmount || isLoading || !tenantData}
+                        loading={isLoading}
                     />
                 </View>
             ) : (
@@ -176,7 +212,7 @@ export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, o
                         Invitation Sent!
                     </Text>
                     <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}>
-                        {tenant?.name} has been assigned to {selectedProperty?.name}
+                        {tenantData?.name} has been invited to {selectedProperty?.name}
                     </Text>
                 </View>
             )}

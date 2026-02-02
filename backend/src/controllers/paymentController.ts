@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { PaymentService, CreatePaymentData } from '../services/paymentService';
 import { AuthenticatedRequest } from '../middlewares/auth';
 import { NotificationService } from '../services/notificationService';
+import { prisma } from '../utils/database';
 
 const paymentService = new PaymentService();
 const notificationService = new NotificationService();
@@ -78,19 +79,102 @@ export const getPayments = async (req: AuthenticatedRequest, res: Response): Pro
   try {
     const { tenantId, propertyId } = req.query;
 
-    // Tenants can only see their own payments
-    let queryTenantId: string | undefined;
-    if (req.user?.role === 'TENANT') {
-      queryTenantId = req.user.tenantId;
-    } else if (req.user?.role === 'MANAGER' && tenantId) {
-      queryTenantId = tenantId as string;
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+      return;
     }
 
-    const payments = await paymentService.getPayments(queryTenantId, propertyId as string);
+    // Tenants can only see their own payments, always scoped by their tenantId
+    if (req.user.role === 'TENANT') {
+      const tenantScopedId = req.user.tenantId;
 
-    res.status(200).json({
-      success: true,
-      data: payments
+      if (!tenantScopedId) {
+        res.status(400).json({
+          success: false,
+          message: 'Tenant ID not found in user profile'
+        });
+        return;
+      }
+
+      const payments = await paymentService.getPayments(tenantScopedId, undefined);
+
+      res.status(200).json({
+        success: true,
+        data: payments
+      });
+      return;
+    }
+
+    // Managers can only view payments for properties they manage
+    if (req.user.role === 'MANAGER') {
+      const managerId = req.user.id;
+
+      if (!managerId) {
+        res.status(401).json({
+          success: false,
+          message: 'Manager ID not found in user profile'
+        });
+        return;
+      }
+
+      // Scope payments by properties where managerId = req.user.id
+      const queryTenantId = typeof tenantId === 'string' ? tenantId : undefined;
+      const queryPropertyId = typeof propertyId === 'string' ? propertyId : undefined;
+
+      // Build where clause scoped to manager's properties
+      const whereClause: any = {
+        property: {
+          managerId: managerId
+        }
+      };
+
+      if (queryTenantId) {
+        whereClause.tenantId = queryTenantId;
+      }
+
+      if (queryPropertyId) {
+        whereClause.propertyId = queryPropertyId;
+      }
+
+      const payments = await (prisma as any).payment.findMany({
+        where: whereClause,
+        include: {
+          tenantIdentity: {
+            select: {
+              name: true,
+              email: true
+            }
+          },
+          property: {
+            select: {
+              name: true,
+              location: true
+            }
+          },
+          unit: {
+            select: {
+              unitNumber: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+
+      res.status(200).json({
+        success: true,
+        data: payments
+      });
+      return;
+    }
+
+    res.status(403).json({
+      success: false,
+      message: 'Only tenants and managers can access payments'
     });
   } catch (error) {
     console.error('Get payments error:', error);

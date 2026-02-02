@@ -97,7 +97,6 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                             value={name}
                             onChangeText={setName}
                             error={errors.name}
-                            icon={<Ionicons name="person-outline" size={20} color={colors.textSecondary} />}
                         />
 
                         <Input
@@ -108,7 +107,6 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                             keyboardType="email-address"
                             autoCapitalize="none"
                             error={errors.email}
-                            icon={<Ionicons name="mail-outline" size={20} color={colors.textSecondary} />}
                         />
 
                         <Input
@@ -117,7 +115,6 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                             value={phoneNumber}
                             onChangeText={setPhoneNumber}
                             keyboardType="phone-pad"
-                            icon={<Ionicons name="call-outline" size={20} color={colors.textSecondary} />}
                         />
 
                         <Input
@@ -127,7 +124,6 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                             onChangeText={setPassword}
                             secureTextEntry
                             error={errors.password}
-                            icon={<Ionicons name="lock-closed-outline" size={20} color={colors.textSecondary} />}
                         />
 
                         <Input
@@ -137,7 +133,6 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                             onChangeText={setConfirmPassword}
                             secureTextEntry
                             error={errors.confirmPassword}
-                            icon={<Ionicons name="lock-closed-outline" size={20} color={colors.textSecondary} />}
                         />
 
                         {errors.general && (

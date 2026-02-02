@@ -1,0 +1,6 @@
+{
+  "toUserId": "PASTE_TENANT_USER_ID_HERE",
+  "leaseId": "PASTE_LEASE_ID_HERE",
+  "body": "Hello from manager",
+  "subject": "Test"
+}

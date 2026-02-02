@@ -1,35 +1,139 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, TextInput, Alert, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, FlatList, TextInput, Alert, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { TenantListItem } from '../../components/TenantListItem';
 import { Modal } from '../../components/Modal';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
-import { useTenants } from '../../context/TenantContext';
 import { useProperties } from '../../context/PropertyContext';
-import { Tenant } from '../../types/types';
 import { InviteTenantModal } from './InviteTenantModal';
+import { InvitationsList, ManagerInvitation } from './InvitationsList';
 import { Ionicons } from '@expo/vector-icons';
 import { useMessages } from '../../context/MessageContext';
-import { apiGet } from '../../utils/apiClient';
+import { apiGet, apiDelete } from '../../utils/apiClient';
+
+// Manager tenant type includes leaseId for messaging
+interface ManagerTenant {
+    id: string;
+    tenantId: string;
+    name: string;
+    email: string;
+    phoneNumber: string;
+    propertyId: string;
+    propertyName: string;
+    unitId: string;
+    unitNumber: string;
+    rentAmount: number;
+    paymentStatus: 'current' | 'overdue';
+    amountOwed: number;
+    leaseId: string;
+}
 
 export const TenantsScreen: React.FC<any> = ({ navigation }) => {
     const { colors, spacing, typography, borderRadius } = useTheme();
-    const { myTenants } = useTenants();
     const { properties } = useProperties();
     const { sendMessage } = useMessages();
-    const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+
+    // Fetch tenants from manager endpoint (includes leaseId for messaging)
+    const [managerTenants, setManagerTenants] = useState<ManagerTenant[]>([]);
+    const [tenantsLoading, setTenantsLoading] = useState(false);
+
+    const [selectedTenant, setSelectedTenant] = useState<ManagerTenant | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [showMessageModal, setShowMessageModal] = useState(false);
     const [showReminderModal, setShowReminderModal] = useState(false);
     const [showInviteModal, setShowInviteModal] = useState(false);
+
+    // Toggle between Tenants and Invitations
+    const [activeTab, setActiveTab] = useState<'tenants' | 'invitations'>('tenants');
+
+    // Invitations state
+    const [invitations, setInvitations] = useState<ManagerInvitation[]>([]);
+    const [invitationsLoading, setInvitationsLoading] = useState(false);
+    const [invitationsError, setInvitationsError] = useState<string | null>(null);
+
+    // Load tenants from backend on mount
+    useEffect(() => {
+        loadManagerTenants();
+        loadInvitations();
+    }, []);
+
+    const loadInvitations = async () => {
+        if (__DEV__) console.log('[Invitations] Fetching manager invitations...');
+        setInvitationsLoading(true);
+        setInvitationsError(null);
+        try {
+            const { status, json } = await apiGet('/manager/invitations');
+            if (__DEV__) console.log('[Invitations] Response:', { status, count: json?.data?.length });
+            if (status === 200 && json?.success && Array.isArray(json.data)) {
+                setInvitations(json.data);
+                if (__DEV__) console.log(`[Invitations] Loaded ${json.data.length} invitations`);
+            } else {
+                setInvitations([]);
+                if (__DEV__) console.log('[Invitations] Empty or error response');
+            }
+        } catch (error) {
+            console.error('[Invitations] Failed to load:', error);
+            setInvitationsError('Failed to load invitations');
+            setInvitations([]);
+        } finally {
+            setInvitationsLoading(false);
+        }
+    };
+
+    const loadManagerTenants = async () => {
+        setTenantsLoading(true);
+        try {
+            const { status, json } = await apiGet('/manager/tenants');
+            const payload: any = json;
+            if (status === 200 && payload && payload.success) {
+                const tenants: ManagerTenant[] = Array.isArray(payload.data) ? payload.data : [];
+                setManagerTenants(tenants);
+            } else {
+                setManagerTenants([]);
+            }
+        } catch (error) {
+            console.error('Failed to load manager tenants:', error);
+            setManagerTenants([]);
+        } finally {
+            setTenantsLoading(false);
+        }
+    };
+
+    const handleCancelInvitation = async (invitationId: string) => {
+        Alert.alert(
+            'Cancel Invitation',
+            'Are you sure you want to cancel this invitation?',
+            [
+                { text: 'No', style: 'cancel' },
+                {
+                    text: 'Yes, Cancel',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const { status, json } = await apiDelete(`/tenants/invitations/${invitationId}`);
+                            if (status === 200 && json?.success) {
+                                Alert.alert('Success', 'Invitation cancelled successfully');
+                                loadInvitations();
+                            } else {
+                                Alert.alert('Error', json?.message || 'Failed to cancel invitation');
+                            }
+                        } catch (error) {
+                            console.error('Cancel invitation error:', error);
+                            Alert.alert('Error', 'Failed to cancel invitation. Please try again.');
+                        }
+                    }
+                }
+            ]
+        );
+    };
     const [messageText, setMessageText] = useState('');
     const [reminderText, setReminderText] = useState('Your rent payment is due. Please make the payment at your earliest convenience.');
 
     const [isSendingMessage, setIsSendingMessage] = useState(false);
 
-    const filteredTenants = myTenants.filter(tenant =>
+    const filteredTenants = managerTenants.filter((tenant: ManagerTenant) =>
         tenant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         tenant.tenantId.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -45,6 +149,15 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
 
     const handleSendTenantMessage = async () => {
         if (!selectedTenant || !messageText.trim()) {
+            return;
+        }
+
+        // Verify we have the leaseId required by backend
+        if (!selectedTenant.leaseId) {
+            Alert.alert(
+                'Cannot send message',
+                'Unable to resolve the lease for this tenant. Please ensure the tenant has an active lease.',
+            );
             return;
         }
 
@@ -65,8 +178,10 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
 
             const toUserId: string = payload.data.user.id;
 
+            // Include leaseId as required by backend messaging rules
             const ok = await sendMessage({
                 toUserId,
+                leaseId: selectedTenant.leaseId,
                 body: messageText.trim(),
                 subject: 'Message from your property manager',
             });
@@ -98,34 +213,61 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
                         Tenants
                     </Text>
                     <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm }]}>
-                        Manage your tenants
+                        Manage your tenants and invitations
                     </Text>
                 </View>
 
-                {/* Search */}
-                <Input
-                    placeholder="Search by name or ID"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    icon={<Ionicons name="search" size={20} color={colors.textSecondary} />}
-                    style={{ marginBottom: spacing.lg }}
-                />
-
-                {/* Summary */}
-                <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
-                    <View style={{ flex: 1, backgroundColor: colors.surface, padding: spacing.base, borderRadius: 12 }}>
-                        <Text style={[typography.h3, { color: colors.text }]}>{myTenants.length}</Text>
-                        <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 4 }]}>Total Tenants</Text>
-                    </View>
-                    <View style={{ flex: 1, backgroundColor: colors.surface, padding: spacing.base, borderRadius: 12 }}>
-                        <Text style={[typography.h3, { color: colors.success }]}>
-                            {myTenants.filter(t => t.paymentStatus === 'current').length}
+                {/* Tab Toggle */}
+                <View
+                    style={{
+                        flexDirection: 'row',
+                        backgroundColor: colors.surface,
+                        borderRadius: 8,
+                        padding: 4,
+                        marginBottom: spacing.lg,
+                    }}
+                >
+                    <TouchableOpacity
+                        onPress={() => setActiveTab('tenants')}
+                        style={{
+                            flex: 1,
+                            paddingVertical: spacing.sm,
+                            alignItems: 'center',
+                            backgroundColor: activeTab === 'tenants' ? colors.primary : 'transparent',
+                            borderRadius: 6,
+                        }}
+                    >
+                        <Text
+                            style={[
+                                typography.body,
+                                { color: activeTab === 'tenants' ? '#FFFFFF' : colors.textSecondary },
+                            ]}
+                        >
+                            Tenants ({managerTenants.length})
                         </Text>
-                        <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 4 }]}>Up to Date</Text>
-                    </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={() => setActiveTab('invitations')}
+                        style={{
+                            flex: 1,
+                            paddingVertical: spacing.sm,
+                            alignItems: 'center',
+                            backgroundColor: activeTab === 'invitations' ? colors.primary : 'transparent',
+                            borderRadius: 6,
+                        }}
+                    >
+                        <Text
+                            style={[
+                                typography.body,
+                                { color: activeTab === 'invitations' ? '#FFFFFF' : colors.textSecondary },
+                            ]}
+                        >
+                            Invitations ({invitations.length})
+                        </Text>
+                    </TouchableOpacity>
                 </View>
 
-                {/* Invite Tenant Button */}
+                {/* Invite Tenant Button - visible on both tabs */}
                 <Button
                     title="Invite Tenant"
                     onPress={() => setShowInviteModal(true)}
@@ -135,22 +277,60 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
                     icon={<Ionicons name="person-add" size={18} color="#FFFFFF" />}
                 />
 
-                {/* Tenants List */}
-                <View style={{ flex: 1 }}>
-                    {filteredTenants.map((item) => (
-                        <TenantListItem
-                            key={item.id}
-                            name={item.name}
-                            tenantId={item.tenantId}
-                            propertyName={getPropertyName(item.propertyId)}
-                            unitNumber={getUnitNumber(item.propertyId, item.unitId)}
-                            rentAmount={item.rentAmount}
-                            paymentStatus={item.paymentStatus}
-                            phoneNumber={item.phoneNumber}
-                            onPress={() => setSelectedTenant(item)}
+                {activeTab === 'tenants' ? (
+                    <>
+                        {/* Search */}
+                        <Input
+                            placeholder="Search by name or ID"
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            icon={<Ionicons name="search" size={20} color={colors.textSecondary} />}
+                            style={{ marginBottom: spacing.lg }}
                         />
-                    ))}
-                </View>
+
+                        {/* Summary */}
+                        <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
+                            <View style={{ flex: 1, backgroundColor: colors.surface, padding: spacing.base, borderRadius: 12 }}>
+                                <Text style={[typography.h3, { color: colors.text }]}>{managerTenants.length}</Text>
+                                <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 4 }]}>Total Tenants</Text>
+                            </View>
+                            <View style={{ flex: 1, backgroundColor: colors.surface, padding: spacing.base, borderRadius: 12 }}>
+                                <Text style={[typography.h3, { color: colors.success }]}>
+                                    {managerTenants.filter((t: ManagerTenant) => t.paymentStatus === 'current').length}
+                                </Text>
+                                <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 4 }]}>Up to Date</Text>
+                            </View>
+                        </View>
+
+                        {/* Tenants List */}
+                        <View style={{ flex: 1 }}>
+                            {filteredTenants.map((item) => (
+                                <TenantListItem
+                                    key={item.id}
+                                    name={item.name}
+                                    tenantId={item.tenantId}
+                                    propertyName={getPropertyName(item.propertyId)}
+                                    unitNumber={getUnitNumber(item.propertyId, item.unitId)}
+                                    rentAmount={item.rentAmount}
+                                    paymentStatus={item.paymentStatus}
+                                    phoneNumber={item.phoneNumber}
+                                    onPress={() => setSelectedTenant(item)}
+                                />
+                            ))}
+                        </View>
+                    </>
+                ) : (
+                    <InvitationsList
+                        invitations={invitations}
+                        loading={invitationsLoading}
+                        error={invitationsError}
+                        onRetry={loadInvitations}
+                        onCancel={handleCancelInvitation}
+                        colors={colors}
+                        spacing={spacing}
+                        typography={typography}
+                    />
+                )}
             </ScrollView>
 
             {/* Tenant Details Modal */}
@@ -340,6 +520,10 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
             <InviteTenantModal
                 visible={showInviteModal}
                 onClose={() => setShowInviteModal(false)}
+                onSuccess={() => {
+                    loadManagerTenants();
+                    loadInvitations();
+                }}
             />
         </SafeAreaView>
     );

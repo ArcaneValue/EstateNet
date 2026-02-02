@@ -4,6 +4,7 @@ import {
   getDashboardData as getDashboardDataService,
   getManagerLeases as getManagerLeasesService,
   getManagerInvitations as getManagerInvitationsService,
+  getAllTenants as getAllTenantsService,
   ManagerLeasesFilters,
   ManagerInvitationsFilters,
 } from '../services/managerService';
@@ -28,11 +29,13 @@ export const getDashboardData = async (
       success: true,
       data,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in getDashboardData controller:', error);
+    console.error('Error details:', error?.message, error?.stack);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
+      error: error?.message || 'Unknown error'
     });
   }
 };
@@ -98,6 +101,35 @@ export const getManagerInvitations = async (
     });
   } catch (error) {
     console.error('Error in getManagerInvitations controller:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+};
+
+export const getManagerTenants = async (
+  req: AuthenticatedRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const managerId = req.user?.id;
+    if (!managerId) {
+      res.status(401).json({
+        success: false,
+        message: 'Manager authentication required',
+      });
+      return;
+    }
+
+    const data = await getAllTenantsService(managerId);
+
+    res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    console.error('Error in getManagerTenants controller:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',

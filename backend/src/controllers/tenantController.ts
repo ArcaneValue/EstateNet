@@ -330,6 +330,45 @@ export const getActiveLease = async (req: AuthenticatedRequest, res: Response): 
   }
 };
 
+export const cancelInvitation = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { invitationId } = req.params;
+
+    if (!invitationId) {
+      res.status(400).json({
+        success: false,
+        message: 'Invitation ID is required'
+      });
+      return;
+    }
+
+    if (!req.user?.id) {
+      res.status(401).json({
+        success: false,
+        message: 'Manager authentication required'
+      });
+      return;
+    }
+
+    const updatedInvitation = await tenantService.cancelInvitation(invitationId, req.user.id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Invitation cancelled successfully',
+      data: updatedInvitation
+    });
+  } catch (error) {
+    console.error('Cancel invitation error:', error);
+    const message = error instanceof Error ? error.message : 'Internal server error';
+    const statusCode = message.includes('not found') ? 404 :
+      message.includes('only cancel') ? 403 : 400;
+    res.status(statusCode).json({
+      success: false,
+      message
+    });
+  }
+};
+
 /*
 Postman examples:
 

@@ -1,6 +1,6 @@
 import express from 'express';
 import { authenticateToken } from '../middlewares/auth';
-import { getDashboardData, getManagerLeases, getManagerInvitations } from '../controllers/managerController';
+import { getDashboardData, getManagerLeases, getManagerInvitations, getManagerTenants } from '../controllers/managerController';
 
 const router = express.Router();
 
@@ -15,5 +15,8 @@ router.get('/leases', getManagerLeases);
 
 // GET /api/manager/invitations - Get manager's invitations with filters  
 router.get('/invitations', getManagerInvitations);
+
+// GET /api/manager/tenants - Get manager's tenants with active leases (includes leaseId for messaging)
+router.get('/tenants', getManagerTenants);
 
 export default router;

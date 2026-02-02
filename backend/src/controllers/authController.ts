@@ -43,6 +43,15 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     try {
         const { email, password } = req.body;
 
+        // Validate required fields
+        if (!email || !password) {
+            res.status(400).json({
+                success: false,
+                message: 'Email and password are required'
+            });
+            return;
+        }
+
         const result = await authService.login(email, password);
 
         const response: ApiResponse = {
@@ -53,16 +62,30 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
         res.json(response);
     } catch (error) {
-        const response: ApiResponse = {
-            success: false,
-            message: error instanceof Error ? error.message : 'Internal server error'
-        };
+        // Handle specific error types
+        if (error instanceof Error && error.message.includes('JWT_SECRET')) {
+            console.error('Server configuration error: JWT_SECRET not defined');
+            res.status(500).json({
+                success: false,
+                message: 'Server configuration error'
+            });
+            return;
+        }
 
         if (error instanceof Error && error.message.includes('Invalid credentials')) {
-            res.status(401).json(response);
-        } else {
-            res.status(500).json(response);
+            res.status(401).json({
+                success: false,
+                message: 'Invalid credentials'
+            });
+            return;
         }
+
+        // Default error response
+        console.error('Login error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error'
+        });
     }
 };
 

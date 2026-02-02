@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { inviteTenant, acceptInvitation, declineInvitation, getTenantInvitations } from '../controllers/tenantController';
+import { inviteTenant, acceptInvitation, declineInvitation, getTenantInvitations, cancelInvitation } from '../controllers/tenantController';
 import { authenticateToken } from '../middlewares/auth';
 import { requireUserRole } from '../middlewares/requireUserRole';
 import { UserRole } from '../types/prisma';
@@ -32,6 +32,13 @@ router.post('/invitations/:invitationId/decline',
   authenticateToken,
   requireUserRole(UserRole.TENANT),
   declineInvitation
+);
+
+// DELETE /api/tenants/invitations/:invitationId - Cancel invitation (Manager only)
+router.delete('/invitations/:invitationId',
+  authenticateToken,
+  requireUserRole(UserRole.MANAGER),
+  cancelInvitation
 );
 
 export { router as tenantRoutes };

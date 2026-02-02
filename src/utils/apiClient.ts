@@ -77,3 +77,14 @@ export const apiPost = async (endpoint: string, body?: any) => {
   const json = text ? safeParseJson(text) : null;
   return { status: res.status, json };
 };
+
+export const apiDelete = async (endpoint: string) => {
+  const token = await getAuthToken();
+  const res = await fetch(createApiUrl(endpoint), {
+    method: 'DELETE',
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  const text = await res.text();
+  const json = text ? safeParseJson(text) : null;
+  return { status: res.status, json };
+};

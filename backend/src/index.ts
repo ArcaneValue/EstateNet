@@ -15,10 +15,21 @@ import { tenantMeRoutes } from './routes/tenantMe';
 import { messageRoutes } from './routes/messages';
 import { notificationRoutes } from './routes/notifications';
 import { userRoutes } from './routes/users';
+import managerRoutes from './routes/manager';
+import { unitRoutes } from './routes/units';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
 
 // Load environment variables
 dotenv.config();
+
+// Validate required environment variables
+const requiredEnvVars = ['JWT_SECRET', 'DATABASE_URL'];
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingEnvVars.length > 0) {
+    console.error(`FATAL: Missing required environment variables: ${missingEnvVars.join(', ')}`);
+    process.exit(1);
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -62,6 +73,8 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/units', unitRoutes);
+app.use('/api/manager', managerRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -95,6 +108,16 @@ app.get('/api', (req, res) => {
 // Error handling middleware (must be last)
 app.use(notFoundHandler);
 app.use(errorHandler);
+
+// Process-level safety net
+process.on('uncaughtException', (error) => {
+    console.error('FATAL: Uncaught Exception:', error);
+    setTimeout(() => process.exit(1), 1000);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('FATAL: Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 // Start server
 app.listen(PORT, () => {

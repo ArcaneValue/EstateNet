@@ -12,7 +12,9 @@
         "db:migrate": "prisma migrate dev",
         "db:studio": "prisma studio",
         "db:seed": "ts-node prisma/seed.ts",
-        "db:reset": "prisma migrate reset --force"
+        "seed:dev:tenant": "ts-node prisma/seed-dev-tenant.ts",
+        "db:reset": "prisma migrate reset --force",
+        "test": "jest --runInBand"
     },
     "keywords": [
         "estate",
@@ -43,6 +45,11 @@
         "@types/jsonwebtoken": "^9.0.5",
         "@types/morgan": "^1.9.9",
         "@types/node": "^20.8.10",
+        "@types/jest": "^29.5.5",
+        "@types/supertest": "^2.0.12",
+        "jest": "^29.7.0",
+        "ts-jest": "^29.1.1",
+        "supertest": "^6.3.3",
         "nodemon": "^3.0.1",
         "prisma": "^5.6.0",
         "ts-node": "^10.9.1",

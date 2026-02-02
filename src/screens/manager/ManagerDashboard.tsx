@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useManagerDashboard } from '../../hooks/useManagerDashboard';
 import { useProperties } from '../../context/PropertyContext';
-import { useTenants } from '../../context/TenantContext';
 import { usePayments } from '../../context/PaymentContext';
 import { MetricCard } from '../../components/MetricCard';
 import { Card } from '../../components/Card';
@@ -26,8 +26,8 @@ interface ManagerDashboardProps {
 export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }) => {
     const { colors, spacing, typography, borderRadius } = useTheme();
     const { user } = useAuth();
+    const { data: dashboardData, loading, error, refetch } = useManagerDashboard();
     const { properties, getTotalOccupiedUnits, getTotalVacancies, isOwner } = useProperties();
-    const { myTenants, getOverdueTenants, getInvitationResponsesForManager, allInvitations } = useTenants();
     const { getTotalRentCollected, getOutstandingRent } = usePayments();
 
     const [showOccupiedModal, setShowOccupiedModal] = useState(false);
@@ -43,120 +43,52 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
     // Check if user is an owner
     const isUserOwner = user ? isOwner(user.id) : false;
 
-    // Debug logging
-    console.log('ManagerDashboard - User:', user);
-    console.log('ManagerDashboard - isUserOwner:', isUserOwner);
-    console.log('ManagerDashboard - user.id:', user?.id);
+    // Dashboard data calculations
+    const totalProperties = dashboardData?.propertiesCount ?? 0;
+    const totalUnits = dashboardData?.unitsCount ?? 0;
+    const occupiedUnits = dashboardData?.occupiedUnitsCount ?? 0;
+    const vacancies = totalUnits - occupiedUnits;
+    const rentCollected = dashboardData?.rentCollectedAmount ?? 0;
+    const outstandingRent = dashboardData?.outstandingRentAmount ?? 0;
+    const overdueTenantCount = dashboardData?.overdueCount ?? 0;
 
-    // Get invitation responses for this manager
-    const invitationResponses = getInvitationResponsesForManager('manager-1');
-
-    // Convert invitation responses to activity format
-    const invitationActivities = invitationResponses.map(inv => ({
-        id: inv.id,
-        type: inv.status === 'accepted' ? 'tenant_invited_accepted' : 'tenant_invited_rejected',
-        title: inv.status === 'accepted'
-            ? `Tenant ${inv.tenantId} accepted invitation to ${inv.propertyName}`
-            : `Tenant ${inv.tenantId} declined invitation to ${inv.propertyName}`,
-        description: inv.status === 'accepted'
-            ? `${inv.tenantName} accepted the invitation for Unit ${inv.unitNumber}`
-            : `${inv.tenantName} declined the invitation for Unit ${inv.unitNumber}`,
-        timestamp: inv.respondedAt?.toISOString() || new Date().toISOString(),
-        icon: inv.status === 'accepted' ? 'checkmark-circle' : 'close-circle',
-        iconColor: inv.status === 'accepted' ? colors.success : colors.error,
-        iconBg: inv.status === 'accepted' ? colors.successLight : colors.errorLight,
-        tenantName: inv.tenantName,
-        tenantId: inv.tenantId,
-        propertyName: inv.propertyName,
+    // Transform API data into activity feed
+    const paymentActivities = (dashboardData?.recentPayments ?? []).slice(0, 5).map(payment => ({
+        id: `payment-${payment.id}`,
+        type: 'payment' as const,
+        title: `Rent paid for Unit ${payment.unit.unitNumber}`,
+        description: `Payment received for ${payment.property.name}`,
+        timestamp: payment.paymentDate,
+        icon: 'checkmark-circle' as const,
+        iconColor: colors.success,
+        iconBg: colors.successLight,
+        tenantId: payment.tenantId,
+        propertyName: payment.property.name,
     }));
 
-    // All activities data
-    const allActivities = [
-        ...invitationActivities,
-        {
-            id: '1',
-            type: 'payment',
-            title: 'Rent paid by Jane Doe for Unit 101',
-            description: 'Payment received for December rent',
-            timestamp: new Date(Date.now() - 7200000).toISOString(),
-            icon: 'checkmark-circle',
-            iconColor: colors.success,
-            iconBg: colors.successLight,
-            amount: 1200000,
-            tenantName: 'Jane Doe',
-            propertyName: 'Sunset Apartments',
-        },
-        {
-            id: '2',
-            type: 'tenant_added',
-            title: 'New tenant request for Unit 204',
-            description: 'A new tenant has requested to view Unit 204',
-            timestamp: new Date(Date.now() - 18000000).toISOString(),
-            icon: 'person-add',
-            iconColor: colors.info,
-            iconBg: colors.infoLight,
-            tenantName: 'Sarah Johnson',
-            propertyName: 'Kololo Heights',
-        },
-        {
-            id: '3',
-            type: 'maintenance',
-            title: 'Maintenance request - Plumbing',
-            description: 'Leaking pipe in Unit 102 bathroom needs repair',
-            timestamp: new Date(Date.now() - 86400000).toISOString(),
-            icon: 'construct',
-            iconColor: colors.warning,
-            iconBg: colors.warningLight,
-            propertyName: 'Sunset Apartments',
-        },
-        {
-            id: '4',
-            type: 'payment',
-            title: 'Rent paid by Michael Smith for Unit 102',
-            description: 'Payment received for December rent',
-            timestamp: new Date(Date.now() - 172800000).toISOString(),
-            icon: 'checkmark-circle',
-            iconColor: colors.success,
-            iconBg: colors.successLight,
-            amount: 1200000,
-            tenantName: 'Michael Smith',
-            propertyName: 'Sunset Apartments',
-        },
-        {
-            id: '5',
-            type: 'reminder_sent',
-            title: 'Payment reminder sent to David Brown',
-            description: 'Automated reminder for overdue rent',
-            timestamp: new Date(Date.now() - 259200000).toISOString(),
-            icon: 'notifications',
-            iconColor: colors.warning,
-            iconBg: colors.warningLight,
-            tenantName: 'David Brown',
-            propertyName: 'Kololo Heights',
-        },
-        {
-            id: '6',
-            type: 'vacancy',
-            title: 'Unit 305 is now vacant',
-            description: 'Previous tenant moved out',
-            timestamp: new Date(Date.now() - 345600000).toISOString(),
-            icon: 'home-outline',
-            iconColor: colors.textSecondary,
-            iconBg: colors.surface,
-            propertyName: 'Greenfield Apartments',
-        },
-    ];
+    const invitationActivities = (dashboardData?.recentInvitations ?? []).slice(0, 5).map(inv => ({
+        id: `invitation-${inv.id}`,
+        type: 'invitation' as const,
+        title: inv.status === 'ACCEPTED'
+            ? `Tenant accepted invitation to Unit ${inv.unit.unitNumber}`
+            : `Invitation sent for Unit ${inv.unit.unitNumber}`,
+        description: inv.property.name,
+        timestamp: inv.respondedAt || inv.createdAt,
+        icon: inv.status === 'ACCEPTED' ? 'checkmark-circle' : 'person-add' as const,
+        iconColor: inv.status === 'ACCEPTED' ? colors.success : colors.info,
+        iconBg: inv.status === 'ACCEPTED' ? colors.successLight : colors.infoLight,
+        tenantId: inv.tenantId,
+        propertyName: inv.property.name,
+    }));
 
-    const { overdue, pastOverdue } = getOverdueTenants();
-    const overdueCount = overdue.length + pastOverdue.length;
+    const recentActivities = [...paymentActivities, ...invitationActivities]
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 5);
 
     const handleActivityPress = (activity: any) => {
         setSelectedActivity(activity);
         setShowActivityModal(true);
     };
-
-    // Calculate total units across all properties
-    const totalUnits = properties.reduce((sum, prop) => sum + (prop.units?.length || 0), 0);
 
     return (
         <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -167,7 +99,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
                 onStatusPress={() => navigation.navigate('OutstandingRent')}
                 profileImage={profileImage}
                 notificationCount={3}
-                pendingPayments={overdueCount}
+                pendingPayments={overdueTenantCount}
                 remindersCount={0}
                 propertyCount={properties.length}
                 unitCount={totalUnits}
@@ -184,7 +116,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
                 <View style={[styles.metricsGrid, { marginBottom: spacing.lg }]}>
                     <TouchableOpacity style={{ flex: 1, marginRight: spacing.sm }} onPress={() => navigation.navigate('Properties')}>
                         <MetricCard
-                            value={properties.length.toString()}
+                            value={loading ? '...' : totalProperties.toString()}
                             label="Total Properties"
                             icon={
                                 <View
@@ -205,7 +137,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
                     </TouchableOpacity>
                     <TouchableOpacity style={{ flex: 1, marginLeft: spacing.sm }} onPress={() => setShowOccupiedModal(true)}>
                         <MetricCard
-                            value={`${getTotalOccupiedUnits()}/${getTotalOccupiedUnits() + getTotalVacancies()}`}
+                            value={loading ? '...' : `${occupiedUnits}/${totalUnits}`}
                             label="Occupied Units"
                             icon={
                                 <View
@@ -230,7 +162,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
                 <View style={[styles.metricsGrid, { marginBottom: spacing.lg }]}>
                     <TouchableOpacity style={{ flex: 1, marginRight: spacing.sm }} onPress={() => setShowOccupiedModal(true)}>
                         <MetricCard
-                            value={getTotalVacancies().toString()}
+                            value={loading ? '...' : vacancies.toString()}
                             label="Vacancies"
                             icon={
                                 <View
@@ -251,7 +183,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
                     </TouchableOpacity>
                     <TouchableOpacity style={{ flex: 1, marginLeft: spacing.sm }} onPress={() => navigation.navigate('RentCollection')}>
                         <MetricCard
-                            value={`UGX ${(getTotalRentCollected() / 1000000).toFixed(1)}M`}
+                            value={loading ? '...' : `UGX ${(rentCollected / 1000000).toFixed(1)}M`}
                             label="Rent Collected"
                             icon={
                                 <View
@@ -282,7 +214,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
                                     Outstanding Rent
                                 </Text>
                                 <Text style={[typography.h2, { color: colors.error, marginTop: spacing.sm }]}>
-                                    UGX {(getOutstandingRent() / 1000000).toFixed(1)}M
+                                    {loading ? '...' : `UGX ${(outstandingRent / 1000000).toFixed(1)}M`}
                                 </Text>
                             </View>
                             <View
@@ -299,7 +231,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
                             </View>
                         </View>
                         <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.md }]}>
-                            {overdueCount} tenants with overdue payments
+                            {loading ? '...' : `${overdueTenantCount} tenants with overdue payments`}
                         </Text>
                     </Card>
                 </TouchableOpacity>
@@ -348,65 +280,61 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
                         </TouchableOpacity>
                     </View>
 
-                    <Card noPadding>
-                        <ActivityItem
-                            title="Rent paid by Jane Doe for Unit 101"
-                            time="2 hours ago"
-                            icon="checkmark-circle"
-                            iconColor={colors.success}
-                            iconBg={colors.successLight}
-                            onPress={() => handleActivityPress({
-                                id: '1',
-                                type: 'payment',
-                                title: 'Rent paid by Jane Doe for Unit 101',
-                                description: 'Payment received for December rent',
-                                timestamp: new Date(Date.now() - 7200000).toISOString()
-                            })}
-                            colors={colors}
-                            spacing={spacing}
-                        />
-                        <View style={{ height: 1, backgroundColor: colors.divider, marginHorizontal: spacing.base }} />
-                        <ActivityItem
-                            title="New tenant request for Unit 204"
-                            time="5 hours ago"
-                            icon="person-add"
-                            iconColor={colors.info}
-                            iconBg={colors.infoLight}
-                            onPress={() => handleActivityPress({
-                                id: '2',
-                                type: 'tenant_added',
-                                title: 'New tenant request for Unit 204',
-                                description: 'A new tenant has requested to view Unit 204',
-                                timestamp: new Date(Date.now() - 18000000).toISOString(),
-                                tenantName: 'Sarah Johnson'
-                            })}
-                            colors={colors}
-                            spacing={spacing}
-                        />
-                        <View style={{ height: 1, backgroundColor: colors.divider, marginHorizontal: spacing.base }} />
-                        <ActivityItem
-                            title="Maintenance request - Plumbing"
-                            time="1 day ago"
-                            icon="construct"
-                            iconColor={colors.warning}
-                            iconBg={colors.warningLight}
-                            onPress={() => handleActivityPress({
-                                id: '3',
-                                type: 'maintenance',
-                                title: 'Maintenance request - Plumbing',
-                                description: 'Leaking pipe in Unit 102 bathroom needs repair',
-                                timestamp: new Date(Date.now() - 86400000).toISOString(),
-                                propertyName: 'Sunset Apartments'
-                            })}
-                            colors={colors}
-                            spacing={spacing}
-                        />
-                    </Card>
+                    {loading ? (
+                        <Card noPadding>
+                            <ActivityItem
+                                title="Loading..."
+                                time=""
+                                icon="ellipsis-horizontal"
+                                iconColor={colors.textSecondary}
+                                iconBg={colors.surface}
+                                colors={colors}
+                                spacing={spacing}
+                            />
+                        </Card>
+                    ) : error ? (
+                        <Card style={{ padding: spacing.lg }}>
+                            <Text style={[typography.body, { color: colors.error }]}>
+                                Failed to load activity
+                            </Text>
+                            <TouchableOpacity onPress={refetch} style={{ marginTop: spacing.sm }}>
+                                <Text style={[typography.bodySmall, { color: colors.primary }]}>
+                                    Tap to retry
+                                </Text>
+                            </TouchableOpacity>
+                        </Card>
+                    ) : recentActivities.length === 0 ? (
+                        <Card style={{ padding: spacing.lg }}>
+                            <Text style={[typography.body, { color: colors.textSecondary }]}>
+                                No recent activity
+                            </Text>
+                        </Card>
+                    ) : (
+                        <Card noPadding>
+                            {recentActivities.slice(0, 3).map((activity, index) => (
+                                <React.Fragment key={activity.id}>
+                                    <ActivityItem
+                                        title={activity.title}
+                                        time={new Date(activity.timestamp).toLocaleDateString()}
+                                        icon={activity.icon}
+                                        iconColor={activity.iconColor}
+                                        iconBg={activity.iconBg}
+                                        onPress={() => handleActivityPress(activity)}
+                                        colors={colors}
+                                        spacing={spacing}
+                                    />
+                                    {index < Math.min(recentActivities.length, 3) - 1 && (
+                                        <View style={{ height: 1, backgroundColor: colors.divider, marginHorizontal: spacing.base }} />
+                                    )}
+                                </React.Fragment>
+                            ))}
+                        </Card>
+                    )}
                 </View>
 
                 {/* Modals */}
                 <OccupiedUnitsModal visible={showOccupiedModal} onClose={() => setShowOccupiedModal(false)} />
-                <InviteTenantModal visible={showInviteModal} onClose={() => setShowInviteModal(false)} />
+                <InviteTenantModal visible={showInviteModal} onClose={() => setShowInviteModal(false)} onSuccess={refetch} />
                 <RecordPaymentModal visible={showRecordPaymentModal} onClose={() => setShowRecordPaymentModal(false)} />
                 <SendReminderModal visible={showSendReminderModal} onClose={() => setShowSendReminderModal(false)} />
                 <ActivityDetailsModal
@@ -438,7 +366,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
                     size="large"
                 >
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing.lg }}>
-                        {allActivities.map((activity, index) => (
+                        {recentActivities.map((activity, index) => (
                             <React.Fragment key={activity.id}>
                                 <TouchableOpacity
                                     onPress={() => {
@@ -478,7 +406,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
                                     </View>
                                     <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
                                 </TouchableOpacity>
-                                {index < allActivities.length - 1 && (
+                                {index < recentActivities.length - 1 && (
                                     <View style={{ height: 1, backgroundColor: colors.divider, marginHorizontal: spacing.md }} />
                                 )}
                             </React.Fragment>
