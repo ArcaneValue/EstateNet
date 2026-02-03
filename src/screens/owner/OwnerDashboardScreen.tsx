@@ -1,16 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Modal as RNModal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useOwnerApi } from '../../hooks/useOwnerApi';
 import { Ionicons } from '@expo/vector-icons';
+import { AddPropertyForm } from '../../components/AddPropertyForm';
+import { Button } from '../../components/Button';
 
 interface StatCardProps {
   title: string;
@@ -51,7 +55,14 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, onPress 
 export const OwnerDashboardScreen: React.FC<any> = ({ navigation }) => {
   const { colors, spacing, typography, shadows, isDark, setTheme } = useTheme();
   const { user } = useAuth();
-  const { properties, invitations, managers, activities } = useOwnerApi();
+  const { properties, invitations, managers, activities, createProperty, createInvitation } = useOwnerApi();
+
+  // Modal states
+  const [showAddPropertyModal, setShowAddPropertyModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [selectedProperty, setSelectedProperty] = useState('');
+  const [managerEmail, setManagerEmail] = useState('');
+  const [sending, setSending] = useState(false);
 
   // Get greeting based on time
   const getGreeting = () => {
@@ -67,7 +78,13 @@ export const OwnerDashboardScreen: React.FC<any> = ({ navigation }) => {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Header Bar */}
-      <View style={[styles.headerBar, { paddingHorizontal: spacing.lg, paddingVertical: spacing.md }]}>
+      <View style={[styles.headerBar, {
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.md,
+        backgroundColor: colors.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+      }]}>
         <View>
           <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
             {getGreeting()},
@@ -129,19 +146,19 @@ export const OwnerDashboardScreen: React.FC<any> = ({ navigation }) => {
           <View style={styles.quickActionsRow}>
             <TouchableOpacity
               style={[styles.quickActionButton, { backgroundColor: colors.primary }]}
-              onPress={() => navigation.navigate('OwnerProperties', { openModal: true })}
+              onPress={() => setShowAddPropertyModal(true)}
             >
               <Ionicons name="add-circle" size={24} color="#FFFFFF" />
-              <Text style={[typography.body, { color: '#FFFFFF', marginLeft: spacing.sm, fontWeight: '600' }]}>
+              <Text style={[typography.bodySmall, { color: '#FFFFFF', marginLeft: spacing.xs, fontWeight: '600', fontSize: 11 }]}>
                 Add Property
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.quickActionButton, { backgroundColor: '#059669' }]}
-              onPress={() => navigation.navigate('OwnerInvitations', { openModal: true })}
+              onPress={() => setShowInviteModal(true)}
             >
               <Ionicons name="person-add" size={24} color="#FFFFFF" />
-              <Text style={[typography.body, { color: '#FFFFFF', marginLeft: spacing.sm, fontWeight: '600' }]}>
+              <Text style={[typography.bodySmall, { color: '#FFFFFF', marginLeft: spacing.xs, fontWeight: '600', fontSize: 11 }]}>
                 Invite Manager
               </Text>
             </TouchableOpacity>
@@ -150,7 +167,7 @@ export const OwnerDashboardScreen: React.FC<any> = ({ navigation }) => {
               onPress={() => navigation.navigate('OwnerFinancial')}
             >
               <Ionicons name="bar-chart" size={24} color="#FFFFFF" />
-              <Text style={[typography.body, { color: '#FFFFFF', marginLeft: spacing.sm, fontWeight: '600' }]}>
+              <Text style={[typography.bodySmall, { color: '#FFFFFF', marginLeft: spacing.xs, fontWeight: '600', fontSize: 11 }]}>
                 View Reports
               </Text>
             </TouchableOpacity>
@@ -238,6 +255,129 @@ export const OwnerDashboardScreen: React.FC<any> = ({ navigation }) => {
           )}
         </View>
       </ScrollView>
+
+      {/* Add Property Modal */}
+      <RNModal
+        visible={showAddPropertyModal}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setShowAddPropertyModal(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+          <View style={[styles.modalHeader, { padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+            <TouchableOpacity onPress={() => setShowAddPropertyModal(false)}>
+              <Ionicons name="close" size={28} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={[typography.h3, { color: colors.text, marginLeft: spacing.md }]}>
+              Add Property
+            </Text>
+            <View style={{ width: 28 }} />
+          </View>
+          <AddPropertyForm
+            onSubmit={async (data) => {
+              const result = await createProperty(data);
+              if (result.success) {
+                setShowAddPropertyModal(false);
+              }
+            }}
+            onCancel={() => setShowAddPropertyModal(false)}
+          />
+        </SafeAreaView>
+      </RNModal>
+
+      {/* Invite Manager Modal */}
+      <RNModal
+        visible={showInviteModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowInviteModal(false)}
+      >
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface, margin: spacing.lg, padding: spacing.lg, borderRadius: 12 }]}>
+            <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md }]}>
+              Invite Manager
+            </Text>
+            <Text style={[typography.body, { color: colors.textSecondary, marginBottom: spacing.md }]}>
+              Select a property and enter the manager's email
+            </Text>
+            <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.xs }]}>
+              Property
+            </Text>
+            <View style={[styles.pickerContainer, { backgroundColor: colors.background, borderRadius: 8, marginBottom: spacing.md }]}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {properties.map((property: any) => (
+                  <TouchableOpacity
+                    key={property.id}
+                    style={[
+                      styles.propertyChip,
+                      {
+                        backgroundColor: selectedProperty === property.id ? colors.primary : colors.surface,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    onPress={() => setSelectedProperty(property.id)}
+                  >
+                    <Text
+                      style={[
+                        typography.bodySmall,
+                        { color: selectedProperty === property.id ? '#FFFFFF' : colors.text },
+                      ]}
+                    >
+                      {property.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+            <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.xs }]}>
+              Manager Email
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.background,
+                  color: colors.text,
+                  borderRadius: 8,
+                  padding: spacing.md,
+                  marginBottom: spacing.lg,
+                },
+              ]}
+              placeholder="Enter manager's email"
+              placeholderTextColor={colors.textSecondary}
+              value={managerEmail}
+              onChangeText={setManagerEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            <View style={{ flexDirection: 'row', gap: spacing.md }}>
+              <Button
+                title="Cancel"
+                onPress={() => setShowInviteModal(false)}
+                variant="secondary"
+                style={{ flex: 1 }}
+              />
+              <Button
+                title={sending ? 'Sending...' : 'Send Invite'}
+                onPress={async () => {
+                  if (!selectedProperty || !managerEmail) return;
+                  setSending(true);
+                  const result = await createInvitation(selectedProperty, managerEmail);
+                  setSending(false);
+                  if (result.success) {
+                    setShowInviteModal(false);
+                    setManagerEmail('');
+                    setSelectedProperty('');
+                  }
+                }}
+                disabled={!selectedProperty || !managerEmail || sending}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </View>
+        </View>
+      </RNModal>
     </SafeAreaView>
   );
 };
@@ -288,9 +428,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
     borderRadius: 12,
     marginHorizontal: 4,
   },
   activityCard: {},
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  modalContent: {
+    maxHeight: '80%',
+  },
+  pickerContainer: {
+    padding: 8,
+  },
+  propertyChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+  },
+  input: {
+    fontSize: 16,
+  },
 });
