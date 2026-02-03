@@ -41,7 +41,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
     const [showAllActivitiesModal, setShowAllActivitiesModal] = useState(false);
 
     // Check if user is an owner
-    const isUserOwner = user ? isOwner(user.id) : false;
+    const isUserOwner = isOwner();
 
     // Dashboard data calculations
     const totalProperties = dashboardData?.propertiesCount ?? 0;

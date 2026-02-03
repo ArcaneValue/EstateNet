@@ -11,6 +11,46 @@ export const TermsScreen: React.FC<any> = ({ navigation, route }) => {
     const [accepted, setAccepted] = useState(false);
     const role = route.params?.role || 'manager';
 
+    const ownerTerms = `
+1. AGREEMENT TO TERMS
+By accessing and using EstateNet as a Property Owner, you agree to be bound by these Terms and Conditions.
+
+2. PROPERTY OWNER RESPONSIBILITIES
+2.1. You are responsible for the accuracy of all property information you provide
+2.2. You must comply with all local property ownership and rental regulations
+2.3. You agree to handle manager and tenant data with appropriate care and confidentiality
+2.4. You are responsible for maintaining valid property insurance and licenses
+
+3. MANAGER INVITATIONS
+3.1. You may invite property managers to manage your properties
+3.2. You retain ultimate authority over all property decisions
+3.3. You may revoke manager access at any time
+3.4. Managers act on your behalf within the scope of permissions you grant
+
+4. DATA AND PRIVACY
+4.1. EstateNet stores property, manager, and tenant information securely
+4.2. You grant EstateNet permission to process data for service delivery
+4.3. You must obtain proper consent from managers and tenants before adding their information
+
+5. PAYMENT AND FEES
+5.1. Service fees will be charged according to your subscription plan
+5.2. You are responsible for all property-related financial transactions
+5.3. Payment terms must be clearly communicated to managers and tenants
+
+6. LIABILITY
+6.1. EstateNet is not liable for disputes between owners and managers/tenants
+6.2. You indemnify EstateNet against claims arising from your use of the service
+6.3. EstateNet is not responsible for property damage, rental losses, or management disputes
+
+7. TERMINATION
+7.1. Either party may terminate this agreement with 30 days notice
+7.2. Upon termination, you retain access to your data for 90 days
+7.3. Manager and tenant access to your properties ends upon termination
+
+8. GOVERNING LAW
+These terms are governed by the laws of Uganda and applicable East African regulations.
+`;
+
     const managerTerms = `
 1. AGREEMENT TO TERMS
 By accessing and using EstateNet as a Property Manager, you agree to be bound by these Terms and Conditions.
@@ -85,7 +125,7 @@ By accessing and using EstateNet as a Tenant, you agree to be bound by these Ter
 These terms are governed by the laws of Uganda and applicable East African regulations.
 `;
 
-    const terms = role === 'manager' ? managerTerms : tenantTerms;
+    const terms = role === 'owner' ? ownerTerms : role === 'manager' ? managerTerms : tenantTerms;
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
@@ -102,7 +142,7 @@ These terms are governed by the laws of Uganda and applicable East African regul
                             { color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm },
                         ]}
                     >
-                        {role === 'manager' ? 'For Property Managers' : 'For Tenants'}
+                        {role === 'owner' ? 'For Property Owners' : role === 'manager' ? 'For Property Managers' : 'For Tenants'}
                     </Text>
                 </View>
 
@@ -137,7 +177,7 @@ These terms are governed by the laws of Uganda and applicable East African regul
                     {accepted && (
                         <Button
                             title="Continue"
-                            onPress={() => navigation.navigate('SignUp')}
+                            onPress={() => navigation.navigate('SignUp', { role })}
                             variant="primary"
                             size="large"
                         />

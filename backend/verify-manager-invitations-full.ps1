@@ -67,7 +67,8 @@ try {
     Write-Host "  Current invitations count: $initialCount" -ForegroundColor Gray
     if ($initialCount -eq 0) {
         Write-Host "  [STATE] EMPTY - No invitations found" -ForegroundColor Green
-    } else {
+    }
+    else {
         Write-Host "  [INFO] Found $initialCount existing invitations" -ForegroundColor Yellow
         $invitesResp.data | ForEach-Object {
             Write-Host "    - ID: $($_.id), Status: $($_.status), Tenant: $($_.tenantId)" -ForegroundColor Gray
@@ -107,6 +108,81 @@ try {
     $tenantId = $profileResp.data.tenantId
     Write-Host "  Tenant ID: $tenantId" -ForegroundColor Gray
     Write-Host "  [OK] Got tenant ID" -ForegroundColor Green
+    Write-Host ""
+
+    # ============================================
+    # STEP 3a: Register a NEW clean tenant (no existing lease)
+    # ============================================
+    Write-Host "[STEP 3a] Register new clean tenant for accept test" -ForegroundColor Yellow
+
+    $randomSuffix = Get-Random
+    $cleanTenantEmail = "clean_tenant_$randomSuffix@test.com"
+    $cleanTenantPassword = "password123"
+
+    $registerBody = @"
+{"name": "Clean Test Tenant", "email": "$cleanTenantEmail", "password": "$cleanTenantPassword", "phoneNumber": "+256700999999"}
+"@
+    $registerFile = "$TempDir\register.json"
+    Set-Content -Path $registerFile -Value $registerBody -NoNewline
+
+    $registerRaw = curl.exe -s -X POST "$BaseUrl/auth/register-tenant" `
+        -H "Content-Type: application/json" `
+        --data-binary "@$registerFile"
+    $registerResp = $registerRaw | ConvertFrom-Json
+
+    # Strict validation: success must be true AND token must exist
+    $cleanTenantToken = $null
+    if ($registerResp.success -eq $true -and $registerResp.data.token) {
+        $cleanTenantToken = $registerResp.data.token
+    }
+
+    # If no token, determine next action based on message
+    if (-not $cleanTenantToken) {
+        $msg = $registerResp.message
+        if ($registerResp.success -eq $true -and -not $registerResp.data.token) {
+            # Register succeeded but no token - this is a backend issue
+            throw "Register succeeded but token missing. Response: $registerRaw"
+        }
+        elseif ($msg -like "*Email already exists*") {
+            # Try login fallback only for "already exists"
+            $cleanLoginBody = @"
+{"email": "$cleanTenantEmail", "password": "$cleanTenantPassword"}
+"@
+            Set-Content -Path $registerFile -Value $cleanLoginBody -NoNewline
+            
+            $loginRaw = curl.exe -s -X POST "$BaseUrl/auth/login" `
+                -H "Content-Type: application/json" `
+                --data-binary "@$registerFile"
+            $loginResp = $loginRaw | ConvertFrom-Json
+
+            if ($loginResp.success -eq $true -and $loginResp.data.token) {
+                $cleanTenantToken = $loginResp.data.token
+            }
+
+            if (-not $cleanTenantToken) {
+                throw "Clean tenant login failed after register. RegisterRaw: $registerRaw | LoginRaw: $loginRaw"
+            }
+        } else {
+            throw "Clean tenant register failed. Response: $registerRaw"
+        }
+    }
+
+    # Get the new tenant's tenantId from /tenant/me
+    $profileRaw = curl.exe -s -X GET "$BaseUrl/tenant/me" `
+        -H "Authorization: Bearer $cleanTenantToken"
+    $cleanProfileResp = $profileRaw | ConvertFrom-Json
+
+    if (-not $cleanProfileResp.success) {
+        throw "Clean tenant profile fetch failed. Response: $profileRaw"
+    }
+
+    $cleanTenantId = $cleanProfileResp.data.tenantId
+    if (-not $cleanTenantId) {
+        throw "Could not extract tenantId from profile. Response: $profileRaw"
+    }
+
+    Write-Host "  Clean Tenant ID: $cleanTenantId" -ForegroundColor Gray
+    Write-Host "  [OK] Clean tenant ready (no leases)" -ForegroundColor Green
     Write-Host ""
 
     # ============================================
@@ -168,7 +244,7 @@ try {
     Write-Host "[STEP 6] Send invitation (expect PENDING)" -ForegroundColor Yellow
 
     $inviteBody = @"
-{"tenantId": "$tenantId", "propertyId": "$propertyId", "unitId": "$unitId", "rentAmount": 500000}
+{"tenantId": "$cleanTenantId", "propertyId": "$propertyId", "unitId": "$unitId", "rentAmount": 500000}
 "@
     $inviteFile = "$TempDir\invite.json"
     Set-Content -Path $inviteFile -Value $inviteBody -NoNewline
@@ -199,7 +275,8 @@ try {
     $newInvite = $pendingResp.data | Where-Object { $_.id -eq $invitationId }
     if ($newInvite.status -eq 'PENDING') {
         Write-Host "  [STATE] PENDING - Invitation status is PENDING" -ForegroundColor Green
-    } else {
+    }
+    else {
         throw "Expected PENDING status but got $($newInvite.status)"
     }
     Write-Host "  Invitation JSON: $($newInvite | ConvertTo-Json -Compress)" -ForegroundColor Gray
@@ -233,7 +310,8 @@ try {
     $cancelledInvite = $cancelledResp.data | Where-Object { $_.id -eq $invitationId }
     if ($cancelledInvite.status -eq 'CANCELLED') {
         Write-Host "  [STATE] CANCELLED - Invitation status is CANCELLED" -ForegroundColor Green
-    } else {
+    }
+    else {
         throw "Expected CANCELLED status but got $($cancelledInvite.status)"
     }
     Write-Host "  Response: $($cancelledInvite | ConvertTo-Json -Compress)" -ForegroundColor Gray
@@ -270,7 +348,8 @@ try {
     $reinvited = $reinvitePendingResp.data | Where-Object { $_.id -eq $newInvitationId }
     if ($reinvited.status -eq 'PENDING') {
         Write-Host "  [STATE] PENDING - New invitation is PENDING" -ForegroundColor Green
-    } else {
+    }
+    else {
         throw "Expected PENDING status but got $($reinvited.status)"
     }
     Write-Host ""
@@ -281,17 +360,19 @@ try {
     Write-Host "[STEP 12] Tenant accepts invitation" -ForegroundColor Yellow
 
     $acceptResp = curl.exe -s -X POST "$BaseUrl/tenants/invitations/$newInvitationId/accept" `
-        -H "Authorization: Bearer $tenantToken" | ConvertFrom-Json
+        -H "Authorization: Bearer $cleanTenantToken" | ConvertFrom-Json
 
     if (-not $acceptResp.success) {
         # Handle case where tenant already has active lease
         if ($acceptResp.message -like "*already has an active lease*") {
             Write-Host "  [STATE] ERROR - Tenant already has active lease" -ForegroundColor Yellow
             Write-Host "  Note: This is expected if tenant already has a lease" -ForegroundColor Gray
-        } else {
+        }
+        else {
             throw "Failed to accept invitation: $($acceptResp.message)"
         }
-    } else {
+    }
+    else {
         Write-Host "  Lease ID: $($acceptResp.data.id)" -ForegroundColor Gray
         Write-Host "  [OK] Invitation accepted, lease created" -ForegroundColor Green
     }
@@ -309,13 +390,16 @@ try {
     if ($acceptedInvite) {
         if ($acceptedInvite.status -eq 'ACCEPTED') {
             Write-Host "  [STATE] ACCEPTED - Invitation status is ACCEPTED" -ForegroundColor Green
-        } elseif ($acceptedInvite.status -eq 'PENDING') {
+        }
+        elseif ($acceptedInvite.status -eq 'PENDING') {
             Write-Host "  [STATE] PENDING PERSISTED - Invitation remains PENDING (tenant has lease)" -ForegroundColor Yellow
-        } else {
+        }
+        else {
             Write-Host "  [INFO] Invitation status: $($acceptedInvite.status)" -ForegroundColor Gray
         }
         Write-Host "  Response: $($acceptedInvite | ConvertTo-Json -Compress)" -ForegroundColor Gray
-    } else {
+    }
+    else {
         Write-Host "  [INFO] Invitation not found in list (may have been filtered)" -ForegroundColor Gray
     }
     Write-Host ""
@@ -332,11 +416,12 @@ try {
         throw "Failed to fetch tenants: $($tenantsResp.message)"
     }
 
-    $foundTenant = $tenantsResp.data | Where-Object { $_.tenantId -eq $tenantId }
+    $foundTenant = $tenantsResp.data | Where-Object { $_.tenantId -eq $cleanTenantId }
     if ($foundTenant) {
         Write-Host "  [STATE] TENANT ACTIVE - Tenant found in manager tenants list" -ForegroundColor Green
         Write-Host "  Tenant JSON: $($foundTenant | ConvertTo-Json -Compress)" -ForegroundColor Gray
-    } else {
+    }
+    else {
         Write-Host "  [INFO] Tenant not found in manager tenants list (may have lease with different manager)" -ForegroundColor Yellow
         Write-Host "  All tenants count: $(($tenantsResp.data | Measure-Object).Count)" -ForegroundColor Gray
     }
@@ -359,13 +444,15 @@ try {
     Write-Host "All states verified successfully!" -ForegroundColor Green
     Write-Host "============================================" -ForegroundColor Cyan
 
-} catch {
+}
+catch {
     Write-Host ""
     Write-Host "============================================" -ForegroundColor Red
     Write-Host "VERIFICATION FAILED" -ForegroundColor Red
     Write-Host "============================================" -ForegroundColor Red
     Write-Host "Error: $_" -ForegroundColor Red
     exit 1
-} finally {
+}
+finally {
     Cleanup
 }

@@ -10,11 +10,22 @@ import { Ionicons } from '@expo/vector-icons';
 
 interface SignUpScreenProps {
     navigation: any;
+    route: any;
 }
 
-export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
+export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route }) => {
     const { colors, spacing, typography } = useTheme();
     const { signUp, user } = useAuth();
+
+    // Get role from navigation params (passed from Terms screen)
+    const role = route.params?.role || 'manager';
+
+    // Role display names
+    const roleNames: Record<string, string> = {
+        owner: 'Property Owner',
+        manager: 'Property Manager',
+        tenant: 'Tenant'
+    };
 
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -42,13 +53,35 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
         if (!validate()) return;
 
         setLoading(true);
+        setErrors({}); // Clear previous errors
 
         try {
-            await signUp({ name, email, phoneNumber }, password);
-            // Show tenant ID modal after signup - will be shown when user state updates
-            setTimeout(() => setShowTenantIdModal(true), 300);
-        } catch (err) {
-            setErrors({ general: 'Registration failed. Please try again.' });
+            // Convert frontend role to uppercase for backend
+            const backendRole = role.toUpperCase() as 'OWNER' | 'MANAGER' | 'TENANT';
+            await signUp({ name, email, phoneNumber }, password, backendRole);
+
+            // Only show tenant ID modal for tenants (role from AuthContext is UPPERCASE)
+            if (role === 'TENANT') {
+                setTimeout(() => setShowTenantIdModal(true), 300);
+            }
+        } catch (err: any) {
+            // Extract backend error message and status
+            const status = err.status || '?';
+            const message = err.message || 'Registration failed';
+            const rawBody = err.rawBody || '';
+
+            console.error(`Registration failed. Status: ${status}. Message: ${message}. Raw: ${rawBody}`);
+
+            // Check for network connectivity issues
+            if (message.includes('fetch') || message.includes('network') || message.includes('Network')) {
+                setErrors({
+                    general: 'Cannot connect to server. Please check:\n1. Backend server is running on port 3001\n2. Your device is on the same network as your PC\n3. API_BASE_URL is configured correctly in src/config/api.ts'
+                });
+            } else {
+                setErrors({
+                    general: `Registration failed (Status: ${status}): ${message}`
+                });
+            }
         } finally {
             setLoading(false);
         }
@@ -85,7 +118,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                                 },
                             ]}
                         >
-                            Join EstateNet today
+                            Register as {roleNames[role] || 'User'}
                         </Text>
                     </View>
 
@@ -181,7 +214,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
             </KeyboardAvoidingView>
 
             {/* Welcome Modal with Tenant ID */}
-            {user && user.role === 'tenant' && user.tenantId && (
+            {user && user.role === 'TENANT' && user.tenantId && (
                 <Modal
                     visible={showTenantIdModal}
                     onClose={() => setShowTenantIdModal(false)}

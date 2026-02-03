@@ -17,6 +17,8 @@ import { notificationRoutes } from './routes/notifications';
 import { userRoutes } from './routes/users';
 import managerRoutes from './routes/manager';
 import { unitRoutes } from './routes/units';
+import { ownerInvitationRoutes } from './routes/ownerInvitations';
+import { activityRoutes } from './routes/activity';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
 
 // Load environment variables
@@ -75,6 +77,8 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/units', unitRoutes);
 app.use('/api/manager', managerRoutes);
+app.use('/api/owner', ownerInvitationRoutes);
+app.use('/api/activity', activityRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

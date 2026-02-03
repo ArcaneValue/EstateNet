@@ -13,7 +13,7 @@ try {
 
 import { createApiUrl } from '../config/api';
 
-export type UserRole = 'manager' | 'tenant';
+export type UserRole = 'OWNER' | 'MANAGER' | 'TENANT';
 
 interface User {
     id: string;
@@ -54,7 +54,7 @@ interface AuthContextType {
     isAuthenticated: boolean;
     isLoading: boolean;
     signIn: (email: string, password: string) => Promise<void>;
-    signUp: (userData: Partial<User>, password: string) => Promise<void>;
+    signUp: (userData: Partial<User>, password: string, role?: UserRole) => Promise<void>;
     signOut: () => Promise<void>;
     setUserRole: (role: UserRole) => void;
     refreshMe: () => Promise<void>;
@@ -68,7 +68,7 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
-    const [selectedRole, setSelectedRole] = useState<UserRole>('manager');
+    const [selectedRole, setSelectedRole] = useState<UserRole>('MANAGER');
     const [isLoading, setIsLoading] = useState(true);
 
     // Load persisted user on app launch
@@ -80,12 +80,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
                 if (storedUser && storedToken) {
                     const userData = JSON.parse(storedUser);
-                    // Normalize role to lowercase for consistency
-                    const normalizedUser = {
-                        ...userData,
-                        role: userData.role?.toLowerCase() || 'tenant'
-                    } as User;
-                    setUser(normalizedUser);
+                    // Keep role as-is (uppercase from backend)
+                    setUser(userData);
                 }
             } catch (error) {
                 console.error('Failed to load persisted user:', error);
@@ -115,10 +111,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
             const { user: userData, token } = data.data;
 
-            // Normalize role to lowercase for consistency
+            // Use role directly from backend (now uppercase)
             const normalizedUser: User = {
                 ...userData,
-                role: userData.role.toLowerCase() as UserRole
+                role: userData.role as UserRole
             };
 
             // Store token
@@ -133,11 +129,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
     };
 
-    const signUp = async (userData: Partial<User>, password: string) => {
+    const signUp = async (userData: Partial<User>, password: string, role?: UserRole) => {
         try {
-            const endpoint = selectedRole === 'manager'
-                ? '/auth/register/manager'
-                : '/auth/register-tenant';
+            const userRole = role || selectedRole;
+            let endpoint: string;
+
+            if (userRole === 'OWNER') {
+                endpoint = '/auth/register-owner';
+            } else if (userRole === 'MANAGER') {
+                endpoint = '/auth/register/manager';
+            } else {
+                endpoint = '/auth/register-tenant';
+            }
 
             const response = await fetch(createApiUrl(endpoint), {
                 method: 'POST',
@@ -155,15 +158,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             const data = await response.json();
 
             if (!data.success) {
-                throw new Error(data.message || 'Registration failed');
+                const error: any = new Error(data.message || 'Registration failed');
+                error.status = response.status;
+                error.rawBody = JSON.stringify(data);
+                throw error;
             }
 
             const { user: newUser, token } = data.data;
 
-            // Normalize role to lowercase for consistency
+            // Use role directly from backend (now uppercase)
             const normalizedUser: User = {
                 ...newUser,
-                role: newUser.role.toLowerCase() as UserRole
+                role: newUser.role as UserRole
             };
 
             // Store token
@@ -215,7 +221,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             const { user: freshUser } = data.data;
             const normalizedUser: User = {
                 ...freshUser,
-                role: freshUser.role.toLowerCase() as UserRole,
+                role: freshUser.role as UserRole,
             };
 
             setUser(normalizedUser);

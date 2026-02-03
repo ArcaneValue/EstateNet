@@ -30,11 +30,11 @@ export const createProperty = async (req: AuthenticatedRequest, res: Response): 
       }
     }
 
-    // Only MANAGER can create properties, and managerId is set to req.user.id
-    if (!req.user || req.user.role !== 'MANAGER') {
+    // Only OWNER or MANAGER can create properties
+    if (!req.user || (req.user.role !== 'OWNER' && req.user.role !== 'MANAGER')) {
       res.status(403).json({
         success: false,
-        message: 'Only managers can create properties'
+        message: 'Only owners or managers can create properties'
       });
       return;
     }
@@ -43,7 +43,8 @@ export const createProperty = async (req: AuthenticatedRequest, res: Response): 
       data: {
         name,
         location,
-        managerId: req.user.id,
+        ownerId: req.user.id,  // Creator is the owner
+        managerId: req.user.role === 'MANAGER' ? req.user.id : undefined,
         units: units ? {
           create: units.map(unit => ({
             unitNumber: unit.unitNumber,
@@ -134,6 +135,46 @@ export const getAllProperties = async (req: AuthenticatedRequest, res: Response)
     if (req.user.role === 'MANAGER') {
       const properties = await prisma.property.findMany({
         where: { managerId: req.user.id },
+        include: {
+          units: {
+            include: {
+              leases: {
+                where: { status: 'ACTIVE' },
+                select: { id: true }
+              }
+            }
+          },
+          leases: {
+            include: {
+              tenantIdentity: {
+                select: {
+                  tenantId: true,
+                  name: true,
+                  email: true
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Derive isOccupied from ACTIVE leases
+      const propertiesWithOccupancy = properties.map(p => ({
+        ...p,
+        units: p.units.map(u => ({
+          ...u,
+          isOccupied: u.leases.length > 0
+        }))
+      }));
+
+      res.status(200).json({ success: true, data: propertiesWithOccupancy });
+      return;
+    }
+
+    // OWNER: Own properties only
+    if (req.user.role === 'OWNER') {
+      const properties = await prisma.property.findMany({
+        where: { ownerId: req.user.id },
         include: {
           units: {
             include: {
@@ -288,6 +329,54 @@ export const getPropertyById = async (req: AuthenticatedRequest, res: Response):
       return;
     }
 
+    // OWNER: Own property only
+    if (req.user.role === 'OWNER') {
+      const property = await prisma.property.findFirst({
+        where: {
+          id,
+          ownerId: req.user.id
+        },
+        include: {
+          units: {
+            include: {
+              leases: {
+                where: { status: 'ACTIVE' },
+                select: { id: true }
+              }
+            }
+          },
+          leases: {
+            include: {
+              tenantIdentity: {
+                select: {
+                  tenantId: true,
+                  name: true,
+                  email: true
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (!property) {
+        res.status(403).json({ success: false, message: 'Access denied' });
+        return;
+      }
+
+      // Derive isOccupied from ACTIVE leases
+      const propertyWithOccupancy = {
+        ...property,
+        units: property.units.map(u => ({
+          ...u,
+          isOccupied: u.leases.length > 0
+        }))
+      };
+
+      res.status(200).json({ success: true, data: propertyWithOccupancy });
+      return;
+    }
+
     res.status(403).json({ success: false, message: 'Access denied' });
   } catch (error) {
     console.error('Get property by ID error:', error);
@@ -320,51 +409,89 @@ GET /api/properties/property-id-here
 export const updateProperty = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { name, location } = req.body;
+    const { name, location, managerId } = req.body;
 
     if (!req.user) {
       res.status(401).json({ success: false, message: 'Authentication required' });
       return;
     }
 
-    if (req.user.role !== 'MANAGER') {
-      res.status(403).json({ success: false, message: 'Only managers can update properties' });
-      return;
-    }
+    // OWNER: Can update own properties and assign/unassign managers
+    if (req.user.role === 'OWNER') {
+      const existingProperty = await prisma.property.findFirst({
+        where: { id, ownerId: req.user.id }
+      });
 
-    // Check if property exists and belongs to this manager
-    const existingProperty = await prisma.property.findFirst({
-      where: { id, managerId: req.user.id }
-    });
+      if (!existingProperty) {
+        res.status(403).json({ success: false, message: 'Access denied' });
+        return;
+      }
 
-    if (!existingProperty) {
-      res.status(403).json({ success: false, message: 'Access denied' });
-      return;
-    }
-
-    const property = await prisma.property.update({
-      where: { id },
-      data: {
-        ...(name && { name }),
-        ...(location && { location })
-      },
-      include: {
-        units: true,
-        manager: {
-          select: {
-            id: true,
-            name: true,
-            email: true
+      const property = await prisma.property.update({
+        where: { id },
+        data: {
+          ...(name && { name }),
+          ...(location && { location }),
+          ...(managerId !== undefined && { managerId: managerId || null })
+        },
+        include: {
+          units: true,
+          manager: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
           }
         }
-      }
-    });
+      });
 
-    res.status(200).json({
-      success: true,
-      message: 'Property updated successfully',
-      data: property
-    });
+      res.status(200).json({
+        success: true,
+        message: 'Property updated successfully',
+        data: property
+      });
+      return;
+    }
+
+    // MANAGER: Can only update properties they manage
+    if (req.user.role === 'MANAGER') {
+      const existingProperty = await prisma.property.findFirst({
+        where: { id, managerId: req.user.id }
+      });
+
+      if (!existingProperty) {
+        res.status(403).json({ success: false, message: 'Access denied' });
+        return;
+      }
+
+      const property = await prisma.property.update({
+        where: { id },
+        data: {
+          ...(name && { name }),
+          ...(location && { location })
+        },
+        include: {
+          units: true,
+          manager: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          }
+        }
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Property updated successfully',
+        data: property
+      });
+      return;
+    }
+
+    res.status(403).json({ success: false, message: 'Access denied' });
   } catch (error) {
     console.error('Update property error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });

@@ -27,6 +27,7 @@ interface InvitationsListProps {
   error: string | null;
   onRetry: () => void;
   onCancel?: (id: string) => void;
+  cancellingId?: string | null;
   colors: any;
   spacing: any;
   typography: any;
@@ -63,6 +64,7 @@ export const InvitationsList: React.FC<InvitationsListProps> = ({
   error,
   onRetry,
   onCancel,
+  cancellingId,
   colors,
   spacing,
   typography,
@@ -167,13 +169,19 @@ export const InvitationsList: React.FC<InvitationsListProps> = ({
           {inv.status === 'PENDING' && onCancel && (
             <TouchableOpacity
               onPress={() => onCancel(inv.id)}
+              disabled={cancellingId === inv.id}
               style={{
                 marginTop: spacing.md,
                 paddingVertical: spacing.sm,
                 alignItems: 'center',
+                opacity: cancellingId === inv.id ? 0.5 : 1,
               }}
             >
-              <Text style={{ color: colors.error, fontSize: 14, fontWeight: '500' }}>Cancel Invitation</Text>
+              {cancellingId === inv.id ? (
+                <ActivityIndicator size="small" color={colors.error} />
+              ) : (
+                <Text style={{ color: colors.error, fontSize: 14, fontWeight: '500' }}>Cancel Invitation</Text>
+              )}
             </TouchableOpacity>
           )}
         </View>

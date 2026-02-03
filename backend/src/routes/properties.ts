@@ -1,15 +1,14 @@
 import { Router } from 'express';
 import { createProperty, getAllProperties, getPropertyById, updateProperty, deleteProperty, createUnit, updateUnit, deleteUnit } from '../controllers/propertyController';
 import { authenticateToken } from '../middlewares/auth';
-import { requireUserRole } from '../middlewares/requireUserRole';
-import { UserRole } from '../types/prisma';
+import { requireRole } from '../middlewares/requireRole';
 
 const router = Router();
 
-// POST /api/properties - Create property (Manager only)
+// POST /api/properties - Create property (Owner or Manager)
 router.post('/',
   authenticateToken,
-  requireUserRole(UserRole.MANAGER),
+  requireRole('OWNER', 'MANAGER'),
   createProperty
 );
 
@@ -25,40 +24,40 @@ router.get('/:id',
   getPropertyById
 );
 
-// PATCH /api/properties/:id - Update property (Manager only, ownership check)
+// PATCH /api/properties/:id - Update property (Owner or Manager, ownership check)
 router.patch('/:id',
   authenticateToken,
-  requireUserRole(UserRole.MANAGER),
+  requireRole('OWNER', 'MANAGER'),
   updateProperty
 );
 
-// DELETE /api/properties/:id - Delete property (Manager only, ownership check)
+// DELETE /api/properties/:id - Delete property (Owner or Manager, ownership check)
 router.delete('/:id',
   authenticateToken,
-  requireUserRole(UserRole.MANAGER),
+  requireRole('OWNER', 'MANAGER'),
   deleteProperty
 );
 
 // UNIT ROUTES
 
-// POST /api/properties/:id/units - Create unit (Manager only, must own property)
+// POST /api/properties/:id/units - Create unit (Owner or Manager, must own property)
 router.post('/:id/units',
   authenticateToken,
-  requireUserRole(UserRole.MANAGER),
+  requireRole('OWNER', 'MANAGER'),
   createUnit
 );
 
-// PATCH /api/units/:unitId - Update unit (Manager only, must own parent property)
+// PATCH /api/units/:unitId - Update unit (Owner or Manager, must own parent property)
 router.patch('/units/:unitId',
   authenticateToken,
-  requireUserRole(UserRole.MANAGER),
+  requireRole('OWNER', 'MANAGER'),
   updateUnit
 );
 
-// DELETE /api/units/:unitId - Delete unit (Manager only, must own parent property)
+// DELETE /api/units/:unitId - Delete unit (Owner or Manager, must own parent property)
 router.delete('/units/:unitId',
   authenticateToken,
-  requireUserRole(UserRole.MANAGER),
+  requireRole('OWNER', 'MANAGER'),
   deleteUnit
 );
 

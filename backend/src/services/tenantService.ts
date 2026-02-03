@@ -224,19 +224,18 @@ export class TenantService {
       throw new Error('Cannot cancel an already declined invitation');
     }
 
-    if (invitation.status === 'CANCELLED') {
-      throw new Error('Invitation is already cancelled');
+    // Only PENDING can be cancelled
+    if (invitation.status !== 'PENDING') {
+      throw new Error(`Cannot cancel invitation with status: ${invitation.status}. Only PENDING invitations can be cancelled.`);
     }
 
-    await (prisma as any).$executeRaw`
-      UPDATE "tenant_invitations"
-      SET status = 'CANCELLED', "respondedAt" = NOW()
-      WHERE id = ${invitationId}
-    `;
-
-    // Fetch and return the updated invitation
-    return await (prisma as any).tenantInvitation.findUnique({
+    // Use Prisma client to update - schema now has CANCELLED enum
+    return await (prisma as any).tenantInvitation.update({
       where: { id: invitationId },
+      data: {
+        status: 'CANCELLED',
+        respondedAt: new Date()
+      },
       include: {
         tenantIdentity: { select: { name: true, email: true, tenantId: true } },
         property: { select: { name: true, location: true } },

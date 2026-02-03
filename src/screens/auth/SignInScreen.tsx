@@ -29,8 +29,21 @@ export const SignInScreen: React.FC<SignInScreenProps> = ({ navigation }) => {
 
         try {
             await signIn(email, password);
-        } catch (err) {
-            setError('Invalid credentials. Please try again.');
+        } catch (err: any) {
+            // Show actual error message from backend or network
+            const errorMessage = err.message || 'Unknown error occurred';
+            const status = err.status;
+            const message = err.message;
+            const rawBody = err.rawBody;
+
+            console.error(`Sign in failed. Status: ${status}. Message: ${message}. Raw: ${rawBody}`);
+
+            // Check for network connectivity issues
+            if (message.includes('fetch') || message.includes('network') || message.includes('Network')) {
+                setError('Cannot connect to server. Please check:\n1. Backend server is running on port 3001\n2. Your device is on the same network as your PC\n3. API_BASE_URL is configured correctly in src/config/api.ts');
+            } else {
+                setError(`Sign in failed (Status: ${status}): ${message}`);
+            }
         } finally {
             setLoading(false);
         }

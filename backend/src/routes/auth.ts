@@ -1,9 +1,16 @@
 import { Router } from 'express';
-import { setupAuthentication, login, getCurrentUser, registerManager, registerTenant } from '../controllers/authController';
+import { setupAuthentication, login, getCurrentUser, registerManager, registerTenant, registerOwner } from '../controllers/authController';
 import { authSetupValidation, loginValidation, managerRegisterValidation, validateRequest } from '../middlewares/validation';
 import { authenticateToken } from '../middlewares/auth';
 
 const router = Router();
+
+// Owner registration
+router.post('/register-owner',
+    managerRegisterValidation,
+    validateRequest,
+    registerOwner
+);
 
 // Manager registration
 router.post('/register/manager',

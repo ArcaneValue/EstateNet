@@ -13,9 +13,11 @@ export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({ naviga
     const { colors, spacing, typography, borderRadius, shadows } = useTheme();
     const { setUserRole } = useAuth();
 
-    const selectRole = (role: 'manager' | 'tenant') => {
-        setUserRole(role);
-        // Navigate to Terms & Conditions screen with role parameter
+    const selectRole = (role: 'owner' | 'manager' | 'tenant') => {
+        // Convert to uppercase for AuthContext (OWNER, MANAGER, TENANT)
+        const userRole = role.toUpperCase() as 'OWNER' | 'MANAGER' | 'TENANT';
+        setUserRole(userRole);
+        // Navigate to Terms & Conditions screen with lowercase role parameter
         navigation.navigate('Terms', { role });
     };
 
@@ -54,6 +56,69 @@ export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({ naviga
 
                 {/* Role Cards */}
                 <View style={[styles.rolesContainer, { marginTop: spacing['4xl'] }]}>
+                    {/* Owner Card */}
+                    <TouchableOpacity
+                        onPress={() => selectRole('owner')}
+                        activeOpacity={0.8}
+                        style={[
+                            styles.roleCard,
+                            {
+                                backgroundColor: colors.surface,
+                                borderRadius: borderRadius.lg,
+                                padding: spacing.xl,
+                                marginBottom: spacing.lg,
+                            },
+                            shadows.lg,
+                        ]}
+                    >
+                        <View
+                            style={[
+                                styles.iconContainer,
+                                {
+                                    backgroundColor: '#F59E0B',
+                                    borderRadius: borderRadius.md,
+                                },
+                            ]}
+                        >
+                            <Ionicons name="home" size={36} color="#FFFFFF" />
+                        </View>
+
+                        <Text
+                            style={[
+                                typography.h2,
+                                {
+                                    color: colors.text,
+                                    marginTop: spacing.lg,
+                                },
+                            ]}
+                        >
+                            Property Owner
+                        </Text>
+
+                        <Text
+                            style={[
+                                typography.body,
+                                {
+                                    color: colors.textSecondary,
+                                    marginTop: spacing.md,
+                                    lineHeight: 22,
+                                },
+                            ]}
+                        >
+                            Own properties, invite managers, track finances, and oversee your real estate portfolio.
+                        </Text>
+
+                        <View style={[styles.features, { marginTop: spacing.lg }]}>
+                            <FeatureTag text="Property Ownership" colors={colors} spacing={spacing} />
+                            <FeatureTag text="Manager Invitations" colors={colors} spacing={spacing} />
+                            <FeatureTag text="Financial Tracking" colors={colors} spacing={spacing} />
+                        </View>
+
+                        <View style={[styles.arrow, { marginTop: spacing.lg }]}>
+                            <Ionicons name="arrow-forward" size={24} color="#F59E0B" />
+                        </View>
+                    </TouchableOpacity>
+
                     {/* Manager Card */}
                     <TouchableOpacity
                         onPress={() => selectRole('manager')}

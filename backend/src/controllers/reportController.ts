@@ -27,10 +27,10 @@ export const getSamplePdf = async (req: AuthenticatedRequest, res: Response): Pr
 
 export const getFinancialStatements = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    if (req.user?.role !== 'MANAGER') {
+    if (req.user?.role !== 'MANAGER' && req.user?.role !== 'OWNER') {
       res.status(403).json({
         success: false,
-        message: 'Only managers can access financial statements'
+        message: 'Only managers and owners can access financial statements'
       });
       return;
     }

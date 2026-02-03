@@ -12,10 +12,10 @@ router.get('/sample-pdf',
   getSamplePdf
 );
 
-// GET /api/reports/financial-statements - Get financial statements (Manager only)
+// GET /api/reports/financial-statements - Get financial statements (Manager and Owner)
 router.get('/financial-statements',
   authenticateToken,
-  requireUserRole(UserRole.MANAGER),
+  requireUserRole(UserRole.MANAGER, UserRole.OWNER),
   getFinancialStatements
 );
 

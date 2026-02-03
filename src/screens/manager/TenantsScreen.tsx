@@ -52,6 +52,7 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
     const [invitations, setInvitations] = useState<ManagerInvitation[]>([]);
     const [invitationsLoading, setInvitationsLoading] = useState(false);
     const [invitationsError, setInvitationsError] = useState<string | null>(null);
+    const [cancellingId, setCancellingId] = useState<string | null>(null);
 
     // Load tenants from backend on mount
     useEffect(() => {
@@ -111,6 +112,7 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
                     text: 'Yes, Cancel',
                     style: 'destructive',
                     onPress: async () => {
+                        setCancellingId(invitationId);
                         try {
                             const { status, json } = await apiDelete(`/tenants/invitations/${invitationId}`);
                             if (status === 200 && json?.success) {
@@ -122,6 +124,8 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
                         } catch (error) {
                             console.error('Cancel invitation error:', error);
                             Alert.alert('Error', 'Failed to cancel invitation. Please try again.');
+                        } finally {
+                            setCancellingId(null);
                         }
                     }
                 }
@@ -326,6 +330,7 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
                         error={invitationsError}
                         onRetry={loadInvitations}
                         onCancel={handleCancelInvitation}
+                        cancellingId={cancellingId}
                         colors={colors}
                         spacing={spacing}
                         typography={typography}

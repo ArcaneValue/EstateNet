@@ -361,7 +361,8 @@ export const cancelInvitation = async (req: AuthenticatedRequest, res: Response)
     console.error('Cancel invitation error:', error);
     const message = error instanceof Error ? error.message : 'Internal server error';
     const statusCode = message.includes('not found') ? 404 :
-      message.includes('only cancel') ? 403 : 400;
+      message.includes('Only PENDING') ? 409 :
+        message.includes('only cancel') ? 403 : 400;
     res.status(statusCode).json({
       success: false,
       message

@@ -230,6 +230,58 @@ export class AuthService {
         };
     }
 
+    async registerOwner(data: {
+        name: string;
+        email: string;
+        phoneNumber: string;
+        password: string;
+    }) {
+        // Check if user already exists
+        const existingUser = await prisma.user.findUnique({
+            where: { email: data.email }
+        });
+
+        if (existingUser) {
+            throw new Error('User with this email already exists');
+        }
+
+        // Hash password
+        const passwordHash = await hashPassword(data.password);
+
+        // Create owner user
+        const user = await prisma.user.create({
+            data: {
+                email: data.email,
+                passwordHash,
+                name: data.name,
+                phoneNumber: data.phoneNumber,
+                role: 'OWNER',
+                tenantId: null,
+            }
+        });
+
+        // Generate JWT token
+        const token = generateToken({
+            id: user.id,
+            email: user.email,
+            role: user.role
+        });
+
+        return {
+            user: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                tenantId: user.tenantId,
+                phoneNumber: user.phoneNumber,
+                profileImage: user.profileImage,
+                notificationPrefs: (user as any).notificationPrefs,
+            },
+            token
+        };
+    }
+
     async getCurrentUser(userId: string) {
         const user = await prisma.user.findUnique({
             where: { id: userId },

@@ -163,6 +163,48 @@ export const registerTenant = async (req: Request, res: Response): Promise<void>
     }
 };
 
+export const registerOwner = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { name, email, phoneNumber, password } = req.body;
+
+        // Validation
+        if (!name || !email || !password) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Name, email, and password are required'
+            };
+            res.status(400).json(response);
+            return;
+        }
+
+        const result = await authService.registerOwner({
+            name,
+            email,
+            phoneNumber,
+            password
+        });
+
+        const response: ApiResponse = {
+            success: true,
+            message: 'Owner registered successfully',
+            data: result
+        };
+
+        res.status(201).json(response);
+    } catch (error) {
+        const response: ApiResponse = {
+            success: false,
+            message: error instanceof Error ? error.message : 'Internal server error'
+        };
+
+        if (error instanceof Error && error.message.includes('already exists')) {
+            res.status(409).json(response);
+        } else {
+            res.status(500).json(response);
+        }
+    }
+};
+
 export const getCurrentUser = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
         if (!req.user) {

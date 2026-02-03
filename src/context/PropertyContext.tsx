@@ -19,7 +19,7 @@ interface PropertyContextType {
     getOutstandingRent: () => number;
     // Owner Mode functions
     getOwnedProperties: (managerId: string) => Property[];
-    isOwner: (managerId: string) => boolean;
+    isOwner: () => boolean;
     getPropertyManagers: (propertyId: string) => PropertyManager[];
     addPropertyManager: (propertyId: string, manager: PropertyManager) => void;
     updatePropertyManager: (propertyId: string, managerId: string, updates: Partial<PropertyManager>) => void;
@@ -155,8 +155,8 @@ export const PropertyProvider: React.FC<PropertyProviderProps> = ({ children }) 
         return properties;
     };
 
-    const isOwner = (managerId: string): boolean => {
-        return true; // TEMPORARY: Always return true for testing
+    const isOwner = (): boolean => {
+        return user?.role === 'OWNER';
     };
 
     const getPropertyManagers = (propertyId: string): PropertyManager[] => {

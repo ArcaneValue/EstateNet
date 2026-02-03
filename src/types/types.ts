@@ -1,6 +1,6 @@
 // Core Type Definitions for EstateNet
 
-export type UserRole = 'manager' | 'tenant';
+export type UserRole = 'OWNER' | 'MANAGER' | 'TENANT';
 
 export type PropertyType = 'apartment' | 'house' | 'commercial';
 
@@ -21,11 +21,11 @@ export type AccessRequestStatus = 'pending' | 'approved' | 'rejected';
 // User Interface
 export interface User {
     id: string;
-    name: string;
     email: string;
-    role: UserRole;
+    name: string;
+    role: 'OWNER' | 'MANAGER' | 'TENANT';
+    tenantId?: string;
     phoneNumber?: string;
-    tenantId?: string; // Auto-generated for tenants
     profileImage?: string;
 }
 

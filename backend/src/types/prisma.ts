@@ -1,5 +1,6 @@
 // Temporary types until Prisma client is regenerated
 export enum UserRole {
+  OWNER = 'OWNER',
   MANAGER = 'MANAGER',
   TENANT = 'TENANT'
 }
@@ -81,5 +82,23 @@ export interface TenantInvitation {
   };
   unit?: {
     unitNumber: string;
+  };
+}
+
+export interface OwnerManagerInvitation {
+  id: string;
+  propertyId: string;
+  ownerId: string;
+  managerEmail: string;
+  status: InvitationStatus;
+  createdAt: Date;
+  respondedAt?: Date;
+  property?: {
+    name: string;
+    location: string;
+  };
+  owner?: {
+    name: string;
+    email: string;
   };
 }
