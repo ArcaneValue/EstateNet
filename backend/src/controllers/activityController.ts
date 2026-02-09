@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../middlewares/auth';
-import { prisma } from '../lib/prisma';
+import { prisma } from '../utils/database';
 
 /**
  * Get recent activity for the authenticated user
@@ -12,10 +12,10 @@ import { prisma } from '../lib/prisma';
  */
 export const getRecentActivity = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.userId;
+    const id = req.user?.id;
     const userRole = req.user?.role;
 
-    if (!userId) {
+    if (!id) {
       res.status(401).json({
         success: false,
         message: 'Unauthorized'
@@ -31,16 +31,14 @@ export const getRecentActivity = async (req: AuthenticatedRequest, res: Response
     if (userRole === 'OWNER') {
       // Get owner's properties
       const properties = await prisma.property.findMany({
-        where: { ownerId: userId },
+        where: { ownerId: id },
         include: {
           manager: true,
-          leases: {
+          payments: {
+            orderBy: { createdAt: 'desc' },
+            take: 10,
             include: {
-              tenant: true,
-              payments: {
-                orderBy: { createdAt: 'desc' },
-                take: 5
-              }
+              tenantIdentity: true
             }
           }
         },
@@ -49,7 +47,7 @@ export const getRecentActivity = async (req: AuthenticatedRequest, res: Response
       });
 
       // Property creations
-      properties.forEach(prop => {
+      properties.forEach((prop: any) => {
         activities.push({
           id: `prop-created-${prop.id}`,
           type: 'PROPERTY_CREATED',
@@ -78,49 +76,135 @@ export const getRecentActivity = async (req: AuthenticatedRequest, res: Response
         }
 
         // Recent payments
-        prop.leases.forEach((lease: any) => {
-          lease.payments.forEach((payment: any) => {
-            activities.push({
-              id: `payment-${payment.id}`,
-              type: 'PAYMENT_RECEIVED',
-              description: `Rent payment of UGX ${payment.amount} received from ${lease.tenant?.name || 'tenant'}`,
-              timestamp: payment.createdAt,
-              metadata: {
-                paymentId: payment.id,
-                amount: payment.amount,
-                tenantId: lease.tenantId,
-                tenantName: lease.tenant?.name,
-                propertyId: prop.id,
-                propertyName: prop.name
-              }
-            });
+        prop.payments.forEach((payment: any) => {
+          activities.push({
+            id: `payment-${payment.id}`,
+            type: 'PAYMENT_RECEIVED',
+            description: `Rent payment of UGX ${payment.amount} received from ${payment.tenantIdentity?.name || 'tenant'}`,
+            timestamp: payment.createdAt,
+            metadata: {
+              paymentId: payment.id,
+              amount: payment.amount,
+              tenantId: payment.tenantId,
+              tenantName: payment.tenantIdentity?.name,
+              propertyId: prop.id,
+              propertyName: prop.name
+            }
           });
         });
       });
 
       // Get invitations
-      const invitations = await prisma.ownerInvitation.findMany({
-        where: { ownerId: userId },
+      const invitations = await prisma.ownerManagerInvitation.findMany({
+        where: { ownerId: id },
         include: { property: true },
         orderBy: { createdAt: 'desc' },
         take: 10
       });
 
-      invitations.forEach(inv => {
+      invitations.forEach((inv: any) => {
         activities.push({
           id: `invitation-${inv.id}`,
           type: `INVITATION_${inv.status}`,
-          description: inv.status === 'PENDING' 
+          description: inv.status === 'PENDING'
             ? `Invitation sent to ${inv.managerEmail} for ${inv.property?.name}`
             : inv.status === 'ACCEPTED'
-            ? `${inv.managerEmail} accepted invitation for ${inv.property?.name}`
-            : `${inv.managerEmail} declined invitation for ${inv.property?.name}`,
+              ? `${inv.managerEmail} accepted invitation for ${inv.property?.name}`
+              : `${inv.managerEmail} declined invitation for ${inv.property?.name}`,
           timestamp: inv.createdAt,
           metadata: {
             invitationId: inv.id,
             managerEmail: inv.managerEmail,
             propertyId: inv.propertyId,
             propertyName: inv.property?.name,
+            status: inv.status
+          }
+        });
+      });
+    }
+
+    if (userRole === 'MANAGER') {
+      // Get properties managed by this manager
+      const properties = await prisma.property.findMany({
+        where: { managerId: id },
+        include: {
+          owner: true,
+          leases: {
+            include: {
+              tenantIdentity: true
+            }
+          },
+          payments: {
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+            include: {
+              tenantIdentity: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10
+      });
+
+      // Property assignments (when manager was assigned)
+      properties.forEach((prop: any) => {
+        activities.push({
+          id: `prop-assigned-${prop.id}`,
+          type: 'PROPERTY_ASSIGNED',
+          description: `You were assigned to manage "${prop.name}"`,
+          timestamp: prop.updatedAt,
+          metadata: {
+            propertyId: prop.id,
+            propertyName: prop.name,
+            ownerId: prop.ownerId,
+            ownerName: prop.owner.name
+          }
+        });
+
+        // Recent payments
+        prop.payments.forEach((payment: any) => {
+          activities.push({
+            id: `payment-${payment.id}`,
+            type: 'PAYMENT_RECEIVED',
+            description: `Rent payment of UGX ${payment.amount} received from ${payment.tenantIdentity?.name || 'tenant'} for ${prop.name}`,
+            timestamp: payment.createdAt,
+            metadata: {
+              paymentId: payment.id,
+              amount: payment.amount,
+              tenantId: payment.tenantId,
+              tenantName: payment.tenantIdentity?.name,
+              propertyId: prop.id,
+              propertyName: prop.name
+            }
+          });
+        });
+      });
+
+      // Get invitations accepted/declined for this manager
+      const invitations = await prisma.ownerManagerInvitation.findMany({
+        where: {
+          managerId: id,
+          status: { in: ['ACCEPTED', 'DECLINED'] }
+        },
+        include: { property: true, owner: true },
+        orderBy: { respondedAt: 'desc' },
+        take: 10
+      });
+
+      invitations.forEach((inv: any) => {
+        activities.push({
+          id: `invitation-${inv.id}`,
+          type: `INVITATION_${inv.status}`,
+          description: inv.status === 'ACCEPTED'
+            ? `You accepted invitation to manage ${inv.property?.name}`
+            : `You declined invitation to manage ${inv.property?.name}`,
+          timestamp: inv.respondedAt || inv.createdAt,
+          metadata: {
+            invitationId: inv.id,
+            propertyId: inv.propertyId,
+            propertyName: inv.property?.name,
+            ownerId: inv.ownerId,
+            ownerName: inv.owner?.name,
             status: inv.status
           }
         });

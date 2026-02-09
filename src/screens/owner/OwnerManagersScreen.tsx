@@ -89,7 +89,7 @@ export const OwnerManagersScreen: React.FC<any> = ({ navigation }) => {
         </View>
 
         {/* Property Info */}
-        <View style={[styles.propertySection, { marginTop: spacing.md }]}>
+        <View style={[{ marginTop: spacing.md, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border }]}>
           <View style={styles.propertyRow}>
             <Ionicons name="business-outline" size={16} color={colors.textSecondary} />
             <Text style={[typography.body, { color: colors.text, marginLeft: spacing.sm }]}>
@@ -225,11 +225,6 @@ const styles = StyleSheet.create({
   cardInfo: {
     flex: 1,
     marginLeft: 12,
-  },
-  propertySection: {
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
   },
   propertyRow: {
     flexDirection: 'row',

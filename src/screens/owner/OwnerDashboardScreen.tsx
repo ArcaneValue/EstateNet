@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useOwnerApi } from '../../hooks/useOwnerApi';
+import { useNotifications } from '../../hooks/useNotifications';
 import { Ionicons } from '@expo/vector-icons';
 import { AddPropertyForm } from '../../components/AddPropertyForm';
 import { Button } from '../../components/Button';
@@ -56,10 +57,12 @@ export const OwnerDashboardScreen: React.FC<any> = ({ navigation }) => {
   const { colors, spacing, typography, shadows, isDark, setTheme } = useTheme();
   const { user } = useAuth();
   const { properties, invitations, managers, activities, createProperty, createInvitation } = useOwnerApi();
+  const { notifications, unreadCount, loading: notificationsLoading, markAsRead, markAllAsRead, refetch: refetchNotifications } = useNotifications();
 
   // Modal states
   const [showAddPropertyModal, setShowAddPropertyModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState('');
   const [managerEmail, setManagerEmail] = useState('');
   const [sending, setSending] = useState(false);
@@ -96,9 +99,30 @@ export const OwnerDashboardScreen: React.FC<any> = ({ navigation }) => {
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={[styles.iconButton, { backgroundColor: colors.surface }]}
-            onPress={() => navigation.navigate('Messages')}
+            onPress={() => {
+              setShowNotificationsModal(true);
+              refetchNotifications();
+            }}
           >
-            <Ionicons name="mail-outline" size={22} color={colors.text} />
+            <Ionicons name="notifications-outline" size={22} color={colors.text} />
+            {unreadCount > 0 && (
+              <View style={{
+                position: 'absolute',
+                top: -2,
+                right: -2,
+                backgroundColor: colors.error,
+                borderRadius: 10,
+                minWidth: 18,
+                height: 18,
+                justifyContent: 'center',
+                alignItems: 'center',
+                paddingHorizontal: 4,
+              }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: 'bold' }}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.iconButton, { backgroundColor: colors.surface, marginLeft: spacing.sm }]}
@@ -120,21 +144,21 @@ export const OwnerDashboardScreen: React.FC<any> = ({ navigation }) => {
             value={properties.length}
             icon="home"
             color="#4F46E5"
-            onPress={() => navigation.navigate('OwnerProperties')}
+            onPress={() => navigation.navigate('Properties')}
           />
           <StatCard
             title="Managers"
             value={managers.length}
             icon="people"
             color="#059669"
-            onPress={() => navigation.navigate('OwnerManagers')}
+            onPress={() => navigation.navigate('Managers')}
           />
           <StatCard
             title="Pending"
             value={pendingInvitations.length}
             icon="mail-unread"
             color="#DC2626"
-            onPress={() => navigation.navigate('OwnerInvitations', { filter: 'pending' })}
+            onPress={() => navigation.navigate('Invitations', { filter: 'pending' })}
           />
         </View>
 
@@ -375,6 +399,81 @@ export const OwnerDashboardScreen: React.FC<any> = ({ navigation }) => {
                 style={{ flex: 1 }}
               />
             </View>
+          </View>
+        </View>
+      </RNModal>
+
+      {/* Notifications Modal */}
+      <RNModal
+        visible={showNotificationsModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowNotificationsModal(false)}
+      >
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface, margin: spacing.lg, padding: spacing.lg, borderRadius: 12, maxHeight: '80%' }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
+              <Text style={[typography.h3, { color: colors.text }]}>
+                Notifications {unreadCount > 0 && `(${unreadCount})`}
+              </Text>
+              {notifications.length > 0 && (
+                <TouchableOpacity onPress={markAllAsRead}>
+                  <Text style={[typography.bodySmall, { color: colors.primary }]}>Mark all read</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {notificationsLoading ? (
+              <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+                <Text style={[typography.body, { color: colors.textSecondary }]}>Loading...</Text>
+              </View>
+            ) : notifications.length === 0 ? (
+              <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+                <Ionicons name="notifications-off-outline" size={48} color={colors.textSecondary} />
+                <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.md }]}>
+                  No notifications yet
+                </Text>
+              </View>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {notifications.map((notification) => (
+                  <TouchableOpacity
+                    key={notification.id}
+                    onPress={() => markAsRead(notification.id)}
+                    style={{
+                      padding: spacing.md,
+                      borderRadius: 8,
+                      backgroundColor: notification.readAt ? colors.background : colors.primary + '10',
+                      marginBottom: spacing.sm,
+                      borderLeftWidth: 3,
+                      borderLeftColor: notification.readAt ? colors.border : colors.primary,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <Text style={[typography.body, { color: colors.text, fontWeight: notification.readAt ? 'normal' : '600', flex: 1 }]}>
+                        {notification.title}
+                      </Text>
+                      {!notification.readAt && (
+                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary, marginLeft: spacing.sm }} />
+                      )}
+                    </View>
+                    <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.xs }]}>
+                      {notification.body}
+                    </Text>
+                    <Text style={[typography.bodySmall, { color: colors.textTertiary || colors.textSecondary, marginTop: spacing.xs, fontSize: 11 }]}>
+                      {new Date(notification.createdAt).toLocaleDateString()} {new Date(notification.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+
+            <Button
+              title="Close"
+              onPress={() => setShowNotificationsModal(false)}
+              variant="secondary"
+              style={{ marginTop: spacing.md }}
+            />
           </View>
         </View>
       </RNModal>

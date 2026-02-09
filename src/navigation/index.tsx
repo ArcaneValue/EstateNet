@@ -39,7 +39,7 @@ import {
 import { ManageAccessScreen } from '../screens/manager/ManageAccessScreen';
 import { ApprovalsScreen } from '../screens/manager/ApprovalsScreen';
 import { OwnerFinancialScreen } from '../screens/manager/OwnerFinancialScreen';
-import { OwnerSettingsScreen as LegacyOwnerSettingsScreen } from '../screens/manager/OwnerSettingsScreen';
+import { OwnerSettingsScreen as LegacyOwnerSettingsScreen } from '../screens/owner/OwnerSettingsScreen';
 import { OwnerOutstandingScreen } from '../screens/manager/OwnerOutstandingScreen';
 import { OwnerRegistryScreen } from '../screens/manager/OwnerRegistryScreen';
 

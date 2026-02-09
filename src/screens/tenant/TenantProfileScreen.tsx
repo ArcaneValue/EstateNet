@@ -39,8 +39,8 @@ export const TenantProfileScreen: React.FC<TenantProfileScreenProps> = ({ naviga
     const [notifyMessages, setNotifyMessages] = useState<boolean>(
         typeof initialPrefs.messages === 'boolean' ? initialPrefs.messages : true,
     );
-    const [notifyReminders, setNotifyReminders] = useState<boolean>(
-        typeof initialPrefs.reminders === 'boolean' ? initialPrefs.reminders : true,
+    const [notifyInvitations, setNotifyInvitations] = useState<boolean>(
+        typeof initialPrefs.invitations === 'boolean' ? initialPrefs.invitations : true,
     );
 
     // Mock property data - will come from context
@@ -429,7 +429,7 @@ export const TenantProfileScreen: React.FC<TenantProfileScreenProps> = ({ naviga
                         const prefs = {
                             payments: notifyPayments,
                             messages: notifyMessages,
-                            reminders: notifyReminders,
+                            invitations: notifyInvitations,
                         };
                         const { status, json } = await apiPatch('/users/me', { notificationPrefs: prefs });
                         const response: any = json;
@@ -467,8 +467,8 @@ export const TenantProfileScreen: React.FC<TenantProfileScreenProps> = ({ naviga
                     <NotificationToggle
                         label="Reminders"
                         description="Get payment reminders"
-                        value={notifyReminders}
-                        onToggle={setNotifyReminders}
+                        value={notifyInvitations}
+                        onToggle={setNotifyInvitations}
                         colors={colors}
                         spacing={spacing}
                         typography={typography}

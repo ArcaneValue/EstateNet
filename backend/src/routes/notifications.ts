@@ -8,7 +8,7 @@ const router = Router();
 router.get(
   '/',
   authenticateToken,
-  requireRole(['TENANT', 'MANAGER']),
+  requireRole(['OWNER', 'TENANT', 'MANAGER']),
   getNotifications
 );
 
@@ -16,7 +16,7 @@ router.get(
 router.post(
   '/:id/read',
   authenticateToken,
-  requireRole(['TENANT', 'MANAGER']),
+  requireRole(['OWNER', 'TENANT', 'MANAGER']),
   markNotificationRead
 );
 

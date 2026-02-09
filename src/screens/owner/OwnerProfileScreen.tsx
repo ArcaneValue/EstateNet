@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useOwnerApi } from '../../hooks/useOwnerApi';
+import { apiPatch } from '../../utils/apiClient';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { Modal } from '../../components/Modal';
@@ -26,7 +27,7 @@ interface OwnerProfileScreenProps {
 
 export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigation }) => {
   const { colors, spacing, typography, borderRadius, isDark, setTheme } = useTheme();
-  const { user, signOut } = useAuth();
+  const { user, signOut, refreshMe } = useAuth();
   const { properties, managers, invitations } = useOwnerApi();
 
   const [showSettings, setShowSettings] = useState(false);
@@ -34,7 +35,7 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAppearance, setShowAppearance] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [profileImage, setProfileImage] = useState<string | null>(user?.profileImage || null);
 
   // Settings state
   const [name, setName] = useState(user?.name || '');
@@ -43,6 +44,15 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
   const [notifyPayments, setNotifyPayments] = useState(true);
   const [notifyMessages, setNotifyMessages] = useState(true);
   const [notifyInvitations, setNotifyInvitations] = useState(true);
+  const [savingNotifications, setSavingNotifications] = useState(false);
+
+  // Sync notification state with user data when it changes
+  useEffect(() => {
+    const prefs = (user as any)?.notificationPrefs || {};
+    setNotifyPayments(prefs.payments ?? true);
+    setNotifyMessages(prefs.messages ?? true);
+    setNotifyInvitations(prefs.invitations ?? true);
+  }, [user]);
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -59,7 +69,13 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
     });
 
     if (!result.canceled && result.assets[0]) {
-      setProfileImage(result.assets[0].uri);
+      const imageUri = result.assets[0].uri;
+      setProfileImage(imageUri);
+      // Also update on backend
+      const updateResult = await apiPatch('/users/me', { profileImageUrl: imageUri });
+      if (updateResult.json?.success) {
+        await refreshMe();
+      }
     }
   };
 
@@ -70,14 +86,68 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
     { label: 'Pending Invites', value: invitations.filter((i: any) => i.status === 'PENDING').length.toString() },
   ];
 
-  const handleSaveProfile = () => {
-    Alert.alert('Success', 'Profile updated successfully');
-    setShowAccountInfo(false);
+  const handleSaveProfile = async () => {
+    const result = await apiPatch('/users/me', {
+      name,
+      phoneNumber: phone,
+      // Note: email changes may require verification; skipping for safety
+    });
+    if (result.json?.success) {
+      await refreshMe();
+      Alert.alert('Success', 'Profile updated successfully');
+      setShowAccountInfo(false);
+    } else {
+      Alert.alert('Error', result.json?.message || 'Failed to update profile');
+    }
   };
 
-  const handleSaveNotifications = () => {
-    Alert.alert('Success', 'Notification preferences updated');
-    setShowNotifications(false);
+  const handleSaveNotifications = async () => {
+    console.log('🔴 STARTING handleSaveNotifications');
+    try {
+      console.log('🟡 About to call apiPatch with data:', {
+        notificationPrefs: {
+          payments: notifyPayments,
+          messages: notifyMessages,
+          invitations: notifyInvitations,
+        }
+      });
+
+      const result = await apiPatch('/users/me', {
+        notificationPrefs: {
+          payments: notifyPayments,
+          messages: notifyMessages,
+          invitations: notifyInvitations,
+        },
+      });
+
+      console.log('🟢 apiPatch result:', JSON.stringify(result, null, 2));
+
+      if (!result) {
+        throw new Error('API returned null/undefined');
+      }
+
+      if (result.status !== 200) {
+        throw new Error(`HTTP ${result.status}: ${JSON.stringify(result.json)}`);
+      }
+
+      if (!result.json?.success) {
+        throw new Error(result.json?.message || 'Backend returned success: false');
+      }
+
+      console.log('✅ Backend saved successfully:', result.json.data.user.notificationPrefs);
+
+      await refreshMe();
+
+      console.log('✅ refreshMe completed');
+
+      // Show success modal
+      Alert.alert('All Changes Saved', 'Notification preferences updated successfully');
+      setShowNotifications(false);
+    } catch (err) {
+      console.error('❌ handleSaveNotifications ERROR:', err);
+      Alert.alert('Save Failed', err instanceof Error ? err.message : 'Unknown error occurred');
+      throw err;
+    }
   };
 
   const handleSignOut = () => {
@@ -268,7 +338,7 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
               <View style={{ flex: 1 }}>
                 <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Member Since</Text>
                 <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>
-                  January 2024
+                  {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'N/A'}
                 </Text>
               </View>
             </View>
@@ -417,6 +487,25 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
             colors={colors}
             spacing={spacing}
             typography={typography}
+          />
+          <Button
+            title={savingNotifications ? 'Saving...' : 'Save Changes'}
+            onPress={async () => {
+              try {
+                console.log('BUTTON PRESSED');
+                setSavingNotifications(true);
+                await handleSaveNotifications();
+              } catch (err) {
+                console.error('Save error:', err);
+                Alert.alert('Error', err instanceof Error ? err.message : 'Save failed');
+              } finally {
+                setSavingNotifications(false);
+              }
+            }}
+            variant="primary"
+            size="large"
+            style={{ marginTop: spacing.lg }}
+            loading={savingNotifications}
           />
         </View>
       </Modal>

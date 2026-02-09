@@ -21,14 +21,14 @@ interface User {
     email: string;
     role: UserRole;
     phoneNumber?: string;
-    tenantId?: string; // Auto-generated unique ID for tenants
+    tenantId?: string;
     profileImage?: string;
+    createdAt?: string;
     // Optional notification preferences persisted on backend
     notificationPrefs?: {
         payments?: boolean;
         messages?: boolean;
-        reminders?: boolean;
-        [key: string]: any;
+        invitations?: boolean;
     };
 }
 
@@ -204,7 +204,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 return;
             }
 
-            const response = await fetch(createApiUrl('/auth/me'), {
+            const response = await fetch(createApiUrl('/users/me'), {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',

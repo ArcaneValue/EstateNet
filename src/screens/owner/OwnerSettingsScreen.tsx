@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { apiPatch } from '../../utils/apiClient';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { Modal } from '../../components/Modal';
@@ -15,7 +16,7 @@ interface OwnerSettingsScreenProps {
 
 export const OwnerSettingsScreen: React.FC<OwnerSettingsScreenProps> = ({ navigation }) => {
     const { colors, spacing, typography, borderRadius } = useTheme();
-    const { user, signOut } = useAuth();
+    const { user, signOut, refreshMe } = useAuth();
 
     const [showEditProfileModal, setShowEditProfileModal] = useState(false);
     const [showNotificationsModal, setShowNotificationsModal] = useState(false);
@@ -36,11 +37,20 @@ export const OwnerSettingsScreen: React.FC<OwnerSettingsScreenProps> = ({ naviga
     const [editPhone, setEditPhone] = useState(user?.phoneNumber || '');
 
     const [notifications, setNotifications] = useState({
-        accessRequests: true,
-        paymentReminders: true,
-        maintenanceAlerts: true,
-        systemUpdates: false,
+        payments: true,
+        messages: true,
+        invitations: true,
     });
+
+    // Sync notification state with user data when it changes
+    useEffect(() => {
+        const prefs = (user as any)?.notificationPrefs || {};
+        setNotifications({
+            payments: prefs.payments ?? true,
+            messages: prefs.messages ?? true,
+            invitations: prefs.invitations ?? true,
+        });
+    }, [user]);
 
     // Preference States
     const [propertyDefaults, setPropertyDefaults] = useState({
@@ -67,16 +77,35 @@ export const OwnerSettingsScreen: React.FC<OwnerSettingsScreenProps> = ({ naviga
     // Support States
     const [supportMessage, setSupportMessage] = useState('');
 
-    const handleSaveProfile = () => {
-        // Mock save functionality
-        Alert.alert('Success', 'Profile updated successfully');
-        setShowEditProfileModal(false);
+    const handleSaveProfile = async () => {
+        const result = await apiPatch('/users/me', {
+            name: editName,
+            phoneNumber: editPhone,
+        });
+        if (result.json?.success) {
+            await refreshMe();
+            Alert.alert('Success', 'Profile updated successfully');
+            setShowEditProfileModal(false);
+        } else {
+            Alert.alert('Error', result.json?.message || 'Failed to update profile');
+        }
     };
 
-    const handleSaveNotifications = () => {
-        // Mock save functionality
-        Alert.alert('Success', 'Notification preferences updated');
-        setShowNotificationsModal(false);
+    const handleSaveNotifications = async () => {
+        const result = await apiPatch('/users/me', {
+            notificationPrefs: {
+                payments: notifications.payments,
+                messages: notifications.messages,
+                invitations: notifications.invitations,
+            },
+        });
+        if (result.json?.success) {
+            await refreshMe();
+            Alert.alert('Success', 'Notification preferences updated');
+            setShowNotificationsModal(false);
+        } else {
+            Alert.alert('Error', result.json?.message || 'Failed to update notification preferences');
+        }
     };
 
     // Preference Handlers
@@ -384,10 +413,9 @@ export const OwnerSettingsScreen: React.FC<OwnerSettingsScreenProps> = ({ naviga
                                     {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
                                 </Text>
                                 <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
-                                    {key === 'accessRequests' && 'Get notified of property access requests'}
-                                    {key === 'paymentReminders' && 'Monthly rent payment reminders'}
-                                    {key === 'maintenanceAlerts' && 'Maintenance and repair notifications'}
-                                    {key === 'systemUpdates' && 'App updates and announcements'}
+                                    {key === 'payments' && 'Get notified about rent payments'}
+                                    {key === 'messages' && 'Receive message notifications'}
+                                    {key === 'invitations' && 'Get notified about manager invitations'}
                                 </Text>
                             </View>
                             <TouchableOpacity
