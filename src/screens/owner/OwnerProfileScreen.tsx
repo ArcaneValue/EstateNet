@@ -401,9 +401,17 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
           <View style={{ marginTop: spacing.xl }}>
             <Button
               title="Sign Out"
-              onPress={() => {
+              onPress={async () => {
+                console.log('[Settings] Sign Out button pressed');
                 setShowSettings(false);
-                handleSignOut();
+                setTimeout(async () => {
+                  try {
+                    await signOut();
+                    console.log('[Settings] signOut completed');
+                  } catch (error) {
+                    console.error('[Settings] signOut error:', error);
+                  }
+                }, 300);
               }}
               variant="outline"
               size="large"

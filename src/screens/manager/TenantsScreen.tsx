@@ -45,8 +45,8 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
     const [showReminderModal, setShowReminderModal] = useState(false);
     const [showInviteModal, setShowInviteModal] = useState(false);
 
-    // Toggle between Tenants and Invitations
-    const [activeTab, setActiveTab] = useState<'tenants' | 'invitations'>('tenants');
+    // Toggle between Tenants, Invitations, and Leases
+    const [activeTab, setActiveTab] = useState<'tenants' | 'invitations' | 'leases'>('tenants');
 
     // Invitations state
     const [invitations, setInvitations] = useState<ManagerInvitation[]>([]);
@@ -54,10 +54,16 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
     const [invitationsError, setInvitationsError] = useState<string | null>(null);
     const [cancellingId, setCancellingId] = useState<string | null>(null);
 
+    // Leases state
+    const [leases, setLeases] = useState<any[]>([]);
+    const [leasesLoading, setLeasesLoading] = useState(false);
+    const [leasesError, setLeasesError] = useState<string | null>(null);
+
     // Load tenants from backend on mount
     useEffect(() => {
         loadManagerTenants();
         loadInvitations();
+        loadLeases();
     }, []);
 
     const loadInvitations = async () => {
@@ -80,6 +86,25 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
             setInvitations([]);
         } finally {
             setInvitationsLoading(false);
+        }
+    };
+
+    const loadLeases = async () => {
+        setLeasesLoading(true);
+        setLeasesError(null);
+        try {
+            const { status, json } = await apiGet('/manager/leases');
+            if (status === 200 && json?.success && Array.isArray(json.data)) {
+                setLeases(json.data);
+            } else {
+                setLeases([]);
+            }
+        } catch (error) {
+            console.error('[Leases] Failed to load:', error);
+            setLeasesError('Failed to load leases');
+            setLeases([]);
+        } finally {
+            setLeasesLoading(false);
         }
     };
 
@@ -269,17 +294,38 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
                             Invitations ({invitations.length})
                         </Text>
                     </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={() => setActiveTab('leases')}
+                        style={{
+                            flex: 1,
+                            paddingVertical: spacing.sm,
+                            alignItems: 'center',
+                            backgroundColor: activeTab === 'leases' ? colors.primary : 'transparent',
+                            borderRadius: 6,
+                        }}
+                    >
+                        <Text
+                            style={[
+                                typography.body,
+                                { color: activeTab === 'leases' ? '#FFFFFF' : colors.textSecondary },
+                            ]}
+                        >
+                            Leases ({leases.length})
+                        </Text>
+                    </TouchableOpacity>
                 </View>
 
-                {/* Invite Tenant Button - visible on both tabs */}
-                <Button
-                    title="Invite Tenant"
-                    onPress={() => setShowInviteModal(true)}
-                    variant="primary"
-                    size="large"
-                    style={{ marginBottom: spacing.lg }}
-                    icon={<Ionicons name="person-add" size={18} color="#FFFFFF" />}
-                />
+                {/* Invite Tenant Button - visible on tenants tab only */}
+                {activeTab === 'tenants' && (
+                    <Button
+                        title="Invite Tenant"
+                        onPress={() => setShowInviteModal(true)}
+                        variant="primary"
+                        size="large"
+                        style={{ marginBottom: spacing.lg }}
+                        icon={<Ionicons name="person-add" size={18} color="#FFFFFF" />}
+                    />
+                )}
 
                 {activeTab === 'tenants' ? (
                     <>
@@ -323,7 +369,7 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
                             ))}
                         </View>
                     </>
-                ) : (
+                ) : activeTab === 'invitations' ? (
                     <InvitationsList
                         invitations={invitations}
                         loading={invitationsLoading}
@@ -335,6 +381,52 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
                         spacing={spacing}
                         typography={typography}
                     />
+                ) : (
+                    /* Leases Tab */
+                    <View style={{ flex: 1 }}>
+                        {leasesLoading ? (
+                            <View style={{ padding: spacing.lg, alignItems: 'center' }}>
+                                <Text style={[typography.body, { color: colors.textSecondary }]}>Loading leases...</Text>
+                            </View>
+                        ) : leasesError ? (
+                            <View style={{ padding: spacing.lg, alignItems: 'center' }}>
+                                <Text style={[typography.body, { color: colors.error }]}>{leasesError}</Text>
+                                <Button
+                                    title="Retry"
+                                    onPress={loadLeases}
+                                    variant="outline"
+                                    size="small"
+                                    style={{ marginTop: spacing.md }}
+                                />
+                            </View>
+                        ) : leases.length === 0 ? (
+                            <View style={{ padding: spacing.lg, alignItems: 'center' }}>
+                                <Text style={[typography.body, { color: colors.textSecondary }]}>No leases found</Text>
+                            </View>
+                        ) : (
+                            leases.map((lease, index) => (
+                                <View
+                                    key={lease.id || index}
+                                    style={{
+                                        backgroundColor: colors.surface,
+                                        padding: spacing.base,
+                                        borderRadius: 12,
+                                        marginBottom: spacing.sm,
+                                    }}
+                                >
+                                    <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>
+                                        {lease.property?.name || 'Unknown Property'}
+                                    </Text>
+                                    <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 4 }]}>
+                                        Unit: {lease.unit?.unitNumber || 'N/A'} • Rent: UGX {lease.rentAmount?.toLocaleString() || 'N/A'}
+                                    </Text>
+                                    <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 2 }]}>
+                                        Status: {lease.status || 'Unknown'} • Tenant: {lease.tenantIdentity?.name || 'N/A'}
+                                    </Text>
+                                </View>
+                            ))
+                        )}
+                    </View>
                 )}
             </ScrollView>
 
