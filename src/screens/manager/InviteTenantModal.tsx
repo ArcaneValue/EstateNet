@@ -20,12 +20,10 @@ export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, o
 
     // Defensive checks for theme properties
     if (!colors || !spacing || !typography) {
-        console.error('Theme properties not available');
         return null;
     }
 
     if (!properties || !Array.isArray(properties)) {
-        console.error('Properties not available');
         return null;
     }
 
@@ -41,73 +39,54 @@ export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, o
     const selectedProperty = properties.find(p => p.id === selectedPropertyId);
     const vacantUnits = selectedProperty?.units.filter(u => !u.isOccupied) || [];
 
-    // Debug logging for properties and units
-    console.log('🏠 Properties available:', properties.length);
-    console.log('🏠 Selected property ID:', selectedPropertyId);
-    console.log('🏠 Selected property:', selectedProperty);
-    console.log('🏠 Selected property units:', selectedProperty?.units);
-    console.log('🏠 Vacant units found:', vacantUnits.length);
-    console.log('🏠 Vacant units:', vacantUnits);
-
     // Lookup tenant when ID changes
     const handleTenantIdChange = async (text: string) => {
-        const upperText = text.toUpperCase();
+        const trimmedText = text.trim();
+        const upperText = trimmedText.toUpperCase();
         setTenantIdInput(upperText);
         setError('');
         setTenantData(null);
 
-        // Client-side validation for TN- format
-        if (upperText.length >= 3 && !upperText.startsWith('TN-')) {
-            setError('Tenant ID must start with "TN-"');
+        // Clear previous tenant data if input is empty
+        if (!upperText) {
+            setError('Tenant ID is required');
             return;
         }
 
-        // Tenant IDs are exactly 11 characters (TN- + 8 chars)
-        if (upperText.length === 11) {
-            setTenantLookupLoading(true);
-            try {
-                console.log('🔍 Looking up tenant ID:', upperText);
-                const { status, json } = await apiGet(`/identities/${upperText}`);
-                console.log('📡 API Response:', { status, json });
+        // Strict pattern validation: TN- followed by 8 alphanumeric characters
+        const tenantIdPattern = /^TN-[A-Z0-9]{8}$/;
+        if (!tenantIdPattern.test(upperText)) {
+            setError('Invalid Tenant ID format. Example: TN-0V6EMV1V');
+            return;
+        }
 
-                if (status === 200 && json?.success && json.data?.identity) {
-                    console.log('✅ Tenant found, setting tenantData:', json.data.identity);
-                    setTenantData({
-                        name: json.data.identity.name,
-                        email: json.data.identity.email
-                    });
-                } else {
-                    console.log('❌ Tenant lookup failed:', { status, success: json?.success, data: json?.data });
-                    setError('Tenant ID not found. Ask the tenant to register and send you their Tenant ID from Profile.');
-                }
-            } catch (err) {
-                console.log('🚨 Tenant lookup error:', err);
-                setError('Failed to lookup tenant');
-            } finally {
-                setTenantLookupLoading(false);
+        // Lookup tenant
+        setTenantLookupLoading(true);
+        try {
+            const { status, json } = await apiGet(`/identities/${upperText}`);
+
+            if (status === 200 && json?.success && json.data?.identity) {
+                setTenantData({
+                    name: json.data.identity.name,
+                    email: json.data.identity.email
+                });
+            } else {
+                setError('Tenant ID not found. Ask the tenant to register and send their Tenant ID from Profile.');
             }
+        } catch (err) {
+            setError('Failed to lookup tenant');
+        } finally {
+            setTenantLookupLoading(false);
         }
     };
 
     const handleInvite = async () => {
-        console.log('🎯 handleInvite called');
-        console.log('📋 Current state:', {
-            tenantIdInput,
-            selectedPropertyId,
-            selectedUnitId,
-            rentAmount,
-            isLoading,
-            tenantData
-        });
-
         if (!selectedPropertyId || !tenantIdInput || !selectedUnitId || !rentAmount) {
-            console.log('❌ Missing required fields');
             setError('All fields are required');
             return;
         }
 
         if (!tenantData) {
-            console.log('❌ No tenant data - lookup failed');
             setError('Please enter a valid Tenant ID');
             return;
         }
@@ -124,13 +103,6 @@ export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, o
         setError('');
 
         try {
-            console.log('📤 Sending invitation with data:', {
-                tenantId: tenantIdInput,
-                propertyId: selectedPropertyId,
-                unitId: selectedUnitId,
-                rentAmount: parseFloat(rentAmount)
-            });
-
             const { status, json } = await apiPost('/tenants/invite', {
                 tenantId: tenantIdInput,
                 propertyId: selectedPropertyId,
@@ -138,10 +110,7 @@ export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, o
                 rentAmount: parseFloat(rentAmount)
             });
 
-            console.log('📡 Invitation API Response:', { status, json });
-
             if (status === 200 || status === 201) {
-                console.log('✅ Invitation sent successfully!');
                 setSuccess(true);
                 setTimeout(() => {
                     onClose();
@@ -154,8 +123,12 @@ export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, o
                     onSuccess?.();
                 }, 2000);
             } else {
-                console.log('❌ Invitation failed:', json);
-                setError(json?.message || 'Failed to send invitation');
+                // Handle specific tenant-not-found errors with actionable message
+                if (json?.message?.toLowerCase().includes('tenant') && json?.message?.toLowerCase().includes('not found')) {
+                    setError('Tenant ID not found. Ask the tenant to register and send their Tenant ID from Profile.');
+                } else {
+                    setError(json?.message || 'Failed to send invitation');
+                }
             }
         } catch (err) {
             setError('Network error. Please try again.');
@@ -173,14 +146,17 @@ export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, o
                     </Text>
 
                     <Input
-                        label="Tenant ID (format TN-XXXXXXXX). Tenant must be registered first."
-                        placeholder="Enter 11-character Tenant ID (e.g., TN-ABCD1234)"
+                        label="Tenant ID (starts with TN-)"
+                        placeholder="Enter Tenant ID (e.g., TN-0V6EMV1V)"
                         value={tenantIdInput}
                         onChangeText={handleTenantIdChange}
                         maxLength={11}
                         icon={<Ionicons name="card-outline" size={20} color={colors.textSecondary} />}
                         rightIcon={tenantLookupLoading ? <ActivityIndicator size="small" color={colors.primary} /> : undefined}
                     />
+                    <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.xs }]}>
+                        Tenant must be registered first. Ask them to copy it from Profile.
+                    </Text>
 
                     {tenantData && (
                         <View style={[styles.tenantFound, { backgroundColor: colors.successLight, padding: spacing.md, borderRadius: 8, marginTop: spacing.sm }]}>
@@ -261,24 +237,12 @@ export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, o
 
                     <Button
                         title={isLoading ? 'Sending...' : 'Send Invitation'}
-                        onPress={() => {
-                            console.log('🔘 Button clicked!');
-                            console.log('🔘 Button disabled state:', !tenantIdInput || !selectedPropertyId || !selectedUnitId || !rentAmount || isLoading || !tenantData);
-                            console.log('📋 Field status:', {
-                                tenantIdInput: !!tenantIdInput,
-                                selectedPropertyId: !!selectedPropertyId,
-                                selectedUnitId: !!selectedUnitId,
-                                rentAmount: !!rentAmount,
-                                isLoading: !!isLoading,
-                                tenantData: !!tenantData
-                            });
-                            handleInvite();
-                        }}
+                        onPress={handleInvite}
                         variant="primary"
                         size="large"
                         style={{ marginTop: spacing.lg }}
-                        disabled={!tenantIdInput || !selectedPropertyId || !selectedUnitId || !rentAmount || isLoading || !tenantData}
-                        loading={isLoading}
+                        disabled={!tenantIdInput || !selectedPropertyId || !selectedUnitId || !rentAmount || isLoading || !tenantData || tenantLookupLoading}
+                        loading={isLoading || tenantLookupLoading}
                     />
                 </>
             ) : (

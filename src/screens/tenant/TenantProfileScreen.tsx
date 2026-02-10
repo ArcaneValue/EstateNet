@@ -394,8 +394,11 @@ export const TenantProfileScreen: React.FC<TenantProfileScreenProps> = ({ naviga
                     {/* Tenant ID Display */}
                     {user?.tenantId && (
                         <View style={{ marginBottom: spacing.md }}>
-                            <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.xs }]}>
-                                Tenant ID (for property managers)
+                            <Text style={[typography.h4, { color: colors.text, marginBottom: spacing.xs }]}>
+                                Tenant ID
+                            </Text>
+                            <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.sm }]}>
+                                Share this ID with your manager so they can invite you.
                             </Text>
                             <View
                                 style={{
@@ -418,7 +421,7 @@ export const TenantProfileScreen: React.FC<TenantProfileScreenProps> = ({ naviga
                                             // Use React Native Clipboard API
                                             if (user.tenantId) {
                                                 await Clipboard.setString(user.tenantId);
-                                                Alert.alert('Copied!', 'Tenant ID copied to clipboard');
+                                                Alert.alert('Success', 'Copied Tenant ID to clipboard');
                                             }
                                         } catch (error) {
                                             // Fallback: show the ID in an alert
@@ -436,9 +439,26 @@ export const TenantProfileScreen: React.FC<TenantProfileScreenProps> = ({ naviga
                                     <Ionicons name="copy-outline" size={16} color={colors.primary} />
                                 </TouchableOpacity>
                             </View>
-                            <Text style={[typography.caption, { color: colors.textSecondary, marginTop: spacing.xs }]}>
-                                Share this ID with property managers to receive invitations
+                        </View>
+                    )}
+
+                    {/* Fallback message for missing Tenant ID */}
+                    {user?.role === 'TENANT' && !user?.tenantId && (
+                        <View style={{ marginBottom: spacing.md }}>
+                            <Text style={[typography.h4, { color: colors.text, marginBottom: spacing.xs }]}>
+                                Tenant ID
                             </Text>
+                            <View style={{
+                                backgroundColor: colors.warning + '20',
+                                borderWidth: 1,
+                                borderColor: colors.warning,
+                                borderRadius: borderRadius.md,
+                                padding: spacing.md,
+                            }}>
+                                <Text style={[typography.body, { color: colors.warning }]}>
+                                    Tenant ID not available yet. Please sign out and sign in again.
+                                </Text>
+                            </View>
                         </View>
                     )}
 
