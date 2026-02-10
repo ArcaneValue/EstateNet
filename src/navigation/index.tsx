@@ -49,6 +49,7 @@ import { TenantHomeScreen } from '../screens/tenant/TenantHomeScreen';
 import { PaymentsScreen } from '../screens/tenant/PaymentsScreen';
 import { MessagesScreen } from '../screens/tenant/MessagesScreen';
 import { TenantProfileScreen } from '../screens/tenant/TenantProfileScreen';
+import { TenantInvitationsScreen } from '../screens/tenant/TenantInvitationsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -239,6 +240,13 @@ const TenantTabs = () => {
                 component={TenantHomeScreen}
                 options={{
                     tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
+                }}
+            />
+            <Tab.Screen
+                name="Invitations"
+                component={TenantInvitationsScreen}
+                options={{
+                    tabBarIcon: ({ color, size }) => <Ionicons name="mail" size={size} color={color} />,
                 }}
             />
             <Tab.Screen

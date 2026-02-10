@@ -75,6 +75,7 @@ export const getCurrentUser = async (req: AuthenticatedRequest, res: Response): 
         profileImage: true,
         notificationPrefs: true,
         createdAt: true,
+        tenantId: true,
       },
     });
 

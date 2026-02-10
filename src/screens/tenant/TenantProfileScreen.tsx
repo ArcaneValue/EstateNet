@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, Alert, Switch } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, Alert, Switch, Clipboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -390,6 +390,58 @@ export const TenantProfileScreen: React.FC<TenantProfileScreenProps> = ({ naviga
                         keyboardType="phone-pad"
                         icon={<Ionicons name="call-outline" size={20} color={colors.textSecondary} />}
                     />
+
+                    {/* Tenant ID Display */}
+                    {user?.tenantId && (
+                        <View style={{ marginBottom: spacing.md }}>
+                            <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.xs }]}>
+                                Tenant ID (for property managers)
+                            </Text>
+                            <View
+                                style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    backgroundColor: colors.surface,
+                                    borderWidth: 1,
+                                    borderColor: colors.border,
+                                    borderRadius: borderRadius.md,
+                                    paddingHorizontal: spacing.md,
+                                    paddingVertical: spacing.sm,
+                                }}
+                            >
+                                <Text style={[typography.body, { color: colors.text, flex: 1 }]}>
+                                    {user.tenantId}
+                                </Text>
+                                <TouchableOpacity
+                                    onPress={async () => {
+                                        try {
+                                            // Use React Native Clipboard API
+                                            if (user.tenantId) {
+                                                await Clipboard.setString(user.tenantId);
+                                                Alert.alert('Copied!', 'Tenant ID copied to clipboard');
+                                            }
+                                        } catch (error) {
+                                            // Fallback: show the ID in an alert
+                                            Alert.alert('Tenant ID', user.tenantId || 'Not available', [
+                                                { text: 'OK', style: 'default' }
+                                            ]);
+                                        }
+                                    }}
+                                    style={{
+                                        padding: spacing.xs,
+                                        backgroundColor: colors.primary + '20',
+                                        borderRadius: borderRadius.sm,
+                                    }}
+                                >
+                                    <Ionicons name="copy-outline" size={16} color={colors.primary} />
+                                </TouchableOpacity>
+                            </View>
+                            <Text style={[typography.caption, { color: colors.textSecondary, marginTop: spacing.xs }]}>
+                                Share this ID with property managers to receive invitations
+                            </Text>
+                        </View>
+                    )}
+
                     <Button
                         title="Save Changes"
                         onPress={async () => {

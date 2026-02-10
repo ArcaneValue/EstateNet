@@ -47,6 +47,48 @@ router.post(
     }
 );
 
+// Manager: lookup tenant by ID
+router.get(
+    '/:tenantId',
+    authenticateToken,
+    requireRole(['MANAGER']),
+    async (req: AuthenticatedRequest, res: Response) => {
+        try {
+            const { tenantId } = req.params;
+
+            if (!tenantId) {
+                res.status(400).json({ success: false, message: 'Tenant ID required' });
+                return;
+            }
+
+            const identity = await prisma.tenantIdentity.findUnique({
+                where: { tenantId: tenantId },
+                select: {
+                    tenantId: true,
+                    name: true,
+                    email: true,
+                    createdAt: true
+                }
+            });
+
+            if (!identity) {
+                res.status(404).json({ success: false, message: 'Tenant ID not found' });
+                return;
+            }
+
+            res.status(200).json({
+                success: true,
+                data: {
+                    identity: identity
+                }
+            });
+        } catch (error) {
+            console.error('Tenant lookup error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+);
+
 // Manager routes: protected but not implemented yet
 router.get('/search/:query', authenticateToken, requireRole(['MANAGER']), (_req, res) => {
     res.status(403).json({ success: false, message: 'Not implemented' });
