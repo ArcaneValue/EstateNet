@@ -1,0 +1,101 @@
+﻿=== Production-Safe Billing Scheduler Backfill E2E ===
+Backend URL: http://localhost:3001
+
+1. Backend Health Check
+[PASS] Backend reachable
+    Status: 200
+
+2. Database Connectivity
+[PASS] Database reachable
+    PostgreSQL version retrieved
+
+3. Create Test Owner
+[PASS] Owner creation
+    Email: test-owner-7180@example.com
+    Owner ID: cmluruvmz000kdemsbsvtmxy1
+
+4. Create Test Manager
+[PASS] Manager creation
+    Email: test-manager-8648@example.com
+    Manager ID: cmluruwt1000mdemsmrzybw4o
+
+5. Accept Manager Terms
+[PASS] Terms acceptance
+    Updated token after terms acceptance
+
+6. Create Test Property
+[PASS] Property creation
+    Property ID: cmluruwzw000odemsvmd1mgkd
+
+7. Create Test Unit
+[PASS] Unit creation
+    Debug: Unit response = {"success":true,"message":"Unit created successfully","data":{"id":"cmlurux41000qdemsbopnsdmr","propertyId":"cmluruwzw000odemsvmd1mgkd","unitNumber":"A57","rentAmount":500000,"createdAt":"2026-02-20T10:53:36.673Z","updatedAt":"2026-02-20T10:53:36.673Z","property":{"id":"cmluruwzw000odemsvmd1mgkd","name":"Test Property 648","location":"Test Address, Kampala","ownerId":"cmluruwt1000mdemsmrzybw4o","managerId":"cmluruwt1000mdemsmrzybw4o","createdAt":"2026-02-20T10:53:36.525Z","updatedAt":"2026-02-20T10:53:36.525Z"}}}
+    Unit ID: cmlurux41000qdemsbopnsdmr
+
+7.5. Create Test Tenant
+    Debug: Tenant JSON = {"email":"test-tenant-8714@example.com","name":"Test Tenant","password":"password123"}
+[PASS] Tenant creation
+    Debug: Full tenant response = {"success":true,"message":"Tenant registered successfully","data":{"user":{"id":"cmluruxsc000tdems2kd2c3ez","email":"test-tenant-8714@example.com","name":"Test Tenant","role":"TENANT","tenantId":"TN-0N9FY8W5"},"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNtbHVydXhzYzAwMHRkZW1zMmtkMmMzZXoiLCJlbWFpbCI6InRlc3QtdGVuYW50LTg3MTRAZXhhbXBsZS5jb20iLCJyb2xlIjoiVEVOQU5UIiwidGVuYW50SWQiOiJUTi0wTjlGWThXNSIsImlhdCI6MTc3MTU4NDgxNywiZXhwIjoxNzcyMTg5NjE3fQ.Y8zlucKKsjNd5bg3ekccvo2OhE3It15nEdkJ8Wt2evE"}}
+    Tenant ID: TN-0N9FY8W5
+
+7.6. Create Active Lease
+    Debug: Lease JSON = {"propertyId":"cmluruwzw000odemsvmd1mgkd","startDate":"2026-01-20","rentAmount":500000,"unitId":"cmlurux41000qdemsbopnsdmr","tenantId":"TN-0N9FY8W5","status":"ACTIVE"}
+[FAIL] Lease creation
+    Debug: Lease response = {"success":false,"message":"Internal server error"}
+
+8. Create Historical Invoice Gap
+[PASS] Historical gap created
+
+4. Create Test Manager
+[PASS] Manager creation
+    Email: test-manager-8021@example.com
+    Manager ID: cmlurv0a9000vdemsssg3h38a
+
+5. Accept Manager Terms
+[PASS] Terms acceptance
+    Updated token after terms acceptance
+
+6. Create Test Property
+[PASS] Property creation
+    Property ID: cmlurv0hw000xdemslpdhkbgf
+
+7. Create Test Unit
+[PASS] Unit creation
+    Unit ID: cmlurv0lp000zdemso3x15xz9
+
+8. Create Historical Invoice Gap
+[PASS] Historical gap created
+
+9. Run Scheduler Backfill
+[PASS] Scheduler backfill executed
+    Invoices created: 
+
+10. Verify Backfill Invoices
+[FAIL] Backfill invoices exist
+    Count: 0
+
+11. Verify No Duplicates
+[PASS] No duplicate invoices
+    Duplicate count: 0
+
+12. Verify Unique Constraint
+[PASS] Unique constraint exists
+    Constraint count: 1
+
+13. Test Enforcement with Overdue
+UPDATE 0
+[FAIL] 402 enforcement triggered
+    Status: 500
+
+14. Test Enforcement After Clear
+UPDATE 1
+[FAIL] Enforcement cleared
+    Status: 
+
+15. Cleanup Test Data
+DELETE 0
+    Test data cleaned up
+
+=== E2E VERIFICATION SUMMARY ===
+Tests Passed: 11/15
+â?O Some tests failed. Please review the output above.

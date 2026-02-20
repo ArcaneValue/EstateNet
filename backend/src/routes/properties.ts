@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { createProperty, getAllProperties, getPropertyById, updateProperty, deleteProperty, createUnit, updateUnit, deleteUnit } from '../controllers/propertyController';
 import { authenticateToken } from '../middlewares/auth';
 import { requireRole } from '../middlewares/requireRole';
+import { requireManagerTermsAccepted, requireCurrentBilling } from '../middlewares/billingEnforcement';
 
 const router = Router();
 
@@ -9,6 +10,8 @@ const router = Router();
 router.post('/',
   authenticateToken,
   requireRole('OWNER', 'MANAGER'),
+  requireManagerTermsAccepted,
+  requireCurrentBilling,
   createProperty
 );
 
@@ -44,6 +47,8 @@ router.delete('/:id',
 router.post('/:id/units',
   authenticateToken,
   requireRole('OWNER', 'MANAGER'),
+  requireManagerTermsAccepted,
+  requireCurrentBilling,
   createUnit
 );
 

@@ -1,15 +1,38 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, FlatList, TextInput } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, FlatList, Alert, Modal } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { usePayments } from '../../context/PaymentContext';
-import { useLease } from '../../context/LeaseContext';
-import { Card } from '../../components/Card';
+import { apiGet, apiPost } from '../../utils/apiClient';
+import { Input } from '../../components/Input';
 import { Button } from '../../components/Button';
+import { Card } from '../../components/Card';
 import { Ionicons } from '@expo/vector-icons';
-import { MakePaymentModal } from './MakePaymentModal';
-import { PaymentHistoryModal } from './PaymentHistoryModal';
+
+interface Lease {
+    id: string;
+    property: {
+        name: string;
+    };
+    unit: {
+        unitNumber: string;
+    };
+}
+
+interface Payment {
+    id: string;
+    amount: number;
+    paymentDate: string;
+    dueDate: string;
+    status: string;
+    paymentMethod?: string;
+    transactionId?: string;
+    property: {
+        name: string;
+    };
+    unit: {
+        unitNumber: string;
+    };
+}
 
 interface PaymentsScreenProps {
     navigation: any;
@@ -18,389 +41,392 @@ interface PaymentsScreenProps {
 export const PaymentsScreen: React.FC<PaymentsScreenProps> = ({ navigation }) => {
     const { colors, spacing, typography, borderRadius } = useTheme();
     const { user } = useAuth();
-    const { payments, paymentsLoading, paymentsError, rentStatus, rentStatusLoading, rentStatusError } = usePayments();
-    const { activeLease, leaseLoading } = useLease();
 
-    const [showMakePaymentModal, setShowMakePaymentModal] = useState(false);
-    const [showHistoryModal, setShowHistoryModal] = useState(false);
+    // State
+    const [payments, setPayments] = useState<Payment[]>([]);
+    const [leases, setLeases] = useState<Lease[]>([]);
+    const [selectedLeaseId, setSelectedLeaseId] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [initiatingPayment, setInitiatingPayment] = useState(false);
 
-    const hasMonthlyRent = typeof activeLease?.rentAmount === 'number';
-    const monthlyRent = hasMonthlyRent ? (activeLease.rentAmount as number) : 0;
+    // Modal states
+    const [showLeaseModal, setShowLeaseModal] = useState(false);
+    const [showPayNow, setShowPayNow] = useState(false);
+    const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
+    const [payNowAmount, setPayNowAmount] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState('MOBILE_MONEY_MTN');
 
-    const allTenantPayments = user?.tenantId
-        ? payments.filter(p => p.tenantId === user.tenantId)
-        : [];
+    // Payment methods
+    const paymentMethods = [
+        { value: 'MOBILE_MONEY_MTN', label: 'Mobile Money (MTN)' },
+        { value: 'MOBILE_MONEY_AIRTEL', label: 'Mobile Money (Airtel)' },
+        { value: 'CASH', label: 'Cash' }
+    ];
 
-    const sortedTenantPayments = [...allTenantPayments].sort(
-        (a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
+    // Format number with commas
+    const formatNumber = (num: string | number) => {
+        const number = typeof num === 'string' ? parseFloat(num.replace(/,/g, '')) : num;
+        return isNaN(number) ? '' : number.toLocaleString();
+    };
+
+    useEffect(() => {
+        loadData();
+    }, []);
+
+    const loadData = async () => {
+        setLoading(true);
+        setError(null);
+
+        try {
+            // Load payments
+            const { status: paymentStatus, json: paymentJson } = await apiGet('/payments');
+            if (paymentStatus === 200 && paymentJson?.success) {
+                setPayments(paymentJson.data || []);
+            }
+
+            // Load active lease
+            const { status: leaseStatus, json: leaseJson } = await apiGet('/tenant/me/active-lease');
+            if (leaseStatus === 200 && leaseJson?.success && leaseJson.data) {
+                const activeLease = leaseJson.data;
+                setLeases([activeLease]);
+                setSelectedLeaseId(activeLease.id);
+            }
+        } catch (err) {
+            console.error('Load data error:', err);
+            setError('Failed to load data');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleRecordPayment = async () => {
+        if (!payNowAmount) {
+            setError('Please enter an amount');
+            return;
+        }
+
+        const amount = parseFloat(payNowAmount.replace(/,/g, ''));
+        if (isNaN(amount) || amount <= 0) {
+            setError('Please enter a valid amount');
+            return;
+        }
+
+        const leaseId = selectedLeaseId || (leases.length > 0 ? leases[0].id : '');
+
+        if (!leaseId) {
+            setError('No lease selected');
+            return;
+        }
+
+        setInitiatingPayment(true);
+        setError(null);
+
+        try {
+            const paymentDate = new Date().toISOString().split('T')[0];
+            const dueDate = new Date();
+            dueDate.setMonth(dueDate.getMonth() + 1);
+
+            const { status, json } = await apiPost('/payments', {
+                amount,
+                paymentDate,
+                dueDate: dueDate.toISOString().split('T')[0],
+                paymentMethod: paymentMethod === 'MOBILE_MONEY_MTN' || paymentMethod === 'MOBILE_MONEY_AIRTEL' ? 'MOBILE_MONEY' : paymentMethod,
+                leaseId,
+                note: `Payment recorded via ${paymentMethods.find(m => m.value === paymentMethod)?.label}`
+            });
+
+            if (status === 201 && json?.success) {
+                Alert.alert('Success', 'Payment recorded successfully');
+                setShowPayNow(false);
+                setPayNowAmount('');
+                loadData();
+            } else {
+                setError(json?.message || 'Failed to record payment');
+            }
+        } catch (error) {
+            console.error('Record payment error:', error);
+            setError('Network error. Please try again.');
+        } finally {
+            setInitiatingPayment(false);
+        }
+    };
+
+    const selectedLease = leases.find(l => l.id === selectedLeaseId);
+
+    const renderPaymentItem = ({ item }: { item: Payment }) => (
+        <Card style={{ marginBottom: spacing.sm }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <View style={{ flex: 1 }}>
+                    <Text style={[typography.h4, { color: colors.text }]}>
+                        UGX {formatNumber(item.amount)}
+                    </Text>
+                    <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                        {item.property.name} - Unit {item.unit.unitNumber}
+                    </Text>
+                    <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                        {new Date(item.paymentDate).toLocaleDateString()}
+                    </Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={[
+                        typography.bodySmall,
+                        {
+                            color: item.status === 'PAID' ? colors.success :
+                                item.status === 'PENDING' ? colors.warning :
+                                    colors.error
+                        }
+                    ]}>
+                        {item.status}
+                    </Text>
+                    {item.paymentMethod && (
+                        <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                            {item.paymentMethod.replace('_', ' ')}
+                        </Text>
+                    )}
+                </View>
+            </View>
+        </Card>
     );
 
-    const hasRentStatus = !!rentStatus && rentStatus.status !== 'NO_LEASE';
-    const periodDue = hasRentStatus ? rentStatus.amountDueForPeriod : 0;
-    const periodPaid = hasRentStatus ? rentStatus.totalPaidForPeriod : 0;
-    const outstandingThisPeriod = Math.max(0, periodDue - periodPaid);
-    const pastArrears = hasRentStatus ? rentStatus.arrearsTotal : 0;
-    const totalOutstanding = outstandingThisPeriod + pastArrears;
-    const billingPeriodLabel = hasRentStatus && rentStatus.dueDate
-        ? new Date(rentStatus.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-        : undefined;
-
-    const mapMethodLabel = (method: string) => {
-        if (method === 'estatenet') return 'EstateNet';
-        if (method === 'cash') return 'Cash Transfer';
-        if (method === 'bank_transfer') return 'Bank Transfer';
-        return method;
-    };
-
-    const formatDate = (dateString: string) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-    };
-
-    const formatAmount = (amount: number) => {
-        return `UGX ${amount.toLocaleString()}`;
-    };
-
-    type RecentPayment = {
-        id: string;
-        date: string;
-        amount: number;
-        method: string;
-        receiptNo: string;
-    };
-
-    const recentPayments: RecentPayment[] = sortedTenantPayments.slice(0, 3).map((p) => ({
-        id: p.id,
-        date: p.paymentDate,
-        amount: p.amount,
-        method: mapMethodLabel(p.paymentMethod),
-        receiptNo: `EST-${new Date(p.paymentDate).toISOString().slice(0, 10).replace(/-/g, '')}-${p.id
-            .slice(0, 4)
-            .toUpperCase()}`,
-    }));
-
-    if (leaseLoading || paymentsLoading || rentStatusLoading) {
+    if (loading) {
         return (
-            <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.base }}>
-                    <Text style={[typography.body, { color: colors.text }]}>Loading...</Text>
-                </View>
-            </SafeAreaView>
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={[typography.body, { color: colors.text }]}>Loading payments...</Text>
+            </View>
         );
     }
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-            <ScrollView contentContainerStyle={{ padding: spacing.base, paddingBottom: spacing.xl }}>
+        <ScrollView style={{ flex: 1, backgroundColor: colors.background }}>
+            <View style={{ padding: spacing.lg }}>
                 {/* Header */}
-                <View style={{ marginBottom: spacing.xl }}>
-                    <Text style={[typography.h2, { color: colors.text }]}>
-                        Payments
-                    </Text>
-                    <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.xs }]}>
-                        Manage your rent payments
-                    </Text>
-                </View>
+                <Text style={[typography.h2, { color: colors.text, marginBottom: spacing.lg }]}>
+                    Record Payment
+                </Text>
 
-                {(paymentsError || rentStatusError) && (
-                    <View style={{ marginBottom: spacing.sm }}>
-                        <Text style={[typography.bodySmall, { color: colors.error }]}>
-                            {paymentsError || rentStatusError}
-                        </Text>
-                    </View>
+                {/* Error Display */}
+                {error && (
+                    <Card style={{
+                        backgroundColor: colors.error + '10',
+                        borderColor: colors.error,
+                        borderWidth: 1,
+                        marginBottom: spacing.lg
+                    }}>
+                        <View style={{ padding: spacing.md }}>
+                            <Text style={[typography.bodySmall, { color: colors.error }]}>
+                                {error}
+                            </Text>
+                        </View>
+                    </Card>
                 )}
 
-                {activeLease ? (
-                    <>
-                        {/* Outstanding Balance Summary - uses backend rent status */}
-                        <Card style={{
-                            marginBottom: spacing.lg,
-                            padding: spacing.lg,
-                            borderWidth: 1,
-                            borderColor: colors.border,
-                        }}>
-                            {hasRentStatus ? (
-                                <>
-                                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.md }}>
-                                        <View style={{
-                                            backgroundColor: colors.primary + '20',
-                                            width: 48,
-                                            height: 48,
-                                            borderRadius: 24,
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            marginRight: spacing.md,
-                                        }}>
-                                            <Ionicons name="information-circle" size={28} color={colors.primary} />
-                                        </View>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={[typography.h4, { color: colors.text }]}>
-                                                Outstanding Balance
-                                            </Text>
-                                            <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 4 }]}>
-                                                Includes this billing period and any past arrears
-                                            </Text>
-                                        </View>
-                                    </View>
-                                    <View style={{
-                                        backgroundColor: colors.surface,
-                                        padding: spacing.md,
-                                        borderRadius: borderRadius.md,
-                                    }}>
-                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <View>
-                                                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
-                                                    Billing Period
-                                                </Text>
-                                                <Text style={[typography.body, { color: colors.text, marginTop: spacing.xs }]}>
-                                                    {billingPeriodLabel || rentStatus.billingPeriod}
-                                                </Text>
-                                            </View>
-                                            <View>
-                                                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
-                                                    Total Outstanding
-                                                </Text>
-                                                <Text style={[typography.h3, { color: colors.text, fontWeight: '700', marginTop: spacing.xs }]}>
-                                                    {formatAmount(totalOutstanding)}
-                                                </Text>
-                                            </View>
-                                        </View>
-                                        <View style={{ flexDirection: 'row', marginTop: spacing.md }}>
-                                            <View style={{ flex: 1 }}>
-                                                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
-                                                    This Period
-                                                </Text>
-                                                <Text style={[typography.body, { color: colors.text, marginTop: 2 }]}>
-                                                    {formatAmount(outstandingThisPeriod)}
-                                                </Text>
-                                            </View>
-                                            <View style={{ flex: 1 }}>
-                                                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
-                                                    Past Arrears
-                                                </Text>
-                                                <Text style={[typography.body, { color: pastArrears > 0 ? colors.error : colors.text, marginTop: 2 }]}>
-                                                    {formatAmount(pastArrears)}
-                                                </Text>
-                                            </View>
-                                        </View>
-                                    </View>
-                                </>
-                            ) : (
-                                <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                                    <View style={{
-                                        backgroundColor: colors.primary + '20',
-                                        width: 48,
-                                        height: 48,
-                                        borderRadius: 24,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        marginRight: spacing.md,
-                                    }}>
-                                        <Ionicons name="information-circle" size={28} color={colors.primary} />
-                                    </View>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={[typography.h4, { color: colors.text }]}>
-                                            Unable to load outstanding balance
-                                        </Text>
-                                        <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 4 }]}>
-                                            Please try again later.
-                                        </Text>
-                                    </View>
+                {/* Make Payment Button */}
+                <Button
+                    title="Record Payment"
+                    onPress={() => setShowPayNow(true)}
+                    variant="primary"
+                    icon={<Ionicons name="cash-outline" size={20} color="white" />}
+                    iconPosition="left"
+                    style={{ marginBottom: spacing.lg }}
+                />
+
+                {/* Payment History */}
+                <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md }]}>
+                    Payment History
+                </Text>
+                {payments.length > 0 ? (
+                    <FlatList
+                        data={payments}
+                        renderItem={renderPaymentItem}
+                        keyExtractor={(item) => item.id}
+                        showsVerticalScrollIndicator={false}
+                    />
+                ) : (
+                    <Card>
+                        <View style={{ padding: spacing.lg, alignItems: 'center' }}>
+                            <Ionicons name="receipt-outline" size={48} color={colors.textSecondary} />
+                            <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm }]}>
+                                No payments recorded yet
+                            </Text>
+                        </View>
+                    </Card>
+                )}
+
+                {/* Record Payment Modal */}
+                <Modal
+                    visible={showPayNow}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => setShowPayNow(false)}
+                >
+                    <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                        <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: spacing.lg }}>
+                            <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.lg }]}>
+                                Record Payment
+                            </Text>
+
+                            {/* Lease Selection */}
+                            {leases.length > 1 && (
+                                <View style={{ marginBottom: spacing.lg }}>
+                                    <Text style={[typography.body, { color: colors.text, marginBottom: spacing.sm }]}>
+                                        Select Property/Unit:
+                                    </Text>
+                                    <Button
+                                        title={selectedLease ? `${selectedLease.property.name} - Unit ${selectedLease.unit.unitNumber}` : 'Select Property'}
+                                        onPress={() => setShowLeaseModal(true)}
+                                        variant="outline"
+                                    />
                                 </View>
                             )}
-                        </Card>
 
-                        {/* Upcoming Payment Card - uses only monthly rent, no assumed due date */}
-                        <Card style={{
-                            marginBottom: spacing.lg,
-                            padding: spacing.lg,
-                            borderWidth: 1,
-                            borderColor: colors.border,
-                        }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.md }}>
-                                <View style={{
-                                    backgroundColor: colors.primary + '20',
-                                    width: 48,
-                                    height: 48,
-                                    borderRadius: 24,
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    marginRight: spacing.md,
-                                }}>
-                                    <Ionicons name="calendar" size={24} color={colors.primary} />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={[typography.h4, { color: colors.text }]}>
-                                        Upcoming Rent Payment
-                                    </Text>
-                                    <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 4 }]}>
-                                        Monthly rent amount
-                                    </Text>
-                                </View>
+                            {/* Amount Input */}
+                            <View style={{ marginBottom: spacing.lg }}>
+                                <Input
+                                    label="Amount (UGX)"
+                                    placeholder="Enter amount"
+                                    value={payNowAmount}
+                                    onChangeText={setPayNowAmount}
+                                    keyboardType="numeric"
+                                />
                             </View>
-                            <View style={{
-                                backgroundColor: colors.surface,
-                                padding: spacing.md,
-                                borderRadius: borderRadius.md,
-                            }}>
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <View>
-                                        <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.xs }]}>
-                                            Monthly Rent
-                                        </Text>
-                                        <Text style={[typography.h3, { color: colors.text, fontWeight: '700' }]}>
-                                            {hasMonthlyRent ? formatAmount(monthlyRent) : '—'}
-                                        </Text>
-                                    </View>
-                                </View>
-                            </View>
-                        </Card>
 
-                        {/* Quick Action - Make Payment */}
-                        <Button
-                            title="Make Payment"
-                            onPress={() => setShowMakePaymentModal(true)}
-                            variant="outline"
-                            size="large"
-                            style={{ marginBottom: spacing.lg }}
-                            icon={<Ionicons name="card-outline" size={20} color={colors.primary} />}
-                        />
-                    </>
-                ) : (
-                    <Card style={{
-                        marginBottom: spacing.lg,
-                        padding: spacing.lg,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        backgroundColor: colors.surface,
-                    }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                            <View style={{
-                                backgroundColor: colors.primary + '20',
-                                width: 40,
-                                height: 40,
-                                borderRadius: 20,
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                marginRight: spacing.md,
-                            }}>
-                                <Ionicons name="information-circle" size={22} color={colors.primary} />
+                            {/* Payment Method Selection */}
+                            <View style={{ marginBottom: spacing.lg }}>
+                                <Text style={[typography.body, { color: colors.text, marginBottom: spacing.sm }]}>
+                                    💳 Payment Method
+                                </Text>
+                                <Button
+                                    title={paymentMethods.find(m => m.value === paymentMethod)?.label || 'Select Method'}
+                                    onPress={() => setShowPaymentMethodModal(true)}
+                                    variant="outline"
+                                    style={{
+                                        paddingHorizontal: spacing.lg
+                                    }}
+                                    icon={
+                                        <Ionicons name="phone-portrait" size={20} color={colors.primary} />
+                                    }
+                                />
                             </View>
-                            <View style={{ flex: 1 }}>
-                                <Text style={[typography.h4, { color: colors.text }]}>
-                                    No active lease
-                                </Text>
-                                <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.xs }]}>
-                                    Accept a property invitation to see your rent summary and make payments directly from EstateNet.
-                                </Text>
+
+                            {/* Ledger Notice */}
+                            <Card style={{
+                                marginBottom: spacing.lg,
+                                backgroundColor: colors.info + '10',
+                                borderColor: colors.info,
+                                borderWidth: 1
+                            }}>
+                                <View style={{ padding: spacing.md }}>
+                                    <Text style={[typography.bodySmall, { color: colors.info, textAlign: 'center', fontWeight: '600' }]}>
+                                        📝 Ledger Entry - This records your payment for tracking purposes
+                                    </Text>
+                                </View>
+                            </Card>
+
+                            {/* Action Buttons */}
+                            <View style={{ flexDirection: 'row', gap: spacing.md }}>
+                                <Button
+                                    title="Cancel"
+                                    onPress={() => {
+                                        setShowPayNow(false);
+                                        setPayNowAmount('');
+                                        setError(null);
+                                    }}
+                                    variant="outline"
+                                    style={{
+                                        flex: 1,
+                                        height: 50,
+                                        borderRadius: 25
+                                    }}
+                                />
+                                <Button
+                                    title={initiatingPayment ? 'Recording...' : 'Record Payment'}
+                                    onPress={handleRecordPayment}
+                                    variant="primary"
+                                    style={{
+                                        flex: 1,
+                                        height: 50,
+                                        borderRadius: 25,
+                                        shadowColor: colors.primary,
+                                        shadowOffset: { width: 0, height: 2 },
+                                        shadowOpacity: 0.3,
+                                        shadowRadius: 4,
+                                        elevation: 5
+                                    }}
+                                    loading={initiatingPayment}
+                                    disabled={!payNowAmount || (leases.length > 1 && !selectedLeaseId) || initiatingPayment}
+                                />
                             </View>
                         </View>
-                    </Card>
-                )}
-
-                {/* Payment History Section */}
-                <View style={{ marginBottom: spacing.lg }}>
-                    <View style={{
-                        flexDirection: 'row',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: spacing.md,
-                    }}>
-                        <Text style={[typography.h3, { color: colors.text }]}>
-                            Recent Payments
-                        </Text>
-                        <Button
-                            title="View All"
-                            onPress={() => setShowHistoryModal(true)}
-                            variant="ghost"
-                            size="small"
-                        />
                     </View>
+                </Modal>
 
-                    <Card style={{ padding: 0, overflow: 'hidden' }}>
-                        {recentPayments.map((payment, index) => (
-                            <View key={payment.id}>
-                                <View style={{ padding: spacing.lg }}>
-                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={[typography.h4, { color: colors.text }]}>
-                                                {formatAmount(payment.amount)}
-                                            </Text>
-                                            <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 4 }]}>
-                                                {formatDate(payment.date)}
-                                            </Text>
-                                            <View style={{
-                                                flexDirection: 'row',
-                                                alignItems: 'center',
-                                                marginTop: spacing.sm,
-                                            }}>
-                                                <Ionicons name="wallet" size={14} color={colors.textSecondary} />
-                                                <Text style={[typography.bodySmall, { color: colors.textSecondary, marginLeft: spacing.xs }]}>
-                                                    {payment.method}
-                                                </Text>
-                                            </View>
-                                        </View>
-                                        <View style={{ alignItems: 'flex-end' }}>
-                                            <View style={{
-                                                backgroundColor: colors.success + '20',
-                                                paddingHorizontal: spacing.md,
-                                                paddingVertical: spacing.xs,
-                                                borderRadius: borderRadius.full,
-                                            }}>
-                                                <Text style={{
-                                                    color: colors.success,
-                                                    fontSize: 12,
-                                                    fontWeight: '600',
-                                                }}>
-                                                    ✓ PAID
-                                                </Text>
-                                            </View>
-                                            <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.sm }]}>
-                                                {payment.receiptNo}
-                                            </Text>
-                                        </View>
-                                    </View>
-                                </View>
-                                {index < recentPayments.length - 1 && (
-                                    <View style={{ height: 1, backgroundColor: colors.divider }} />
-                                )}
-                            </View>
-                        ))}
-                    </Card>
-                </View>
-
-                {/* Information Notice */}
-                <View style={{
-                    backgroundColor: colors.infoLight,
-                    padding: spacing.lg,
-                    borderRadius: borderRadius.md,
-                    borderLeftWidth: 4,
-                    borderLeftColor: colors.info,
-                }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                        <Ionicons name="information-circle" size={24} color={colors.info} style={{ marginRight: spacing.md }} />
-                        <View style={{ flex: 1 }}>
-                            <Text style={[typography.h4, { color: colors.info, marginBottom: spacing.xs }]}>
-                                Payment Proof
+                {/* Lease Selection Modal */}
+                <Modal
+                    visible={showLeaseModal}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => setShowLeaseModal(false)}
+                >
+                    <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                        <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: spacing.lg }}>
+                            <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.lg }]}>
+                                Select Property/Unit
                             </Text>
-                            <Text style={[typography.body, { color: colors.info, lineHeight: 20 }]}>
-                                All your payments are recorded and can be verified anytime. Keep your receipt numbers for reference.
-                            </Text>
+                            {leases.map((lease) => (
+                                <Button
+                                    key={lease.id}
+                                    title={`${lease.property.name} - Unit ${lease.unit.unitNumber}`}
+                                    onPress={() => {
+                                        setSelectedLeaseId(lease.id);
+                                        setShowLeaseModal(false);
+                                    }}
+                                    variant="outline"
+                                    style={{ marginBottom: spacing.sm }}
+                                />
+                            ))}
+                            <Button
+                                title="Cancel"
+                                onPress={() => setShowLeaseModal(false)}
+                                variant="outline"
+                            />
                         </View>
                     </View>
-                </View>
-            </ScrollView>
+                </Modal>
 
-            {/* Modals */}
-            <MakePaymentModal
-                visible={showMakePaymentModal}
-                onClose={() => setShowMakePaymentModal(false)}
-                monthlyRent={monthlyRent}
-            />
-            <PaymentHistoryModal
-                visible={showHistoryModal}
-                onClose={() => setShowHistoryModal(false)}
-            />
-        </SafeAreaView>
+                {/* Payment Method Modal */}
+                <Modal
+                    visible={showPaymentMethodModal}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => setShowPaymentMethodModal(false)}
+                >
+                    <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                        <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: spacing.lg }}>
+                            <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.lg }]}>
+                                Select Payment Method
+                            </Text>
+                            {paymentMethods.map((method) => (
+                                <Button
+                                    key={method.value}
+                                    title={method.label}
+                                    onPress={() => {
+                                        setPaymentMethod(method.value);
+                                        setShowPaymentMethodModal(false);
+                                    }}
+                                    variant="outline"
+                                    style={{ marginBottom: spacing.sm }}
+                                />
+                            ))}
+                            <Button
+                                title="Cancel"
+                                onPress={() => setShowPaymentMethodModal(false)}
+                                variant="outline"
+                            />
+                        </View>
+                    </View>
+                </Modal>
+            </View>
+        </ScrollView>
     );
 };

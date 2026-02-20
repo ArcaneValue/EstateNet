@@ -7,6 +7,11 @@ export interface AuthenticatedRequest extends Request {
         email: string;
         role: string;
         tenantId?: string;
+        phoneNumber?: string;
+        // Manager billing fields
+        managerTermsAcceptedAt?: Date | null;
+        billingStatus?: string | null;
+        billingGraceUntil?: Date | null;
     };
 }
 
@@ -15,8 +20,14 @@ export const authenticateToken = async (
     res: Response,
     next: NextFunction
 ): Promise<void> => {
+    console.log('=== AUTH MIDDLEWARE START ===');
+    console.log('Path:', req.path);
+    console.log('Method:', req.method);
+    console.log('Authorization header exists:', !!req.headers.authorization);
+
     try {
         const token = extractTokenFromHeader(req.headers.authorization);
+        console.log('Token extracted:', !!token);
 
         if (!token) {
             res.status(401).json({
@@ -26,10 +37,14 @@ export const authenticateToken = async (
             return;
         }
 
+        console.log('Verifying token...');
         const decoded = verifyToken(token);
+        console.log('Token verified, user role:', decoded.role);
         req.user = decoded;
+        console.log('=== AUTH MIDDLEWARE SUCCESS ===');
         next();
     } catch (error) {
+        console.error('Auth middleware error:', error);
         res.status(401).json({
             success: false,
             message: 'Invalid or expired token'

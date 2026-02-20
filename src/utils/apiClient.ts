@@ -1,5 +1,19 @@
 import { createApiUrl } from '../config/api';
 
+export type EnforcementAction = 'ACCEPT_TERMS' | 'PAY_INVOICE';
+
+export type EnforcementInfo = {
+  action: EnforcementAction;
+  message?: string;
+  graceUntil?: string;
+};
+
+export type ApiResult<TJson = any> = {
+  status: number;
+  json: TJson;
+  enforcement?: EnforcementInfo;
+};
+
 // Reuse AsyncStorage access pattern from PaymentContext
 const getAsyncStorage = () => {
   try {
@@ -10,7 +24,19 @@ const getAsyncStorage = () => {
   }
 };
 
-export const apiPatch = async (endpoint: string, body?: any) => {
+const extractEnforcement = (status: number, json: any): EnforcementInfo | undefined => {
+  if (status !== 402) return undefined;
+  const action = json?.requiresAction;
+  if (action !== 'ACCEPT_TERMS' && action !== 'PAY_INVOICE') return undefined;
+
+  return {
+    action,
+    message: typeof json?.message === 'string' ? json.message : undefined,
+    graceUntil: typeof json?.graceUntil === 'string' ? json.graceUntil : undefined,
+  };
+};
+
+export const apiPatch = async (endpoint: string, body?: any): Promise<ApiResult> => {
   const token = await getAuthToken();
 
   try {
@@ -30,10 +56,10 @@ export const apiPatch = async (endpoint: string, body?: any) => {
       // Ignore JSON parse errors
     }
 
-    return { status: response.status, json };
+    return { status: response.status, json, enforcement: extractEnforcement(response.status, json) };
   } catch (error) {
     console.error('API PATCH error:', error);
-    return { status: 0, json: null };
+    return { status: 0, json: null, enforcement: undefined };
   }
 };
 
@@ -53,17 +79,17 @@ const safeParseJson = (text: string) => {
   }
 };
 
-export const apiGet = async (endpoint: string) => {
+export const apiGet = async (endpoint: string): Promise<ApiResult> => {
   const token = await getAuthToken();
   const res = await fetch(createApiUrl(endpoint), {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
   const text = await res.text();
   const json = text ? safeParseJson(text) : null;
-  return { status: res.status, json };
+  return { status: res.status, json, enforcement: extractEnforcement(res.status, json) };
 };
 
-export const apiPost = async (endpoint: string, body?: any) => {
+export const apiPost = async (endpoint: string, body?: any): Promise<ApiResult> => {
   const token = await getAuthToken();
   const res = await fetch(createApiUrl(endpoint), {
     method: 'POST',
@@ -75,10 +101,10 @@ export const apiPost = async (endpoint: string, body?: any) => {
   });
   const text = await res.text();
   const json = text ? safeParseJson(text) : null;
-  return { status: res.status, json };
+  return { status: res.status, json, enforcement: extractEnforcement(res.status, json) };
 };
 
-export const apiDelete = async (endpoint: string) => {
+export const apiDelete = async (endpoint: string): Promise<ApiResult> => {
   const token = await getAuthToken();
   const res = await fetch(createApiUrl(endpoint), {
     method: 'DELETE',
@@ -86,5 +112,5 @@ export const apiDelete = async (endpoint: string) => {
   });
   const text = await res.text();
   const json = text ? safeParseJson(text) : null;
-  return { status: res.status, json };
+  return { status: res.status, json, enforcement: extractEnforcement(res.status, json) };
 };

@@ -24,6 +24,9 @@ interface User {
     tenantId?: string;
     profileImage?: string;
     createdAt?: string;
+    // Manager payout fields
+    payoutPhoneNumber?: string;
+    payoutNetwork?: string;
     // Optional notification preferences persisted on backend
     notificationPrefs?: {
         payments?: boolean;
@@ -95,12 +98,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const signIn = async (email: string, password: string) => {
         try {
+            const body = `email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`;
+
             const response = await fetch(createApiUrl('/auth/login'), {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: JSON.stringify({ email, password }),
+                body: body,
             });
 
             const data = await response.json();
@@ -142,17 +147,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 endpoint = '/auth/register-tenant';
             }
 
+            const body = `name=${encodeURIComponent(userData.name || '')}&email=${encodeURIComponent(userData.email || '')}&phoneNumber=${encodeURIComponent(userData.phoneNumber || '')}&password=${encodeURIComponent(password)}`;
+
             const response = await fetch(createApiUrl(endpoint), {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: JSON.stringify({
-                    name: userData.name,
-                    email: userData.email,
-                    phoneNumber: userData.phoneNumber,
-                    password
-                }),
+                body: body,
             });
 
             const data = await response.json();

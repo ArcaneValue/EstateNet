@@ -7,14 +7,16 @@ import { useTheme } from '../../theme/ThemeContext';
 import { useProperties } from '../../context/PropertyContext';
 import { apiGet, apiPost } from '../../utils/apiClient';
 import { Ionicons } from '@expo/vector-icons';
+import { handleEnforcement } from '../../utils/enforcementNavigation';
 
 interface InviteTenantModalProps {
     visible: boolean;
     onClose: () => void;
     onSuccess?: () => void;
+    navigation?: any;
 }
 
-export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, onClose, onSuccess }) => {
+export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, onClose, onSuccess, navigation }) => {
     const { colors, spacing, typography } = useTheme();
     const { properties } = useProperties();
 
@@ -81,6 +83,17 @@ export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, o
     };
 
     const handleInvite = async () => {
+        if (__DEV__) {
+            console.log('[InviteTenantModal] handleInvite called');
+            console.log('[InviteTenantModal] navigation prop:', navigation);
+            try {
+                const navState = navigation?.getState?.();
+                console.log('[InviteTenantModal] Current navigation state:', JSON.stringify(navState, null, 2));
+            } catch (e) {
+                console.log('[InviteTenantModal] Failed to get navigation state:', e);
+            }
+        }
+
         if (!selectedPropertyId || !tenantIdInput || !selectedUnitId || !rentAmount) {
             setError('All fields are required');
             return;
@@ -103,12 +116,25 @@ export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, o
         setError('');
 
         try {
-            const { status, json } = await apiPost('/tenants/invite', {
+            const { status, json, enforcement } = await apiPost('/tenants/invite', {
                 tenantId: tenantIdInput,
                 propertyId: selectedPropertyId,
                 unitId: selectedUnitId,
                 rentAmount: parseFloat(rentAmount)
             });
+
+            if (__DEV__) {
+                console.log('[InviteTenantModal] apiPost response:', { status, json, enforcement });
+                console.log('[InviteTenantModal] About to call handleEnforcement...');
+            }
+
+            if (navigation && await handleEnforcement(navigation, enforcement, { blockedFeature: 'Invite Tenant' })) {
+                if (__DEV__) console.log('[InviteTenantModal] handleEnforcement returned true (enforcement handled)');
+                onClose();
+                return;
+            }
+
+            if (__DEV__) console.log('[InviteTenantModal] handleEnforcement returned false (no enforcement or navigation failed)');
 
             if (status === 200 || status === 201) {
                 setSuccess(true);

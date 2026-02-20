@@ -53,7 +53,12 @@ export class AuthService {
         const token = generateToken({
             id: user.id,
             email: user.email,
-            role: user.role
+            role: user.role,
+            tenantId: user.tenantId || undefined,
+            phoneNumber: user.phoneNumber || undefined,
+            managerTermsAcceptedAt: user.managerTermsAcceptedAt || undefined,
+            billingStatus: user.billingStatus || undefined,
+            billingGraceUntil: user.billingGraceUntil || undefined
         });
 
         return {
@@ -96,7 +101,11 @@ export class AuthService {
             id: user.id,
             email: user.email,
             role: user.role,
-            tenantId: user.tenantId || undefined
+            tenantId: user.tenantId || undefined,
+            phoneNumber: user.phoneNumber || undefined,
+            managerTermsAcceptedAt: user.managerTermsAcceptedAt || undefined,
+            billingStatus: user.billingStatus || undefined,
+            billingGraceUntil: user.billingGraceUntil || undefined
         });
 
         return {
@@ -147,7 +156,11 @@ export class AuthService {
         const token = generateToken({
             id: user.id,
             email: user.email,
-            role: user.role
+            role: user.role,
+            phoneNumber: user.phoneNumber || undefined,
+            managerTermsAcceptedAt: user.managerTermsAcceptedAt || undefined,
+            billingStatus: user.billingStatus || undefined,
+            billingGraceUntil: user.billingGraceUntil || undefined
         });
 
         return {
@@ -171,63 +184,72 @@ export class AuthService {
         phoneNumber?: string;
         password: string;
     }) {
-        // Check if email already exists in User OR TenantIdentity
-        const [existingUser, existingTenantIdentity] = await Promise.all([
-            prisma.user.findUnique({ where: { email: data.email } }),
-            prisma.tenantIdentity.findUnique({ where: { email: data.email } })
-        ]);
+        console.log('Auth service: registerTenant called with:', { name: data.name, email: data.email, phoneNumber: data.phoneNumber });
 
-        if (existingUser || existingTenantIdentity) {
-            throw new Error('Email already exists');
-        }
+        try {
+            // Check if email already exists in User OR TenantIdentity
+            const [existingUser, existingTenantIdentity] = await Promise.all([
+                prisma.user.findUnique({ where: { email: data.email } }),
+                prisma.tenantIdentity.findUnique({ where: { email: data.email } })
+            ]);
 
-        // Generate tenant ID
-        const tenantId = 'TN-' + Math.random().toString(36).substring(2, 10).toUpperCase();
-
-        // Create TenantIdentity first
-        const tenantIdentity = await prisma.tenantIdentity.create({
-            data: {
-                tenantId,
-                name: data.name,
-                email: data.email,
-                phoneNumber: data.phoneNumber
+            if (existingUser || existingTenantIdentity) {
+                throw new Error('Email already exists');
             }
-        });
 
-        // Hash password
-        const passwordHash = await hashPassword(data.password);
+            // Generate tenant ID
+            const tenantId = 'TN-' + Math.random().toString(36).substring(2, 10).toUpperCase();
 
-        // Create User
-        const user = await prisma.user.create({
-            data: {
-                email: data.email,
-                passwordHash,
-                name: data.name,
-                role: 'TENANT',
-                tenantId,
-            }
-        });
+            // Create TenantIdentity first
+            const tenantIdentity = await prisma.tenantIdentity.create({
+                data: {
+                    tenantId,
+                    name: data.name,
+                    email: data.email,
+                    phoneNumber: data.phoneNumber
+                }
+            });
 
-        // Generate JWT token
-        const token = generateToken({
-            id: user.id,
-            email: user.email,
-            role: user.role,
-            tenantId: user.tenantId || undefined
-        });
+            // Hash password
+            const passwordHash = await hashPassword(data.password);
 
-        return {
-            user: {
+            // Create User
+            const user = await prisma.user.create({
+                data: {
+                    email: data.email,
+                    passwordHash,
+                    name: data.name,
+                    role: 'TENANT',
+                    tenantId,
+                }
+            });
+
+            // Generate JWT token
+            const token = generateToken({
                 id: user.id,
                 email: user.email,
-                name: user.name,
                 role: user.role,
-                tenantId: user.tenantId,
-                phoneNumber: user.phoneNumber,
-                profileImage: user.profileImage
-            },
-            token
-        };
+                tenantId: user.tenantId || undefined,
+                phoneNumber: user.phoneNumber || undefined,
+                managerTermsAcceptedAt: user.managerTermsAcceptedAt || undefined,
+                billingStatus: user.billingStatus || undefined,
+                billingGraceUntil: user.billingGraceUntil || undefined
+            });
+
+            return {
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    name: user.name,
+                    role: user.role,
+                    tenantId: user.tenantId
+                },
+                token
+            };
+        } catch (error) {
+            console.error('Auth service registerTenant error:', error);
+            throw error;
+        }
     }
 
     async registerOwner(data: {
@@ -264,7 +286,11 @@ export class AuthService {
         const token = generateToken({
             id: user.id,
             email: user.email,
-            role: user.role
+            role: user.role,
+            phoneNumber: user.phoneNumber || undefined,
+            managerTermsAcceptedAt: user.managerTermsAcceptedAt || undefined,
+            billingStatus: user.billingStatus || undefined,
+            billingGraceUntil: user.billingGraceUntil || undefined
         });
 
         return {

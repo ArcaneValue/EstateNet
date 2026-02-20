@@ -1,0 +1,6 @@
+{
+  "name": "Test Tenant",
+  "email": "test-tenant-manual@example.com",
+  "phoneNumber": "+256700000000",
+  "password": "password123"
+}

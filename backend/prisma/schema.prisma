@@ -20,6 +20,15 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // Manager payout fields
+  payoutPhoneNumber String?
+  payoutNetwork     String? // 'MTN' | 'AIRTEL'
+
+  // Manager billing fields
+  managerTermsAcceptedAt DateTime?
+  billingStatus         String? // 'CURRENT' | 'OVERDUE'
+  billingGraceUntil     DateTime?
+
   // Relations
   tenantIdentity TenantIdentity? @relation(fields: [tenantId], references: [tenantId])
   sentInvitations TenantInvitation[]
@@ -30,6 +39,8 @@ model User {
   managedProperties Property[]  @relation("PropertyManager")
   ownerInvitations OwnerManagerInvitation[] @relation("OwnerInvitations")
   receivedManagerInvitations OwnerManagerInvitation[] @relation("ManagerInvitations")
+  invoices     Invoice[]
+  servicePayments ServicePayment[] @relation("ServicePayments")
 
   @@map("users")
 }
@@ -74,8 +85,10 @@ enum InvitationStatus {
 }
 
 enum PaymentStatus {
-  PAID
   PENDING
+  SUCCESS
+  FAILED
+  PAID
   OVERDUE
 }
 
@@ -96,6 +109,7 @@ model Property {
   invitations TenantInvitation[]
   payments    Payment[]
   ownerManagerInvitations OwnerManagerInvitation[]
+  invoiceLines InvoiceLine[]
 
   @@map("properties")
 }
@@ -113,6 +127,7 @@ model Unit {
   leases     Lease[]
   invitations TenantInvitation[]
   payments   Payment[]
+  invoiceLines InvoiceLine[]
 
   @@unique([propertyId, unitNumber])
   @@map("units")
@@ -134,6 +149,7 @@ model Lease {
   unit      Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
   tenantIdentity TenantIdentity @relation(fields: [tenantId], references: [tenantId], onDelete: Restrict)
   messages       Message[]
+  invoiceLines   InvoiceLine[]
 
   @@index([tenantId, status])
   @@map("leases")
@@ -234,4 +250,79 @@ model OwnerManagerInvitation {
   manager    User?    @relation("ManagerInvitations", fields: [managerId], references: [id], onDelete: SetNull)
 
   @@map("owner_manager_invitations")
+}
+
+model Invoice {
+  id            String   @id @default(cuid())
+  managerId     String
+  periodStart   DateTime
+  periodEnd     DateTime
+  subtotalAmount Int
+  feeRateBps    Int      // 399 = 3.99%
+  feeAmount     Int
+  status        String   // 'DUE' | 'PAID' | 'OVERDUE'
+  dueDate       DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  manager       User     @relation(fields: [managerId], references: [id])
+  lines         InvoiceLine[]
+  servicePayments ServicePayment[]
+
+  @@unique([managerId, periodStart, periodEnd])
+  @@map("invoices")
+}
+
+model InvoiceLine {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  propertyId  String
+  unitId      String
+  rentAmount  Int
+  tenantId    String?
+  leaseId     String?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  property    Property @relation(fields: [propertyId], references: [id])
+  unit        Unit     @relation(fields: [unitId], references: [id])
+  lease       Lease?   @relation(fields: [leaseId], references: [id])
+
+  @@map("invoice_lines")
+}
+
+model ServicePayment {
+  id                String   @id @default(cuid())
+  invoiceId         String
+  managerId         String
+  amount            Int
+  currency          String   @default("UGX")
+  provider          String   // 'MOCK' | 'YO'
+  network           String   // 'MTN' | 'AIRTEL'
+  phoneNumber       String
+  externalRef       String   @unique
+  providerRequestId String?
+  providerTxId      String?
+  status            String   @default("PENDING") // 'PENDING' | 'SUCCESS' | 'FAILED'
+  failureReason     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  invoice           Invoice  @relation(fields: [invoiceId], references: [id])
+  manager           User     @relation("ServicePayments", fields: [managerId], references: [id])
+
+  @@map("service_payments")
+}
+
+model JobLock {
+  id           String   @id @default(cuid())
+  jobName      String   @unique
+  lockedUntil  DateTime
+  lockedBy     String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("job_locks")
 }

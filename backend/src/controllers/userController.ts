@@ -112,7 +112,7 @@ export const updateCurrentUser = async (req: AuthenticatedRequest, res: Response
       return;
     }
 
-    const { name, phoneNumber, profileImageUrl, notificationPrefs } = req.body;
+    const { name, phoneNumber, profileImageUrl, notificationPrefs, payoutPhoneNumber, payoutNetwork } = req.body;
     console.log('[updateCurrentUser] Request body:', JSON.stringify(req.body, null, 2));
 
     const data: any = {};
@@ -138,11 +138,45 @@ export const updateCurrentUser = async (req: AuthenticatedRequest, res: Response
           data.notificationPrefs = normalized;
         }
       } catch (error: any) {
+        console.error('❌ Notification prefs validation error:', error);
         res.status(400).json({
           success: false,
           message: `Invalid notificationPrefs: ${error.message}`,
         });
         return;
+      }
+    }
+
+    // Manager payout fields validation (only for managers)
+    if (req.user?.role === 'MANAGER') {
+      if (payoutPhoneNumber !== undefined) {
+        // Validate Uganda phone format: +2567XXXXXXXX or 07XXXXXXXX
+        const phoneRegex = /^(\+2567|07)[0-9]{8}$/;
+        if (typeof payoutPhoneNumber === 'string' && phoneRegex.test(payoutPhoneNumber)) {
+          data.payoutPhoneNumber = payoutPhoneNumber;
+        } else if (payoutPhoneNumber === null || payoutPhoneNumber === '') {
+          data.payoutPhoneNumber = null;
+        } else {
+          res.status(400).json({
+            success: false,
+            message: 'Invalid payout phone number format. Use +2567XXXXXXXX or 07XXXXXXXX'
+          });
+          return;
+        }
+      }
+
+      if (payoutNetwork !== undefined) {
+        if (['MTN', 'AIRTEL'].includes(payoutNetwork)) {
+          data.payoutNetwork = payoutNetwork;
+        } else if (payoutNetwork === null || payoutNetwork === '') {
+          data.payoutNetwork = null;
+        } else {
+          res.status(400).json({
+            success: false,
+            message: 'Invalid payout network. Must be MTN or AIRTEL'
+          });
+          return;
+        }
       }
     }
 
@@ -166,6 +200,8 @@ export const updateCurrentUser = async (req: AuthenticatedRequest, res: Response
         phoneNumber: true,
         profileImage: true,
         notificationPrefs: true,
+        payoutPhoneNumber: true,
+        payoutNetwork: true,
         createdAt: true,
       },
     });

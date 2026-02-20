@@ -20,6 +20,9 @@ import { PropertiesScreen } from '../screens/manager/PropertiesScreen';
 import { TenantsScreen } from '../screens/manager/TenantsScreen';
 import { OutstandingRentScreen } from '../screens/manager/OutstandingRentScreen';
 import { RentCollectionScreen } from '../screens/manager/RentCollectionScreen';
+import { ManagerPaymentsScreen } from '../screens/manager/ManagerPaymentsScreen';
+import { ManagerTermsScreen } from '../screens/manager/ManagerTermsScreen';
+import { ManagerBillingScreen } from '../screens/manager/ManagerBillingScreen';
 import { IncomeStatementScreen } from '../screens/manager/IncomeStatementScreen';
 import { FinancialPositionScreen } from '../screens/manager/FinancialPositionScreen';
 import { CashflowStatementScreen } from '../screens/manager/CashflowStatementScreen';
@@ -100,6 +103,13 @@ const ManagerTabs = () => {
                 }}
             />
             <Tab.Screen
+                name="Billing"
+                component={ManagerBillingScreen}
+                options={{
+                    tabBarIcon: ({ color, size }) => <Ionicons name="receipt" size={size} color={color} />,
+                }}
+            />
+            <Tab.Screen
                 name="Profile"
                 component={ProfileScreen}
                 options={{
@@ -117,6 +127,9 @@ const ManagerStack = () => {
             <Stack.Screen name="ManagerTabs" component={ManagerTabs} />
             <Stack.Screen name="OutstandingRent" component={OutstandingRentScreen} />
             <Stack.Screen name="RentCollection" component={RentCollectionScreen} />
+            <Stack.Screen name="ManagerPayments" component={ManagerPaymentsScreen} />
+            <Stack.Screen name="ManagerTerms" component={ManagerTermsScreen} />
+            <Stack.Screen name="ManagerBilling" component={ManagerBillingScreen} />
             <Stack.Screen name="IncomeStatement" component={IncomeStatementScreen} />
             <Stack.Screen name="FinancialPosition" component={FinancialPositionScreen} />
             <Stack.Screen name="CashflowStatement" component={CashflowStatementScreen} />

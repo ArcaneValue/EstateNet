@@ -5,6 +5,10 @@ export interface JWTPayload {
     email: string;
     role: string;
     tenantId?: string;
+    phoneNumber?: string;
+    managerTermsAcceptedAt?: Date | null | undefined;
+    billingStatus?: string | null | undefined;
+    billingGraceUntil?: Date | null | undefined;
 }
 
 export const generateToken = (user: JWTPayload): string => {

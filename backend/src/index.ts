@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
+import * as cron from 'node-cron';
 import { identityRoutes } from './routes/identities';
 import { authRoutes } from './routes/auth';
 import { propertyRoutes } from './routes/properties';
@@ -11,6 +12,7 @@ import { tenantRoutes } from './routes/tenants';
 import { leaseRoutes } from './routes/leases';
 import { reportRoutes } from './routes/reports';
 import { paymentRoutes } from './routes/payments';
+import { paymentCollectionRoutes } from './routes/paymentCollection';
 import { tenantMeRoutes } from './routes/tenantMe';
 import { messageRoutes } from './routes/messages';
 import { notificationRoutes } from './routes/notifications';
@@ -19,10 +21,19 @@ import managerRoutes from './routes/manager';
 import { unitRoutes } from './routes/units';
 import { ownerInvitationRoutes } from './routes/ownerInvitations';
 import { activityRoutes } from './routes/activity';
+import { managerTermsRoutes } from './routes/managerTerms';
+import { billingRoutes } from './routes/billing';
+import { webhookPaymentRoutes } from './routes/webhookPayments';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
+import { runDailyBillingTasks } from './services/billingScheduler';
+import { cleanupDuplicateInvoices } from './scripts/cleanupDuplicateInvoices';
 
 // Load environment variables
 dotenv.config();
+
+// Force TypeScript recompilation for new Prisma types
+
+// Server restart trigger
 
 // Validate required environment variables
 const requiredEnvVars = ['JWT_SECRET', 'DATABASE_URL'];
@@ -72,6 +83,7 @@ app.use('/api/tenant', tenantMeRoutes);
 app.use('/api/leases', leaseRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/payments', paymentCollectionRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/users', userRoutes);
@@ -79,6 +91,9 @@ app.use('/api/units', unitRoutes);
 app.use('/api/manager', managerRoutes);
 app.use('/api/owner', ownerInvitationRoutes);
 app.use('/api/activity', activityRoutes);
+app.use('/api/manager', managerTermsRoutes);
+app.use('/api/manager', billingRoutes);
+app.use('/api/payments/webhook', webhookPaymentRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -123,12 +138,72 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('FATAL: Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
+// Start server with retry logic
+const startServer = (port: number) => {
+    app.listen(port, () => {
+        console.log(`🚀 EstateNet Backend running on port ${port}`);
+        console.log(`📊 Health check: http://localhost:${port}/health`);
+        console.log(`📚 API docs: http://localhost:${port}/api`);
+        console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    }).on('error', (err: any) => {
+        if (err.code === 'EADDRINUSE') {
+            console.error(`❌ Port ${port} is already in use`);
+            if (port === PORT) {
+                console.log(`🔄 Trying alternative port ${PORT + 1}...`);
+                startServer(PORT + 1);
+            } else {
+                console.error('❌ Could not start server - all ports in use');
+                process.exit(1);
+            }
+        } else {
+            console.error('❌ Server error:', err);
+            process.exit(1);
+        }
+    });
+};
+
 // Start server
-app.listen(PORT, () => {
-    console.log(`🚀 EstateNet Backend running on port ${PORT}`);
-    console.log(`📊 Health check: http://localhost:${PORT}/health`);
-    console.log(`📚 API docs: http://localhost:${PORT}/api`);
-    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+startServer(Number(PORT));
+
+// Schedule daily billing tasks at 00:05 server time
+cron.schedule('5 0 * * *', async () => {
+    console.log('[BillingScheduler] Starting daily billing tasks...');
+    try {
+        const results = await runDailyBillingTasks();
+        console.log('[BillingScheduler] Daily tasks completed:', {
+            invoicesCreatedCount: results.invoicesCreatedCount,
+            invoicesMarkedOverdueCount: results.invoicesMarkedOverdueCount,
+            managersUpdatedCount: results.managersUpdatedCount
+        });
+    } catch (error) {
+        console.error('[BillingScheduler] Daily tasks failed:', error);
+    }
+}, {
+    scheduled: true,
+    timezone: 'Africa/Kampala' // Use server timezone
 });
+
+// Run catch-up on startup after server is ready
+setTimeout(async () => {
+    console.log('[BillingScheduler] Starting startup catch-up...');
+    try {
+        // Step 1: Clean up any duplicate invoices before applying constraints
+        console.log('[BillingScheduler] Checking for duplicate invoices...');
+        const cleanupResult = await cleanupDuplicateInvoices();
+        if (cleanupResult.deletedCount > 0) {
+            console.log(`[BillingScheduler] Cleaned up ${cleanupResult.deletedCount} duplicate invoices`);
+        }
+
+        // Step 2: Run normal billing tasks
+        const results = await runDailyBillingTasks();
+        console.log('[BillingScheduler] Startup catch-up completed:', {
+            invoicesCreatedCount: results.invoicesCreatedCount,
+            invoicesMarkedOverdueCount: results.invoicesMarkedOverdueCount,
+            managersUpdatedCount: results.managersUpdatedCount
+        });
+    } catch (error) {
+        console.error('[BillingScheduler] Startup catch-up failed:', error);
+    }
+}, 5000); // Wait 5 seconds for DB to be ready
 
 export default app;

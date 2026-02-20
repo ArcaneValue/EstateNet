@@ -19,6 +19,7 @@ export interface CreateLeaseData {
   propertyId: string;
   unitId: string;
   rentAmount: number;
+  startDate?: string;
 }
 
 export class TenantService {
@@ -245,19 +246,40 @@ export class TenantService {
   }
 
   async createLease(data: CreateLeaseData): Promise<Lease> {
-    return await (prisma as any).lease.create({
-      data: {
-        tenantId: data.tenantId,
-        propertyId: data.propertyId,
-        unitId: data.unitId,
-        rentAmount: data.rentAmount
-      },
-      include: {
-        tenantIdentity: true,
-        property: true,
-        unit: true
+    console.log('TenantService: createLease called with:', data);
+
+    try {
+      // Verify tenant exists first
+      const tenant = await (prisma as any).tenantIdentity.findUnique({
+        where: { tenantId: data.tenantId }
+      });
+
+      if (!tenant) {
+        throw new Error(`Tenant with ID ${data.tenantId} not found`);
       }
-    });
+
+      console.log('TenantService: Tenant verified:', tenant);
+
+      const lease = await (prisma as any).lease.create({
+        data: {
+          tenantId: data.tenantId,
+          propertyId: data.propertyId,
+          unitId: data.unitId,
+          rentAmount: data.rentAmount
+        },
+        include: {
+          tenantIdentity: true,
+          property: true,
+          unit: true
+        }
+      });
+
+      console.log('TenantService: Lease created successfully:', lease);
+      return lease;
+    } catch (error) {
+      console.error('TenantService: createLease error:', error);
+      throw error;
+    }
   }
 
   async getActiveLeaseByTenant(tenantId: string): Promise<Lease | null> {

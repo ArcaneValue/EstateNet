@@ -67,6 +67,7 @@ export class PaymentService {
       propertyId: activeLease.propertyId,
       unitId: activeLease.unitId,
       status: data.status || 'PAID',
+      paymentDate: new Date(data.paymentDate).toISOString(), // Convert to full ISO DateTime
       dueDate: computedDueDate.toISOString(),
     };
 

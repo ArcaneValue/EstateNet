@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getActiveLease, endLease } from '../controllers/leaseController';
+import { getActiveLease, endLease, createLease } from '../controllers/leaseController';
 import { authenticateToken } from '../middlewares/auth';
 import { requireUserRole } from '../middlewares/requireUserRole';
 import { UserRole } from '../types/prisma';
@@ -11,6 +11,13 @@ router.get('/me/active-lease',
   authenticateToken,
   requireUserRole(UserRole.TENANT),
   getActiveLease
+);
+
+// POST /api/leases - Create lease (Manager only)
+router.post('/',
+  authenticateToken,
+  requireUserRole(UserRole.MANAGER),
+  createLease
 );
 
 // POST /api/leases/:leaseId/end - End lease (Manager only)

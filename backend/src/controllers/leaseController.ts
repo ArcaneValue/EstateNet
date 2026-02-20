@@ -31,6 +31,97 @@ export const getActiveLease = async (req: AuthenticatedRequest, res: Response): 
   }
 };
 
+export const createLease = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  console.log('=== CREATE LEASE REQUEST START ===');
+
+  try {
+    console.log('Method:', req.method);
+    console.log('Path:', req.path);
+    console.log('User role:', req.user?.role);
+    console.log('User ID:', req.user?.id);
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+
+    if (!req.user || req.user.role !== 'MANAGER' || !req.user.id) {
+      res.status(403).json({
+        success: false,
+        message: 'Only managers can create leases'
+      });
+      return;
+    }
+
+    const { tenantId, propertyId, unitId, rentAmount, startDate } = req.body;
+
+    if (!tenantId || !propertyId || !unitId || !rentAmount) {
+      res.status(400).json({
+        success: false,
+        message: 'Missing required fields: tenantId, propertyId, unitId, rentAmount'
+      });
+      return;
+    }
+
+    // Verify manager owns property
+    const property = await prisma.property.findFirst({
+      where: {
+        id: propertyId,
+        managerId: req.user.id
+      }
+    });
+
+    if (!property) {
+      res.status(403).json({
+        success: false,
+        message: 'You can only create leases for properties you manage'
+      });
+      return;
+    }
+
+    // Verify unit exists and belongs to property
+    const unit = await prisma.unit.findFirst({
+      where: {
+        id: unitId,
+        propertyId
+      }
+    });
+
+    if (!unit) {
+      res.status(400).json({
+        success: false,
+        message: 'Unit not found or does not belong to specified property'
+      });
+      return;
+    }
+
+    const lease = await tenantService.createLease({
+      tenantId,
+      propertyId,
+      unitId,
+      rentAmount: parseInt(rentAmount)
+    });
+
+    console.log('=== LEASE CREATED SUCCESSFULLY ===');
+    console.log('Lease ID:', lease.id);
+    console.log('Tenant ID:', lease.tenantId);
+    console.log('Property ID:', lease.propertyId);
+    console.log('Unit ID:', lease.unitId);
+
+    res.status(201).json({
+      success: true,
+      data: lease
+    });
+  } catch (error) {
+    console.error('=== CREATE LEASE ERROR ===');
+    console.error('Error name:', error instanceof Error ? error.name : 'Unknown');
+    console.error('Error message:', error instanceof Error ? error.message : String(error));
+    console.error('Prisma code:', (error as any)?.code || 'None');
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
+
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
 export const endLease = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { leaseId } = req.params;

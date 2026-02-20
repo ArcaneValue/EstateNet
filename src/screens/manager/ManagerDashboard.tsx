@@ -18,6 +18,8 @@ import { SendReminderModal } from './SendReminderModal';
 import { ActivityDetailsModal } from './ActivityDetailsModal';
 import { OwnerCenter } from '../../components/OwnerCenter';
 import { Ionicons } from '@expo/vector-icons';
+import { useManagerEnforcement } from '../../hooks/useManagerEnforcement';
+import { handleEnforcement } from '../../utils/enforcementNavigation';
 
 interface ManagerDashboardProps {
     navigation: any;
@@ -29,6 +31,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
     const { data: dashboardData, loading, error, refetch } = useManagerDashboard();
     const { properties, getTotalOccupiedUnits, getTotalVacancies, isOwner } = useProperties();
     const { getTotalRentCollected, getOutstandingRent } = usePayments();
+    const { checkEnforcement, checking: checkingEnforcement } = useManagerEnforcement();
 
     const [showOccupiedModal, setShowOccupiedModal] = useState(false);
     const [showInviteModal, setShowInviteModal] = useState(false);
@@ -88,6 +91,27 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
     const handleActivityPress = (activity: any) => {
         setSelectedActivity(activity);
         setShowActivityModal(true);
+    };
+
+    const handleInviteTenantPress = async () => {
+        if (__DEV__) {
+            console.log('[ManagerDashboard] Invite Tenant button pressed');
+        }
+
+        // Check enforcement before opening modal
+        const { canProceed, enforcement } = await checkEnforcement('Invite Tenant');
+
+        if (!canProceed && enforcement) {
+            if (__DEV__) {
+                console.log('[ManagerDashboard] Enforcement blocked Invite Tenant modal');
+            }
+            // Navigate to billing/terms screen
+            await handleEnforcement(navigation, enforcement, { blockedFeature: 'Invite Tenant' });
+            return;
+        }
+
+        // Enforcement passed or not needed, open modal
+        setShowInviteModal(true);
     };
 
     return (
@@ -188,7 +212,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
                             icon={
                                 <View
                                     style={{
-                                        backgroundColor: colors.accent + '20',
+                                        backgroundColor: colors.success + '20',
                                         width: 40,
                                         height: 40,
                                         borderRadius: 20,
@@ -196,11 +220,35 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
                                         justifyContent: 'center',
                                     }}
                                 >
-                                    <Ionicons name="cash" size={20} color={colors.accent} />
+                                    <Ionicons name="cash-outline" size={20} color={colors.success} />
                                 </View>
                             }
                             trend={{ value: '+12%', isPositive: true }}
-                            color={colors.text}
+                            color={colors.success}
+                        />
+                    </TouchableOpacity>
+                </View>
+
+                <View style={[styles.metricsGrid, { marginBottom: spacing.lg }]}>
+                    <TouchableOpacity style={{ flex: 1, marginRight: spacing.sm }} onPress={() => navigation.navigate('ManagerPayments')}>
+                        <MetricCard
+                            value={loading ? '...' : 'View'}
+                            label="Payments"
+                            icon={
+                                <View
+                                    style={{
+                                        backgroundColor: colors.info + '20',
+                                        width: 40,
+                                        height: 40,
+                                        borderRadius: 20,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    }}
+                                >
+                                    <Ionicons name="card-outline" size={20} color={colors.info} />
+                                </View>
+                            }
+                            color={colors.info}
                         />
                     </TouchableOpacity>
                 </View>
@@ -244,11 +292,12 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
                     <View style={styles.actionsGrid}>
                         <ActionButton
                             icon="person-add"
-                            label="Invite Tenant"
-                            onPress={() => setShowInviteModal(true)}
+                            label={checkingEnforcement ? 'Checking...' : 'Invite Tenant'}
+                            onPress={handleInviteTenantPress}
                             colors={colors}
                             spacing={spacing}
                             borderRadius={borderRadius}
+                            disabled={checkingEnforcement}
                         />
                         <ActionButton
                             icon="card"
@@ -426,6 +475,7 @@ interface ActionButtonProps {
     colors: any;
     spacing: any;
     borderRadius: any;
+    disabled?: boolean;
 }
 
 const ActionButton: React.FC<ActionButtonProps> = ({
@@ -435,9 +485,11 @@ const ActionButton: React.FC<ActionButtonProps> = ({
     colors,
     spacing,
     borderRadius,
+    disabled = false,
 }) => (
     <TouchableOpacity
         onPress={onPress}
+        disabled={disabled}
         style={{
             backgroundColor: colors.surface,
             padding: spacing.base,
@@ -445,6 +497,7 @@ const ActionButton: React.FC<ActionButtonProps> = ({
             alignItems: 'center',
             flex: 1,
             marginHorizontal: spacing.xs,
+            opacity: disabled ? 0.6 : 1,
         }}
     >
         <View

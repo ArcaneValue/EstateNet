@@ -108,6 +108,11 @@ export const registerManager = async (req: Request, res: Response): Promise<void
 
         res.status(201).json(response);
     } catch (error) {
+        console.error('Tenant registration error:', error);
+        if (error instanceof Error && error.stack) {
+            console.error('Error stack:', error.stack);
+        }
+
         const response: ApiResponse = {
             success: false,
             message: error instanceof Error ? error.message : 'Internal server error'
@@ -150,6 +155,11 @@ export const registerTenant = async (req: Request, res: Response): Promise<void>
 
         res.status(201).json(response);
     } catch (error) {
+        console.error('Tenant registration error:', error);
+        if (error instanceof Error && error.stack) {
+            console.error('Error stack:', error.stack);
+        }
+
         const response: ApiResponse = {
             success: false,
             message: error instanceof Error ? error.message : 'Internal server error'
@@ -196,12 +206,7 @@ export const registerOwner = async (req: Request, res: Response): Promise<void> 
             success: false,
             message: error instanceof Error ? error.message : 'Internal server error'
         };
-
-        if (error instanceof Error && error.message.includes('already exists')) {
-            res.status(409).json(response);
-        } else {
-            res.status(500).json(response);
-        }
+        res.status(500).json(response);
     }
 };
 

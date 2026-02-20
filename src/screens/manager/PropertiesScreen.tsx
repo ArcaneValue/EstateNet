@@ -8,8 +8,10 @@ import { Button } from '../../components/Button';
 import { TenantListItem } from '../../components/TenantListItem';
 import { AddPropertyForm } from '../../components/AddPropertyForm';
 import { useManagerProperties, Property } from '../../hooks/useManagerProperties';
+import { useManagerEnforcement } from '../../hooks/useManagerEnforcement';
 import { apiGet } from '../../utils/apiClient';
 import { Ionicons } from '@expo/vector-icons';
+import { handleEnforcement } from '../../utils/enforcementNavigation';
 
 interface PropertyTenant {
     id: string;
@@ -26,13 +28,46 @@ interface PropertyTenant {
 export const PropertiesScreen: React.FC<any> = ({ navigation }) => {
     const { colors, spacing, typography } = useTheme();
     const { data: properties, loading, error, refetch, createProperty, deleteProperty } = useManagerProperties();
+    const { checkEnforcement, checking: checkingEnforcement } = useManagerEnforcement();
     const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
     const [propertyTenants, setPropertyTenants] = useState<PropertyTenant[]>([]);
     const [tenantsLoading, setTenantsLoading] = useState(false);
 
+    const handleAddPropertyPress = async () => {
+        if (__DEV__) {
+            console.log('[PropertiesScreen] Add Property button pressed');
+        }
+
+        // Check enforcement before opening modal
+        const { canProceed, enforcement } = await checkEnforcement('Add Property');
+
+        if (!canProceed && enforcement) {
+            if (__DEV__) {
+                console.log('[PropertiesScreen] Enforcement blocked Add Property modal');
+            }
+            // Navigate to billing/terms screen
+            await handleEnforcement(navigation, enforcement, { blockedFeature: 'Add Property' });
+            return;
+        }
+
+        // Enforcement passed or not needed, open modal
+        setShowAddModal(true);
+    };
+
     const handleAddProperty = async (newProperty: any) => {
-        const success = await createProperty({
+        if (__DEV__) {
+            console.log('[PropertiesScreen] handleAddProperty called');
+            console.log('[PropertiesScreen] navigation object:', navigation);
+            try {
+                const navState = navigation.getState?.();
+                console.log('[PropertiesScreen] Current navigation state:', JSON.stringify(navState, null, 2));
+            } catch (e) {
+                console.log('[PropertiesScreen] Failed to get navigation state:', e);
+            }
+        }
+
+        const result = await createProperty({
             name: newProperty.name,
             location: newProperty.location,
             units: newProperty.units?.map((u: any) => ({
@@ -40,7 +75,21 @@ export const PropertiesScreen: React.FC<any> = ({ navigation }) => {
                 rentAmount: u.rentAmount
             }))
         });
-        if (success) {
+
+        if (__DEV__) {
+            console.log('[PropertiesScreen] createProperty result:', result);
+            console.log('[PropertiesScreen] result.enforcement:', result.enforcement);
+            console.log('[PropertiesScreen] About to call handleEnforcement...');
+        }
+
+        if (await handleEnforcement(navigation, result.enforcement, { blockedFeature: 'Add Property' })) {
+            if (__DEV__) console.log('[PropertiesScreen] handleEnforcement returned true (enforcement handled)');
+            return;
+        }
+
+        if (__DEV__) console.log('[PropertiesScreen] handleEnforcement returned false (no enforcement or navigation failed)');
+
+        if (result.ok) {
             setShowAddModal(false);
         }
     };
@@ -146,12 +195,14 @@ export const PropertiesScreen: React.FC<any> = ({ navigation }) => {
 
                         {/* Add Property Button */}
                         <Button
-                            title="+ Add Property"
-                            onPress={() => setShowAddModal(true)}
+                            title={checkingEnforcement ? 'Checking...' : '+ Add Property'}
+                            onPress={handleAddPropertyPress}
                             variant="primary"
                             size="large"
                             style={{ marginBottom: spacing.lg }}
                             icon={<Ionicons name="add-circle" size={20} color="#FFFFFF" />}
+                            disabled={checkingEnforcement}
+                            loading={checkingEnforcement}
                         />
                     </View>
                 }

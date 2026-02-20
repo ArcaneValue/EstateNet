@@ -27,14 +27,20 @@ export interface UpdateUnitData {
   isOccupied?: boolean;
 }
 
+export type WriteResult<T> = {
+  ok: boolean;
+  data?: T;
+  enforcement?: (Awaited<ReturnType<typeof apiPost>>)['enforcement'];
+};
+
 export const useManagerUnits = (propertyId?: string) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const createUnit = useCallback(async (data: CreateUnitData): Promise<Unit | null> => {
+  const createUnit = useCallback(async (data: CreateUnitData): Promise<WriteResult<Unit>> => {
     if (!propertyId) {
       setError('Property ID is required');
-      return null;
+      return { ok: false };
     }
 
     setLoading(true);
@@ -42,15 +48,17 @@ export const useManagerUnits = (propertyId?: string) => {
 
     try {
       const response = await apiPost(`/properties/${propertyId}/units`, data);
-      if (response.json?.success) {
-        return response.json.data;
-      } else {
-        setError(response.json?.message || 'Failed to create unit');
-        return null;
+      if (response.enforcement) {
+        return { ok: false, enforcement: response.enforcement };
       }
+      if (response.json?.success) {
+        return { ok: true, data: response.json.data };
+      }
+      setError(response.json?.message || 'Failed to create unit');
+      return { ok: false };
     } catch (err: any) {
       setError(err.message || 'Failed to create unit');
-      return null;
+      return { ok: false };
     } finally {
       setLoading(false);
     }

@@ -12,6 +12,8 @@ import { InvitationsList, ManagerInvitation } from './InvitationsList';
 import { Ionicons } from '@expo/vector-icons';
 import { useMessages } from '../../context/MessageContext';
 import { apiGet, apiDelete } from '../../utils/apiClient';
+import { useManagerEnforcement } from '../../hooks/useManagerEnforcement';
+import { handleEnforcement } from '../../utils/enforcementNavigation';
 
 // Manager tenant type includes leaseId for messaging
 interface ManagerTenant {
@@ -34,6 +36,7 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
     const { colors, spacing, typography, borderRadius } = useTheme();
     const { properties } = useProperties();
     const { sendMessage } = useMessages();
+    const { checkEnforcement, checking: checkingEnforcement } = useManagerEnforcement();
 
     // Fetch tenants from manager endpoint (includes leaseId for messaging)
     const [managerTenants, setManagerTenants] = useState<ManagerTenant[]>([]);
@@ -229,6 +232,27 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
         }
     };
 
+    const handleInviteTenantPress = async () => {
+        if (__DEV__) {
+            console.log('[TenantsScreen] Invite Tenant button pressed');
+        }
+
+        // Check enforcement before opening modal
+        const { canProceed, enforcement } = await checkEnforcement('Invite Tenant');
+
+        if (!canProceed && enforcement) {
+            if (__DEV__) {
+                console.log('[TenantsScreen] Enforcement blocked Invite Tenant modal');
+            }
+            // Navigate to billing/terms screen
+            await handleEnforcement(navigation, enforcement, { blockedFeature: 'Invite Tenant' });
+            return;
+        }
+
+        // Enforcement passed or not needed, open modal
+        setShowInviteModal(true);
+    };
+
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
             <ScrollView
@@ -318,12 +342,14 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
                 {/* Invite Tenant Button - visible on tenants tab only */}
                 {activeTab === 'tenants' && (
                     <Button
-                        title="Invite Tenant"
-                        onPress={() => setShowInviteModal(true)}
+                        title={checkingEnforcement ? 'Checking...' : 'Invite Tenant'}
+                        onPress={handleInviteTenantPress}
                         variant="primary"
                         size="large"
                         style={{ marginBottom: spacing.lg }}
                         icon={<Ionicons name="person-add" size={18} color="#FFFFFF" />}
+                        disabled={checkingEnforcement}
+                        loading={checkingEnforcement}
                     />
                 )}
 
@@ -621,6 +647,7 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
                     loadManagerTenants();
                     loadInvitations();
                 }}
+                navigation={navigation}
             />
         </SafeAreaView>
     );

@@ -40,6 +40,11 @@ export interface UpdatePropertyData {
   location?: string;
 }
 
+export type WriteResult = {
+  ok: boolean;
+  enforcement?: (Awaited<ReturnType<typeof apiPost>>)['enforcement'];
+};
+
 export const useManagerProperties = () => {
   const [data, setData] = useState<Property[]>([]);
   const [loading, setLoading] = useState(false);
@@ -69,18 +74,21 @@ export const useManagerProperties = () => {
     fetchProperties();
   }, [fetchProperties]);
 
-  const createProperty = async (propertyData: CreatePropertyData): Promise<boolean> => {
+  const createProperty = async (propertyData: CreatePropertyData): Promise<WriteResult> => {
     try {
-      const { status, json } = await apiPost('/properties', propertyData);
+      const { status, json, enforcement } = await apiPost('/properties', propertyData);
       if (status === 201 && json?.success) {
         await fetchProperties(); // Refetch to update list
-        return true;
+        return { ok: true };
+      }
+      if (enforcement) {
+        return { ok: false, enforcement };
       }
       setError(json?.message || 'Failed to create property');
-      return false;
+      return { ok: false };
     } catch (err: any) {
       setError(err.message || 'Network error');
-      return false;
+      return { ok: false };
     }
   };
 

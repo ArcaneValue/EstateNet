@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { inviteTenant, acceptInvitation, declineInvitation, getTenantInvitations, cancelInvitation } from '../controllers/tenantController';
 import { authenticateToken } from '../middlewares/auth';
 import { requireUserRole } from '../middlewares/requireUserRole';
+import { requireManagerTermsAccepted, requireCurrentBilling } from '../middlewares/billingEnforcement';
 import { UserRole } from '../types/prisma';
 
 const router = Router();
@@ -10,6 +11,8 @@ const router = Router();
 router.post('/invite',
   authenticateToken,
   requireUserRole(UserRole.MANAGER),
+  requireManagerTermsAccepted,
+  requireCurrentBilling,
   inviteTenant
 );
 
