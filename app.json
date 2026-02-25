@@ -28,8 +28,7 @@
       "bundler": "metro"
     },
     "plugins": [
-      "@react-native-community/datetimepicker",
-      "react-native-webview"
+      "@react-native-community/datetimepicker"
     ]
   }
 }
