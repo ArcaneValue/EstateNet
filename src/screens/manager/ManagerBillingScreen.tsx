@@ -8,6 +8,8 @@ import {
     ActivityIndicator,
     TouchableOpacity,
     TextInput,
+    Modal,
+    Clipboard,
 } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -37,8 +39,26 @@ interface Invoice {
     totalAmount: number;
     status: string;
     dueDate: string;
+    paidAt: string | null;
     createdAt: string;
     lineCount: number;
+}
+
+interface InvoiceLine {
+    id: string;
+    propertyId: string;
+    unitId: string;
+    rentAmount: number;
+    tenantId: string | null;
+    leaseId: string | null;
+    property: { id: string; name: string; location: string } | null;
+    unit: { id: string; unitNumber: string } | null;
+    tenant: { name: string; email: string } | null;
+}
+
+interface InvoiceDetail extends Invoice {
+    feeRateBps: number;
+    lines: InvoiceLine[];
 }
 
 interface BillingStatus {
@@ -56,6 +76,22 @@ interface BillingStatus {
         status: string;
         lineCount: number;
     } | null;
+}
+
+interface ServicePayment {
+    paymentId: string;
+    invoiceId: string;
+    externalRef: string;
+    status: string;
+    amount: number;
+    currency: string;
+    provider: string;
+    network: string;
+    phoneNumber: string;
+    providerTxId: string | null;
+    failureReason: string | null;
+    createdAt: string;
+    updatedAt: string;
 }
 
 interface ManagerBillingScreenProps {
@@ -97,6 +133,19 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
     // Data state
     const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
     const [invoices, setInvoices] = useState<Invoice[]>([]);
+    const [servicePayments, setServicePayments] = useState<ServicePayment[]>([]);
+
+    // Receipt modal state
+    const [receiptPayment, setReceiptPayment] = useState<ServicePayment | null>(null);
+    const [showReceiptModal, setShowReceiptModal] = useState(false);
+
+    // Invoice detail modal state
+    const [invoiceDetail, setInvoiceDetail] = useState<InvoiceDetail | null>(null);
+    const [showInvoiceDetail, setShowInvoiceDetail] = useState(false);
+    const [loadingInvoiceDetail, setLoadingInvoiceDetail] = useState(false);
+
+    // Payment history filter
+    const [paymentFilter, setPaymentFilter] = useState<'ALL' | 'SUCCESS' | 'FAILED' | 'PENDING'>('ALL');
 
     // UI state
     const [initialLoading, setInitialLoading] = useState(true);
@@ -107,6 +156,7 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
     // Payment state
     const [payingInvoiceId, setPayingInvoiceId] = useState<string | null>(null);
     const [paymentPhone, setPaymentPhone] = useState('');
+    const [paymentNetwork, setPaymentNetwork] = useState<'MTN' | 'AIRTEL'>('MTN');
     const [paymentStatus, setPaymentStatus] = useState<string | null>(null); // PENDING | SUCCESS | FAILED | TIMEOUT
     const [paymentError, setPaymentError] = useState<string | null>(null);
     const [pollingPaymentId, setPollingPaymentId] = useState<string | null>(null);
@@ -138,9 +188,10 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
         setError(null);
 
         try {
-            const [statusRes, invoicesRes] = await Promise.all([
+            const [statusRes, invoicesRes, paymentsRes] = await Promise.all([
                 apiGet('/manager/billing/status'),
                 apiGet('/manager/billing/invoices'),
+                apiGet('/manager/billing/service-payments?limit=10'),
             ]);
 
             if (statusRes.status === 200 && statusRes.json?.success) {
@@ -153,9 +204,14 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                 setInvoices(invoicesRes.json.data ?? []);
             }
 
+            if (paymentsRes.status === 200 && paymentsRes.json?.success) {
+                setServicePayments(paymentsRes.json.data ?? []);
+            }
+
             if (__DEV__) {
                 console.log('[Billing] Loaded — status:', statusRes.json?.data?.billingStatus,
-                    '| invoices:', invoicesRes.json?.data?.length ?? 0);
+                    '| invoices:', invoicesRes.json?.data?.length ?? 0,
+                    '| payments:', paymentsRes.json?.data?.length ?? 0);
             }
         } catch (e) {
             console.error('[Billing] Load error:', e);
@@ -207,6 +263,15 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                 );
                 // Reload to get fresh status (termsAcceptedAt will now be set)
                 await loadData(true);
+
+                // Clear enforcement route params to remove the Action Required banner
+                if (enforcementBanner || blockedFeature || enforcement) {
+                    navigation.setParams({
+                        enforcementBanner: undefined,
+                        blockedFeature: undefined,
+                        enforcement: undefined,
+                    });
+                }
             } else {
                 setError(json?.message || 'Failed to accept terms');
             }
@@ -214,6 +279,27 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
             setError('Network error. Please try again.');
         } finally {
             setAcceptingTerms(false);
+        }
+    };
+
+    // ── View invoice detail ────────────────────────────────────────────────
+    const handleViewInvoiceDetail = async (invoiceId: string) => {
+        setLoadingInvoiceDetail(true);
+        setShowInvoiceDetail(true);
+        try {
+            const { status, json } = await apiGet(`/manager/billing/invoices/${invoiceId}`);
+            if (status === 200 && json?.success) {
+                setInvoiceDetail(json.data);
+            } else {
+                setInvoiceDetail(null);
+                Alert.alert('Error', json?.message || 'Failed to load invoice details');
+                setShowInvoiceDetail(false);
+            }
+        } catch {
+            Alert.alert('Error', 'Network error loading invoice details');
+            setShowInvoiceDetail(false);
+        } finally {
+            setLoadingInvoiceDetail(false);
         }
     };
 
@@ -251,7 +337,7 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
         try {
             const { status, json } = await apiPost(
                 `/manager/billing/invoices/${payingInvoiceId}/pay`,
-                { phoneNumber: paymentPhone.trim() }
+                { phoneNumber: paymentPhone.trim(), network: paymentNetwork }
             );
 
             if (status === 201 && json?.success) {
@@ -525,8 +611,8 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                                     marginBottom: spacing.md,
                                 }}>
                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
-                                        <Text style={[typography.body, { color: colors.textSecondary }]}>Subtotal:</Text>
-                                        <Text style={[typography.body, { color: colors.text }]}>UGX {formatNumber(inv.subtotalAmount)}</Text>
+                                        <Text style={[typography.body, { color: colors.textSecondary }]}>Subtotal (reference only):</Text>
+                                        <Text style={[typography.body, { color: colors.textSecondary }]}>UGX {formatNumber(inv.subtotalAmount)}</Text>
                                     </View>
                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
                                         <Text style={[typography.body, { color: colors.textSecondary }]}>Service Fee (3.99%):</Text>
@@ -540,9 +626,12 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                                         paddingTop: spacing.xs,
                                         marginTop: spacing.xs,
                                     }}>
-                                        <Text style={[typography.h4, { color: colors.text }]}>Total:</Text>
-                                        <Text style={[typography.h4, { color: colors.primary }]}>UGX {formatNumber(inv.totalAmount)}</Text>
+                                        <Text style={[typography.h4, { color: colors.text }]}>Service Fee Due:</Text>
+                                        <Text style={[typography.h4, { color: colors.primary }]}>UGX {formatNumber(inv.feeAmount)}</Text>
                                     </View>
+                                    <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.xs, fontStyle: 'italic' }]}>
+                                        Invoices are calculated based on occupied units at the start of the billing period. New units are billed in the next cycle.
+                                    </Text>
                                 </View>
 
                                 {/* Phone input for payment */}
@@ -554,8 +643,36 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                                         marginBottom: spacing.md,
                                     }}>
                                         <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.sm }]}>
-                                            Enter your Mobile Money number:
+                                            Select network & enter your Mobile Money number:
                                         </Text>
+                                        <View style={{ flexDirection: 'row', marginBottom: spacing.sm, gap: spacing.sm }}>
+                                            {(['MTN', 'AIRTEL'] as const).map((net) => {
+                                                const selected = paymentNetwork === net;
+                                                const netColor = net === 'MTN' ? '#FFCC00' : '#ED1C24';
+                                                return (
+                                                    <TouchableOpacity
+                                                        key={net}
+                                                        onPress={() => setPaymentNetwork(net)}
+                                                        style={{
+                                                            flex: 1,
+                                                            paddingVertical: spacing.sm,
+                                                            borderRadius: borderRadius.md,
+                                                            borderWidth: 2,
+                                                            borderColor: selected ? netColor : colors.border,
+                                                            backgroundColor: selected ? netColor + '15' : 'transparent',
+                                                            alignItems: 'center',
+                                                        }}
+                                                    >
+                                                        <Text style={[typography.body, {
+                                                            color: selected ? (net === 'MTN' ? '#000' : '#ED1C24') : colors.textSecondary,
+                                                            fontWeight: selected ? '700' : '400',
+                                                        }]}>
+                                                            {net === 'MTN' ? 'MTN MoMo' : 'Airtel Money'}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                );
+                                            })}
+                                        </View>
                                         <TextInput
                                             style={{
                                                 borderWidth: 1,
@@ -702,6 +819,182 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                     </Card>
                 )}
 
+                {/* ── Pending Payment Banner ── */}
+                {(() => {
+                    const pendingPay = servicePayments.find(p => p.status === 'PENDING');
+                    if (!pendingPay) return null;
+                    const createdMs = new Date(pendingPay.createdAt).getTime();
+                    const ageMin = (Date.now() - createdMs) / 60000;
+                    const canRetry = ageMin > 5;
+
+                    return (
+                        <Card style={{
+                            backgroundColor: colors.info + '15',
+                            borderColor: colors.info,
+                            borderWidth: 1,
+                            marginBottom: spacing.lg,
+                        }}>
+                            <View style={{ padding: spacing.lg }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
+                                    <ActivityIndicator size="small" color={colors.info} />
+                                    <Text style={[typography.h4, { color: colors.info, marginLeft: spacing.sm }]}>
+                                        Payment Pending
+                                    </Text>
+                                </View>
+                                <Text style={[typography.body, { color: colors.text, marginBottom: spacing.xs }]}>
+                                    Ref: {pendingPay.externalRef}
+                                </Text>
+                                <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.md }]}>
+                                    UGX {formatNumber(pendingPay.amount)} {'\u2022'} {pendingPay.network} {'\u2022'} {pendingPay.phoneNumber}
+                                </Text>
+                                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                                    <Button
+                                        title="Refresh"
+                                        onPress={() => loadData(true)}
+                                        variant="outline"
+                                        size="small"
+                                        style={{ flex: 1 }}
+                                    />
+                                    {canRetry && (
+                                        <Button
+                                            title="Retry Payment"
+                                            onPress={() => handlePayInvoice(pendingPay.invoiceId)}
+                                            variant="primary"
+                                            size="small"
+                                            style={{ flex: 1 }}
+                                        />
+                                    )}
+                                </View>
+                            </View>
+                        </Card>
+                    );
+                })()}
+
+                {/* ── Failed/Timeout Payment Banner ── */}
+                {(() => {
+                    const failedPay = servicePayments.find(p =>
+                        p.status === 'FAILED' && (p.failureReason === 'TIMEOUT' || p.failureReason === 'Payment failed')
+                    );
+                    if (!failedPay) return null;
+
+                    return (
+                        <Card style={{
+                            backgroundColor: colors.error + '10',
+                            borderColor: colors.error,
+                            borderWidth: 1,
+                            marginBottom: spacing.lg,
+                        }}>
+                            <View style={{ padding: spacing.lg }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
+                                    <Ionicons name="close-circle" size={20} color={colors.error} />
+                                    <Text style={[typography.h4, { color: colors.error, marginLeft: spacing.sm }]}>
+                                        Payment {failedPay.failureReason === 'TIMEOUT' ? 'Timed Out' : 'Failed'}
+                                    </Text>
+                                </View>
+                                <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.sm }]}>
+                                    Ref: {failedPay.externalRef} {'\u2022'} {failedPay.failureReason}
+                                </Text>
+                                <Button
+                                    title="Retry Payment"
+                                    onPress={() => handlePayInvoice(failedPay.invoiceId)}
+                                    variant="outline"
+                                    size="small"
+                                />
+                            </View>
+                        </Card>
+                    );
+                })()}
+
+                {/* ── Payment History ── */}
+                {servicePayments.length > 0 && (
+                    <View style={{ marginBottom: spacing.lg }}>
+                        <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.sm }]}>
+                            Payment History
+                        </Text>
+                        <View style={{ flexDirection: 'row', marginBottom: spacing.md, gap: spacing.xs }}>
+                            {(['ALL', 'SUCCESS', 'FAILED', 'PENDING'] as const).map((f) => {
+                                const active = paymentFilter === f;
+                                const filterColor = f === 'SUCCESS' ? colors.success : f === 'FAILED' ? colors.error : f === 'PENDING' ? colors.info : colors.primary;
+                                return (
+                                    <TouchableOpacity
+                                        key={f}
+                                        onPress={() => setPaymentFilter(f)}
+                                        style={{
+                                            paddingHorizontal: spacing.sm,
+                                            paddingVertical: 4,
+                                            borderRadius: borderRadius.sm,
+                                            backgroundColor: active ? filterColor + '20' : 'transparent',
+                                            borderWidth: 1,
+                                            borderColor: active ? filterColor : colors.border,
+                                        }}
+                                    >
+                                        <Text style={[typography.bodySmall, {
+                                            color: active ? filterColor : colors.textSecondary,
+                                            fontWeight: active ? '700' : '400',
+                                        }]}>
+                                            {f === 'ALL' ? 'All' : f.charAt(0) + f.slice(1).toLowerCase()}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                        {servicePayments.filter(sp => paymentFilter === 'ALL' || sp.status === paymentFilter).map((sp) => {
+                            const isSuccess = sp.status === 'SUCCESS';
+                            const isFailed = sp.status === 'FAILED';
+                            const isPending = sp.status === 'PENDING';
+                            const badgeColor = isSuccess ? colors.success : isFailed ? colors.error : colors.info;
+                            const badgeLabel = sp.status;
+
+                            return (
+                                <TouchableOpacity
+                                    key={sp.paymentId}
+                                    onPress={() => {
+                                        setReceiptPayment(sp);
+                                        setShowReceiptModal(true);
+                                    }}
+                                    activeOpacity={0.7}
+                                >
+                                    <Card style={{ marginBottom: spacing.sm }}>
+                                        <View style={{ padding: spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>
+                                                    UGX {formatNumber(sp.amount)}
+                                                </Text>
+                                                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                                                    {new Date(sp.createdAt).toLocaleString('en-UG', { dateStyle: 'medium', timeStyle: 'short' })}
+                                                </Text>
+                                                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                                                    Ref: {sp.externalRef}
+                                                </Text>
+                                                {isSuccess && sp.providerTxId && (
+                                                    <Text style={[typography.bodySmall, { color: colors.success }]}>
+                                                        Tx: {sp.providerTxId}
+                                                    </Text>
+                                                )}
+                                            </View>
+                                            <View style={{ alignItems: 'flex-end' }}>
+                                                <View style={{
+                                                    backgroundColor: badgeColor + '20',
+                                                    paddingHorizontal: spacing.sm,
+                                                    paddingVertical: 2,
+                                                    borderRadius: borderRadius.sm,
+                                                }}>
+                                                    <Text style={[typography.bodySmall, { color: badgeColor, fontWeight: '700' }]}>
+                                                        {badgeLabel}
+                                                    </Text>
+                                                </View>
+                                                {isPending && (
+                                                    <ActivityIndicator size="small" color={colors.info} style={{ marginTop: spacing.xs }} />
+                                                )}
+                                            </View>
+                                        </View>
+                                    </Card>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+                )}
+
                 {/* ── Invoice History ── */}
                 <View style={{ marginBottom: spacing.lg }}>
                     <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md }]}>
@@ -709,47 +1002,59 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                     </Text>
                     {invoices.length > 0 ? (
                         invoices.map((item) => (
-                            <Card key={item.id} style={{ marginBottom: spacing.sm }}>
-                                <View style={{ padding: spacing.lg }}>
-                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={[typography.h4, { color: colors.text }]}>
-                                                UGX {formatNumber(item.totalAmount)}
-                                            </Text>
-                                            <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
-                                                {formatDate(item.periodStart)} – {formatDate(item.periodEnd)}
-                                            </Text>
-                                            <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
-                                                Due: {formatDate(item.dueDate)} {'\u2022'} {item.lineCount} unit{item.lineCount !== 1 ? 's' : ''}
-                                            </Text>
-                                        </View>
-                                        <View style={{ alignItems: 'flex-end' }}>
-                                            <View style={{
-                                                backgroundColor: statusColor(item.status, colors) + '20',
-                                                paddingHorizontal: spacing.sm,
-                                                paddingVertical: 2,
-                                                borderRadius: borderRadius.sm,
-                                            }}>
-                                                <Text style={[typography.bodySmall, {
-                                                    color: statusColor(item.status, colors),
-                                                    fontWeight: '700',
-                                                }]}>
-                                                    {item.status}
+                            <TouchableOpacity
+                                key={item.id}
+                                onPress={() => handleViewInvoiceDetail(item.id)}
+                                activeOpacity={0.7}
+                            >
+                                <Card style={{ marginBottom: spacing.sm }}>
+                                    <View style={{ padding: spacing.lg }}>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={[typography.h4, { color: colors.text }]}>
+                                                    UGX {formatNumber(item.feeAmount)}
                                                 </Text>
+                                                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                                                    {formatDate(item.periodStart)} – {formatDate(item.periodEnd)}
+                                                </Text>
+                                                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                                                    Due: {formatDate(item.dueDate)} {'\u2022'} {item.lineCount} unit{item.lineCount !== 1 ? 's' : ''}
+                                                </Text>
+                                                {item.status === 'PAID' && item.paidAt && (
+                                                    <Text style={[typography.bodySmall, { color: colors.success }]}>
+                                                        Paid: {formatDate(item.paidAt)}
+                                                    </Text>
+                                                )}
                                             </View>
-                                            {(item.status === 'DUE' || item.status === 'OVERDUE') && (
-                                                <Button
-                                                    title="Pay"
-                                                    onPress={() => handlePayInvoice(item.id)}
-                                                    variant="outline"
-                                                    size="small"
-                                                    style={{ marginTop: spacing.xs }}
-                                                />
-                                            )}
+                                            <View style={{ alignItems: 'flex-end' }}>
+                                                <View style={{
+                                                    backgroundColor: statusColor(item.status, colors) + '20',
+                                                    paddingHorizontal: spacing.sm,
+                                                    paddingVertical: 2,
+                                                    borderRadius: borderRadius.sm,
+                                                }}>
+                                                    <Text style={[typography.bodySmall, {
+                                                        color: statusColor(item.status, colors),
+                                                        fontWeight: '700',
+                                                    }]}>
+                                                        {item.status}
+                                                    </Text>
+                                                </View>
+                                                {(item.status === 'DUE' || item.status === 'OVERDUE') && (
+                                                    <Button
+                                                        title="Pay"
+                                                        onPress={() => handlePayInvoice(item.id)}
+                                                        variant="outline"
+                                                        size="small"
+                                                        style={{ marginTop: spacing.xs }}
+                                                    />
+                                                )}
+                                                <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} style={{ marginTop: spacing.xs }} />
+                                            </View>
                                         </View>
                                     </View>
-                                </View>
-                            </Card>
+                                </Card>
+                            </TouchableOpacity>
                         ))
                     ) : (
                         <Card>
@@ -766,6 +1071,265 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                     )}
                 </View>
             </View>
+
+            {/* ── Receipt Modal ── */}
+            <Modal
+                visible={showReceiptModal}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowReceiptModal(false)}
+            >
+                <View style={{
+                    flex: 1,
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    justifyContent: 'flex-end',
+                }}>
+                    <View style={{
+                        backgroundColor: colors.surface,
+                        borderTopLeftRadius: borderRadius.lg,
+                        borderTopRightRadius: borderRadius.lg,
+                        padding: spacing.lg,
+                        maxHeight: '80%',
+                    }}>
+                        {receiptPayment && (() => {
+                            const rp = receiptPayment;
+                            const isSuccess = rp.status === 'SUCCESS';
+                            const accentColor = isSuccess ? colors.success : rp.status === 'FAILED' ? colors.error : colors.info;
+
+                            return (
+                                <View>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg }}>
+                                        <Text style={[typography.h3, { color: colors.text }]}>
+                                            {isSuccess ? 'Payment Receipt' : 'Payment Details'}
+                                        </Text>
+                                        <TouchableOpacity onPress={() => setShowReceiptModal(false)}>
+                                            <Ionicons name="close" size={24} color={colors.textSecondary} />
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <View style={{
+                                        alignItems: 'center',
+                                        marginBottom: spacing.lg,
+                                        padding: spacing.lg,
+                                        backgroundColor: accentColor + '10',
+                                        borderRadius: borderRadius.md,
+                                    }}>
+                                        <Ionicons
+                                            name={isSuccess ? 'checkmark-circle' : rp.status === 'FAILED' ? 'close-circle' : 'time'}
+                                            size={48}
+                                            color={accentColor}
+                                        />
+                                        <Text style={[typography.h2, { color: accentColor, marginTop: spacing.sm }]}>
+                                            {rp.currency} {formatNumber(rp.amount)}
+                                        </Text>
+                                        <View style={{
+                                            backgroundColor: accentColor + '20',
+                                            paddingHorizontal: spacing.md,
+                                            paddingVertical: spacing.xs,
+                                            borderRadius: borderRadius.sm,
+                                            marginTop: spacing.sm,
+                                        }}>
+                                            <Text style={[typography.bodySmall, { color: accentColor, fontWeight: '700' }]}>
+                                                {rp.status}
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    <View style={{ gap: spacing.sm, marginBottom: spacing.lg }}>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                            <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Reference</Text>
+                                            <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>{rp.externalRef}</Text>
+                                        </View>
+                                        {isSuccess && rp.providerTxId && (
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Transaction ID</Text>
+                                                <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>{rp.providerTxId}</Text>
+                                            </View>
+                                        )}
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                            <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Network</Text>
+                                            <Text style={[typography.body, { color: colors.text }]}>{rp.network}</Text>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                            <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Phone</Text>
+                                            <Text style={[typography.body, { color: colors.text }]}>{rp.phoneNumber}</Text>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                            <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Date</Text>
+                                            <Text style={[typography.body, { color: colors.text }]}>
+                                                {new Date(rp.createdAt).toLocaleString('en-UG', { dateStyle: 'medium', timeStyle: 'short' })}
+                                            </Text>
+                                        </View>
+                                        {rp.failureReason && (
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Reason</Text>
+                                                <Text style={[typography.body, { color: colors.error }]}>{rp.failureReason}</Text>
+                                            </View>
+                                        )}
+                                    </View>
+
+                                    <Button
+                                        title="Copy Reference"
+                                        onPress={() => {
+                                            Clipboard.setString(rp.externalRef);
+                                            Alert.alert('Copied', 'Payment reference copied to clipboard.');
+                                        }}
+                                        variant="outline"
+                                        style={{ marginBottom: spacing.sm }}
+                                    />
+                                    <Button
+                                        title="Close"
+                                        onPress={() => setShowReceiptModal(false)}
+                                        variant="primary"
+                                    />
+                                </View>
+                            );
+                        })()}
+                    </View>
+                </View>
+            </Modal>
+
+            {/* ── Invoice Detail Modal ── */}
+            <Modal
+                visible={showInvoiceDetail}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowInvoiceDetail(false)}
+            >
+                <View style={{
+                    flex: 1,
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    justifyContent: 'flex-end',
+                }}>
+                    <View style={{
+                        backgroundColor: colors.surface,
+                        borderTopLeftRadius: borderRadius.lg,
+                        borderTopRightRadius: borderRadius.lg,
+                        padding: spacing.lg,
+                        maxHeight: '85%',
+                    }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg }}>
+                            <Text style={[typography.h3, { color: colors.text }]}>Invoice Details</Text>
+                            <TouchableOpacity onPress={() => setShowInvoiceDetail(false)}>
+                                <Ionicons name="close" size={24} color={colors.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {loadingInvoiceDetail && (
+                            <View style={{ alignItems: 'center', padding: spacing.xl ?? spacing.lg }}>
+                                <ActivityIndicator size="large" color={colors.primary} />
+                                <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.md }]}>
+                                    Loading invoice…
+                                </Text>
+                            </View>
+                        )}
+
+                        {invoiceDetail && !loadingInvoiceDetail && (
+                            <ScrollView style={{ maxHeight: 500 }} showsVerticalScrollIndicator={false}>
+                                {/* Summary */}
+                                <View style={{
+                                    backgroundColor: colors.background,
+                                    padding: spacing.md,
+                                    borderRadius: borderRadius.md,
+                                    marginBottom: spacing.md,
+                                }}>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
+                                        <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Period</Text>
+                                        <Text style={[typography.body, { color: colors.text }]}>
+                                            {formatDate(invoiceDetail.periodStart)} – {formatDate(invoiceDetail.periodEnd)}
+                                        </Text>
+                                    </View>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
+                                        <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Status</Text>
+                                        <Text style={[typography.body, { color: statusColor(invoiceDetail.status, colors), fontWeight: '700' }]}>
+                                            {invoiceDetail.status}
+                                        </Text>
+                                    </View>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
+                                        <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Subtotal (reference only)</Text>
+                                        <Text style={[typography.body, { color: colors.textSecondary }]}>UGX {formatNumber(invoiceDetail.subtotalAmount)}</Text>
+                                    </View>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
+                                        <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                                            Fee ({(invoiceDetail.feeRateBps / 100).toFixed(2)}%)
+                                        </Text>
+                                        <Text style={[typography.body, { color: colors.text }]}>UGX {formatNumber(invoiceDetail.feeAmount)}</Text>
+                                    </View>
+                                    <View style={{
+                                        flexDirection: 'row', justifyContent: 'space-between',
+                                        borderTopWidth: 1, borderTopColor: colors.border,
+                                        paddingTop: spacing.xs, marginTop: spacing.xs,
+                                    }}>
+                                        <Text style={[typography.h4, { color: colors.text }]}>Service Fee Due</Text>
+                                        <Text style={[typography.h4, { color: colors.primary }]}>UGX {formatNumber(invoiceDetail.feeAmount)}</Text>
+                                    </View>
+                                    {invoiceDetail.paidAt && (
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.xs }}>
+                                            <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Paid At</Text>
+                                            <Text style={[typography.body, { color: colors.success }]}>
+                                                {new Date(invoiceDetail.paidAt).toLocaleString('en-UG', { dateStyle: 'medium', timeStyle: 'short' })}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+
+                                {/* Line Items */}
+                                <Text style={[typography.h4, { color: colors.text, marginBottom: spacing.sm }]}>
+                                    Line Items ({invoiceDetail.lines.length})
+                                </Text>
+                                {invoiceDetail.lines.map((line) => (
+                                    <Card key={line.id} style={{ marginBottom: spacing.sm }}>
+                                        <View style={{ padding: spacing.md }}>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+                                                <Text style={[typography.body, { color: colors.text, fontWeight: '600', flex: 1 }]}>
+                                                    {line.property?.name || 'Property'}
+                                                </Text>
+                                                <Text style={[typography.body, { color: colors.primary, fontWeight: '600' }]}>
+                                                    UGX {formatNumber(line.rentAmount)}
+                                                </Text>
+                                            </View>
+                                            <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                                                Unit: {line.unit?.unitNumber || '—'}
+                                                {line.property?.location ? ` • ${line.property.location}` : ''}
+                                            </Text>
+                                            {line.tenant && (
+                                                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                                                    Tenant: {line.tenant.name}
+                                                </Text>
+                                            )}
+                                        </View>
+                                    </Card>
+                                ))}
+
+                                {invoiceDetail.lines.length === 0 && (
+                                    <Text style={[typography.body, { color: colors.textSecondary, textAlign: 'center', padding: spacing.md }]}>
+                                        No line items
+                                    </Text>
+                                )}
+
+                                {/* Actions */}
+                                {(invoiceDetail.status === 'DUE' || invoiceDetail.status === 'OVERDUE') && (
+                                    <Button
+                                        title="Pay This Invoice"
+                                        onPress={() => {
+                                            setShowInvoiceDetail(false);
+                                            handlePayInvoice(invoiceDetail.id);
+                                        }}
+                                        variant="primary"
+                                        style={{ marginTop: spacing.md, marginBottom: spacing.sm }}
+                                    />
+                                )}
+                                <Button
+                                    title="Close"
+                                    onPress={() => setShowInvoiceDetail(false)}
+                                    variant="outline"
+                                    style={{ marginBottom: spacing.md }}
+                                />
+                            </ScrollView>
+                        )}
+                    </View>
+                </View>
+            </Modal>
         </ScrollView>
     );
 };

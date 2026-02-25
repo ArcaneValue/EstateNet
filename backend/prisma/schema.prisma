@@ -186,6 +186,7 @@ model Payment {
   transactionId String?
   paymentDate   DateTime
   dueDate       DateTime
+  billingPeriod String        // format "YYYY-MM"
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -194,6 +195,8 @@ model Payment {
   property       Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   unit           Unit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
 
+  @@index([billingPeriod, tenantId])
+  @@index([billingPeriod, propertyId])
   @@map("payments")
 }
 
@@ -262,6 +265,7 @@ model Invoice {
   feeAmount     Int
   status        String   // 'DUE' | 'PAID' | 'OVERDUE'
   dueDate       DateTime
+  paidAt        DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

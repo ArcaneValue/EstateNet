@@ -18,10 +18,17 @@ export const getBillingStatus = async (req: AuthenticatedRequest, res: Response)
       return;
     }
 
-    const billingStatus = req.user.billingStatus || 'CURRENT';
-    const graceUntil = req.user.billingGraceUntil;
+    // Query DB for fresh billing status (not JWT which may be stale)
+    const freshUser = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { billingStatus: true, billingGraceUntil: true, managerTermsAcceptedAt: true }
+    });
 
-    // Get current invoice if exists
+    const billingStatus = freshUser?.billingStatus || 'CURRENT';
+    const graceUntil = freshUser?.billingGraceUntil;
+    const termsAcceptedAt = freshUser?.managerTermsAcceptedAt;
+
+    // Get current invoice if exists (Option A: invoices are immutable snapshots)
     const currentInvoice = await prisma.invoice.findFirst({
       where: {
         managerId: req.user.id,
@@ -50,14 +57,15 @@ export const getBillingStatus = async (req: AuthenticatedRequest, res: Response)
       data: {
         billingStatus,
         graceUntil,
-        termsAcceptedAt: req.user.managerTermsAcceptedAt,
+        termsAcceptedAt: termsAcceptedAt,
         currentInvoice: currentInvoice ? {
           id: currentInvoice.id,
           periodStart: currentInvoice.periodStart,
           periodEnd: currentInvoice.periodEnd,
           subtotalAmount: currentInvoice.subtotalAmount,
           feeAmount: currentInvoice.feeAmount,
-          totalAmount: currentInvoice.subtotalAmount + currentInvoice.feeAmount,
+          totalAmount: currentInvoice.subtotalAmount + currentInvoice.feeAmount, // For reference only
+          serviceFeeDue: currentInvoice.feeAmount, // Actual payable amount
           dueDate: currentInvoice.dueDate,
           status: currentInvoice.status,
           lineCount: currentInvoice.lines.length
@@ -204,9 +212,11 @@ export const getInvoices = async (req: AuthenticatedRequest, res: Response): Pro
         periodEnd: invoice.periodEnd,
         subtotalAmount: invoice.subtotalAmount,
         feeAmount: invoice.feeAmount,
-        totalAmount: invoice.subtotalAmount + invoice.feeAmount,
+        totalAmount: invoice.subtotalAmount + invoice.feeAmount, // For reference only
+        serviceFeeDue: invoice.feeAmount, // Actual payable amount
         status: invoice.status,
         dueDate: invoice.dueDate,
+        paidAt: invoice.paidAt || null,
         createdAt: invoice.createdAt,
         lineCount: invoice.lines.length
       }))
@@ -271,9 +281,11 @@ export const getInvoiceById = async (req: AuthenticatedRequest, res: Response): 
         subtotalAmount: invoice.subtotalAmount,
         feeRateBps: invoice.feeRateBps,
         feeAmount: invoice.feeAmount,
-        totalAmount: invoice.subtotalAmount + invoice.feeAmount,
+        totalAmount: invoice.subtotalAmount + invoice.feeAmount, // For reference only
+        serviceFeeDue: invoice.feeAmount, // Actual payable amount
         status: invoice.status,
         dueDate: invoice.dueDate,
+        paidAt: invoice.paidAt || null,
         createdAt: invoice.createdAt,
         updatedAt: invoice.updatedAt,
         lines: invoice.lines.map(line => ({
@@ -320,7 +332,36 @@ export const generateInvoice = async (req: AuthenticatedRequest, res: Response):
       return;
     }
 
-    // Get all occupied units for the manager in the period
+    // Get all occupied units for the manager in the period (Option A: snapshot-at-periodStart)
+    console.log(`[DEV] Searching for leases with managerId: ${managerId}, periodStart: ${periodStart}`);
+
+    // First, check if any leases exist for this manager at all
+    const allManagerLeases = await prisma.lease.findMany({
+      where: {
+        property: {
+          managerId: managerId
+        }
+      },
+      select: {
+        id: true,
+        status: true,
+        startDate: true,
+        endDate: true,
+        rentAmount: true,
+        property: {
+          select: {
+            id: true,
+            managerId: true
+          }
+        }
+      }
+    });
+
+    console.log(`[DEV] Found ${allManagerLeases.length} total leases for manager ${managerId}`);
+    allManagerLeases.forEach(lease => {
+      console.log(`[DEV] Lease ${lease.id}: status=${lease.status}, startDate=${lease.startDate?.toISOString()}, endDate=${lease.endDate?.toISOString()}, rent=${lease.rentAmount}`);
+    });
+
     const occupiedUnits = await prisma.lease.findMany({
       where: {
         status: 'ACTIVE',
@@ -328,7 +369,7 @@ export const generateInvoice = async (req: AuthenticatedRequest, res: Response):
           managerId: managerId
         },
         startDate: {
-          lte: new Date(periodEnd)
+          lte: new Date(periodStart)  // Option A: only leases active AT periodStart
         },
         OR: [
           { endDate: null },
@@ -341,6 +382,8 @@ export const generateInvoice = async (req: AuthenticatedRequest, res: Response):
         tenantIdentity: true
       }
     });
+
+    console.log(`[DEV] Found ${occupiedUnits.length} occupied units for period ${periodStart}`);
 
     if (occupiedUnits.length === 0) {
       res.status(400).json({

@@ -2,171 +2,214 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
 export interface ReportData {
-    title: string;
-    propertyName: string;
-    dateRange: string;
-    generatedAt: string;
-    executiveSummary: {
-        totalIncome?: number;
-        totalExpenses?: number;
-        netIncome?: number;
-        totalAssets?: number;
-        totalLiabilities?: number;
-        ownersEquity?: number;
-        openingCashBalance?: number;
-        netCashMovement?: number;
-        closingCashBalance?: number;
-    };
-    sections: ReportSection[];
+  title: string;
+  propertyName: string;
+  dateRange: string;
+  generatedAt: string;
+  executiveSummary: {
+    totalIncome?: number;
+    totalExpenses?: number;
+    netIncome?: number;
+    totalAssets?: number;
+    totalLiabilities?: number;
+    ownersEquity?: number;
+    openingCashBalance?: number;
+    netCashMovement?: number;
+    closingCashBalance?: number;
+  };
+  sections: ReportSection[];
 }
 
 export interface ReportSection {
-    title: string;
-    subtitle?: string;
-    items: ReportItem[];
-    total?: number;
-    showTotal?: boolean;
+  title: string;
+  subtitle?: string;
+  items: ReportItem[];
+  total?: number;
+  showTotal?: boolean;
 }
 
 export interface ReportItem {
-    label: string;
-    amount: number;
-    subItems?: ReportItem[];
-    isSubtotal?: boolean;
+  label: string;
+  amount: number;
+  subItems?: ReportItem[];
+  isSubtotal?: boolean;
 }
 
 export class PDFExportService {
-    static generateFinancialPDF = async (reportData: ReportData): Promise<void> => {
-        const html = this.generateFinancialHTML(reportData);
+  static generateFinancialPDF = async (reportData: ReportData): Promise<void> => {
+    const html = this.generateFinancialHTML(reportData);
 
-        try {
-            const { uri } = await Print.printToFileAsync({
-                html,
-                base64: false,
-            });
+    try {
+      const { uri } = await Print.printToFileAsync({
+        html,
+        base64: false,
+      });
 
-            await Sharing.shareAsync(uri, {
-                mimeType: 'application/pdf',
-                dialogTitle: `Export ${reportData.title}`,
-                UTI: 'com.adobe.pdf',
-            });
-        } catch (error) {
-            console.error('PDF generation failed:', error);
-            throw new Error('Failed to generate PDF');
-        }
+      await Sharing.shareAsync(uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: `Export ${reportData.title}`,
+        UTI: 'com.adobe.pdf',
+      });
+    } catch (error) {
+      console.error('PDF generation failed:', error);
+      throw new Error('Failed to generate PDF');
+    }
+  };
+
+  private static generateFinancialHTML = (data: ReportData): string => {
+    const formatCurrency = (amount: number): string => {
+      return `UGX ${amount.toLocaleString()}`;
     };
 
-    private static generateFinancialHTML = (data: ReportData): string => {
-        const formatCurrency = (amount: number): string => {
-            return `UGX ${amount.toLocaleString()}`;
-        };
+    const formatAmount = (amount: number): string => {
+      const sign = amount >= 0 ? '+' : '';
+      return `${sign}${formatCurrency(Math.abs(amount))}`;
+    };
 
-        const formatAmount = (amount: number): string => {
-            const sign = amount >= 0 ? '+' : '';
-            return `${sign}${formatCurrency(Math.abs(amount))}`;
-        };
+    const generateExecutiveSummary = (data: ReportData): string => {
+      const formatCurrency = (amount: number) => `UGX ${(Math.abs(amount) / 1000000).toFixed(1)}M`;
+      const formatAmount = (amount: number) => amount >= 0 ? `${formatCurrency(amount)}` : `(${formatCurrency(Math.abs(amount))})`;
 
-        const generateExecutiveSummary = (): string => {
-            if (data.title === 'Income Statement') {
-                return `
+      if (data.title === 'Income Statement') {
+        return `
           <div class="executive-summary">
-            <div class="summary-grid">
-              <div class="summary-item">
-                <div class="summary-label">Total Income</div>
-                <div class="summary-value positive">${formatCurrency(data.executiveSummary.totalIncome || 0)}</div>
-              </div>
-              <div class="summary-item">
-                <div class="summary-label">Total Expenses</div>
-                <div class="summary-value negative">${formatCurrency(data.executiveSummary.totalExpenses || 0)}</div>
-              </div>
-              <div class="summary-item total">
-                <div class="summary-label">Net Income</div>
-                <div class="summary-value ${(data.executiveSummary.netIncome || 0) >= 0 ? 'positive' : 'negative'}">
-                  ${formatAmount(data.executiveSummary.netIncome || 0)}
-                </div>
-              </div>
-            </div>
+            <h3>Executive Summary</h3>
+            <table class="summary-table">
+              <tr>
+                <td class="summary-label">Total Revenue:</td>
+                <td class="summary-amount">${formatCurrency(data.executiveSummary.totalIncome || 0)}</td>
+              </tr>
+              <tr>
+                <td class="summary-label">Total Expenses:</td>
+                <td class="summary-amount">(${formatCurrency(data.executiveSummary.totalExpenses || 0)})</td>
+              </tr>
+              <tr class="summary-total">
+                <td class="summary-label"><strong>Net Income:</strong></td>
+                <td class="summary-amount"><strong>${formatAmount(data.executiveSummary.netIncome || 0)}</strong></td>
+              </tr>
+            </table>
           </div>
         `;
-            } else if (data.title === 'Statement of Financial Position') {
-                return `
+      } else if (data.title === 'Financial Position') {
+        return `
           <div class="executive-summary">
-            <div class="summary-grid">
-              <div class="summary-item">
-                <div class="summary-label">Total Assets</div>
-                <div class="summary-value">${formatCurrency(data.executiveSummary.totalAssets || 0)}</div>
-              </div>
-              <div class="summary-item">
-                <div class="summary-label">Total Liabilities</div>
-                <div class="summary-value">${formatCurrency(data.executiveSummary.totalLiabilities || 0)}</div>
-              </div>
-              <div class="summary-item total">
-                <div class="summary-label">Owner's Equity</div>
-                <div class="summary-value">${formatCurrency(data.executiveSummary.ownersEquity || 0)}</div>
-              </div>
-            </div>
+            <h3>Balance Sheet Summary</h3>
+            <table class="summary-table">
+              <tr>
+                <td class="summary-label">Total Assets:</td>
+                <td class="summary-amount">${formatCurrency(data.executiveSummary.totalAssets || 0)}</td>
+              </tr>
+              <tr>
+                <td class="summary-label">Total Liabilities:</td>
+                <td class="summary-amount">${formatCurrency(data.executiveSummary.totalLiabilities || 0)}</td>
+              </tr>
+              <tr class="summary-total">
+                <td class="summary-label"><strong>Owner's Equity:</strong></td>
+                <td class="summary-amount"><strong>${formatCurrency(data.executiveSummary.ownersEquity || 0)}</strong></td>
+              </tr>
+            </table>
           </div>
         `;
-            } else if (data.title === 'Cashflow Statement') {
-                return `
+      } else if (data.title === 'Cashflow Statement') {
+        return `
           <div class="executive-summary">
-            <div class="summary-grid">
-              <div class="summary-item">
-                <div class="summary-label">Opening Cash Balance</div>
-                <div class="summary-value">${formatCurrency(data.executiveSummary.openingCashBalance || 0)}</div>
-              </div>
-              <div class="summary-item">
-                <div class="summary-label">Net Cash Movement</div>
-                <div class="summary-value ${(data.executiveSummary.netCashMovement || 0) >= 0 ? 'positive' : 'negative'}">
-                  ${formatAmount(data.executiveSummary.netCashMovement || 0)}
-                </div>
-              </div>
-              <div class="summary-item total">
-                <div class="summary-label">Closing Cash Balance</div>
-                <div class="summary-value">${formatCurrency(data.executiveSummary.closingCashBalance || 0)}</div>
-              </div>
-            </div>
+            <h3>Cash Flow Summary</h3>
+            <table class="summary-table">
+              <tr>
+                <td class="summary-label">Opening Cash Balance:</td>
+                <td class="summary-amount">${formatCurrency(data.executiveSummary.openingCashBalance || 0)}</td>
+              </tr>
+              <tr>
+                <td class="summary-label">Net Cash Movement:</td>
+                <td class="summary-amount">${formatAmount(data.executiveSummary.netCashMovement || 0)}</td>
+              </tr>
+              <tr class="summary-total">
+                <td class="summary-label"><strong>Closing Cash Balance:</strong></td>
+                <td class="summary-amount"><strong>${formatCurrency(data.executiveSummary.closingCashBalance || 0)}</strong></td>
+              </tr>
+            </table>
           </div>
         `;
-            }
-            return '';
-        };
+      } else if (data.title === 'Rent Collection Report') {
+        return `
+          <div class="executive-summary">
+            <h3>Collection Summary</h3>
+            <table class="summary-table">
+              <tr>
+                <td class="summary-label">Total Collected:</td>
+                <td class="summary-amount">${formatCurrency(data.executiveSummary.totalIncome || 0)}</td>
+              </tr>
+              <tr>
+                <td class="summary-label">Outstanding Amount:</td>
+                <td class="summary-amount">(${formatCurrency(data.executiveSummary.totalExpenses || 0)})</td>
+              </tr>
+              <tr class="summary-total">
+                <td class="summary-label"><strong>Collection Rate:</strong></td>
+                <td class="summary-amount"><strong>${data.executiveSummary.totalIncome && data.executiveSummary.totalExpenses ?
+            ((data.executiveSummary.totalIncome / (data.executiveSummary.totalIncome + data.executiveSummary.totalExpenses)) * 100).toFixed(1) : '0'}%</strong></td>
+              </tr>
+            </table>
+          </div>
+        `;
+      } else if (data.title === 'Outstanding Rent Report') {
+        return `
+          <div class="executive-summary">
+            <h3>Outstanding Summary</h3>
+            <table class="summary-table">
+              <tr>
+                <td class="summary-label">Total Outstanding:</td>
+                <td class="summary-amount">(${formatCurrency(data.executiveSummary.totalExpenses || 0)})</td>
+              </tr>
+              <tr>
+                <td class="summary-label">Amount Collected:</td>
+                <td class="summary-amount">${formatCurrency(data.executiveSummary.totalIncome || 0)}</td>
+              </tr>
+              <tr class="summary-total">
+                <td class="summary-label"><strong>Net Outstanding:</strong></td>
+                <td class="summary-amount"><strong>${formatAmount(data.executiveSummary.netIncome || 0)}</strong></td>
+              </tr>
+            </table>
+          </div>
+        `;
+      }
+      return '';
+    };
 
-        const generateSection = (section: ReportSection): string => {
-            const items = section.items.map(item => {
-                if (item.subItems && item.subItems.length > 0) {
-                    const subItems = item.subItems.map(subItem => `
+    const generateSection = (section: ReportSection): string => {
+      const items = section.items.map(item => {
+        if (item.subItems && item.subItems.length > 0) {
+          const subItems = item.subItems.map(subItem => `
             <tr class="sub-item">
               <td class="sub-label">${subItem.label}</td>
               <td class="amount">${formatCurrency(Math.abs(subItem.amount))}</td>
             </tr>
           `).join('');
 
-                    return `
+          return `
             <tr class="main-item">
               <td class="main-label">${item.label}</td>
               <td class="amount">${formatCurrency(Math.abs(item.amount))}</td>
             </tr>
             ${subItems}
           `;
-                } else {
-                    return `
+        } else {
+          return `
             <tr class="${item.isSubtotal ? 'subtotal' : 'line-item'}">
               <td class="${item.isSubtotal ? 'subtotal-label' : 'label'}">${item.label}</td>
               <td class="amount">${formatCurrency(Math.abs(item.amount))}</td>
             </tr>
           `;
-                }
-            }).join('');
+        }
+      }).join('');
 
-            const totalRow = section.showTotal && section.total !== undefined ? `
+      const totalRow = section.showTotal && section.total !== undefined ? `
         <tr class="total-row">
           <td class="total-label">${section.title} Total</td>
           <td class="total-amount">${formatCurrency(Math.abs(section.total))}</td>
         </tr>
       ` : '';
 
-            return `
+      return `
         <div class="section">
           <h3 class="section-title">${section.title}</h3>
           ${section.subtitle ? `<p class="section-subtitle">${section.subtitle}</p>` : ''}
@@ -184,9 +227,9 @@ export class PDFExportService {
           </table>
         </div>
       `;
-        };
+    };
 
-        return `
+    return `
       <!DOCTYPE html>
       <html>
       <head>
@@ -204,98 +247,92 @@ export class PDFExportService {
           }
           
           body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            color: #333;
-            line-height: 1.4;
+            font-family: 'Times New Roman', Times, serif;
+            color: #000;
+            line-height: 1.6;
             margin: 0;
             padding: 0;
             background: white;
+            font-size: 12pt;
           }
           
           .header {
             text-align: center;
-            margin-bottom: 40px;
-            border-bottom: 3px solid #1a73e8;
-            padding-bottom: 20px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #000;
+            padding-bottom: 15px;
           }
           
           .logo {
-            font-size: 24px;
+            font-size: 18pt;
             font-weight: bold;
-            color: #1a73e8;
-            margin-bottom: 10px;
+            color: #000;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
           }
           
           .report-title {
-            font-size: 28px;
+            font-size: 16pt;
             font-weight: bold;
-            color: #333;
-            margin: 10px 0;
+            color: #000;
+            margin: 8px 0;
+            text-transform: uppercase;
           }
           
           .report-meta {
-            font-size: 14px;
-            color: #666;
-            margin: 5px 0;
+            font-size: 10pt;
+            color: #000;
+            margin: 3px 0;
           }
           
           .executive-summary {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border: 2px solid #1a73e8;
-            border-radius: 12px;
-            padding: 25px;
-            margin: 30px 0;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-          }
-          
-          .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-          }
-          
-          .summary-item {
-            text-align: center;
-            padding: 15px;
             background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            border: 1px solid #000;
+            padding: 15px;
+            margin: 20px 0;
           }
           
-          .summary-item.total {
-            grid-column: span 2;
-            background: #1a73e8;
-            color: white;
+          .executive-summary h3 {
+            font-size: 14pt;
+            font-weight: bold;
+            color: #000;
+            margin: 0 0 10px 0;
+            text-align: center;
+            text-transform: uppercase;
+          }
+          
+          .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+          }
+          
+          .summary-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #000;
           }
           
           .summary-label {
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 8px;
-            opacity: 0.8;
+            font-size: 11pt;
+            font-weight: normal;
+            color: #000;
+            width: 60%;
           }
           
-          .summary-item.total .summary-label {
-            opacity: 1;
+          .summary-amount {
+            font-size: 11pt;
+            font-weight: normal;
+            color: #000;
+            text-align: right;
+            width: 40%;
           }
           
-          .summary-value {
-            font-size: 20px;
-            font-weight: bold;
-          }
-          
-          .summary-item.total .summary-value {
-            font-size: 24px;
-          }
-          
-          .positive {
-            color: #34a853;
-          }
-          
-          .negative {
-            color: #ea4335;
+          .summary-total td {
+            border-top: 2px solid #000;
+            border-bottom: 2px solid #000;
+            padding-top: 10px;
+            padding-bottom: 10px;
           }
           
           .section {
@@ -304,105 +341,119 @@ export class PDFExportService {
           }
           
           .section-title {
-            font-size: 18px;
+            font-size: 14pt;
             font-weight: bold;
-            color: #333;
-            margin-bottom: 15px;
-            padding-bottom: 8px;
-            border-bottom: 2px solid #1a73e8;
+            color: #000;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #000;
+            text-transform: uppercase;
           }
           
           .section-subtitle {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 15px;
+            font-size: 10pt;
+            color: #000;
+            margin-bottom: 10px;
             font-style: italic;
           }
           
           .financial-table {
             width: 100%;
             border-collapse: collapse;
-            margin: 15px 0;
+            margin: 10px 0;
+            border: 1px solid #000;
           }
           
           .financial-table th {
-            background: #1a73e8;
-            color: white;
-            padding: 12px;
+            background: white;
+            color: #000;
+            padding: 8px 10px;
             text-align: left;
-            font-weight: 600;
-            font-size: 14px;
+            font-weight: bold;
+            font-size: 11pt;
+            border-bottom: 2px solid #000;
           }
           
           .financial-table td {
-            padding: 10px 12px;
-            border-bottom: 1px solid #e0e0e0;
-            font-size: 13px;
-          }
-          
-          .line-item:hover {
-            background: #f8f9fa;
+            padding: 6px 10px;
+            border-bottom: 1px solid #000;
+            font-size: 11pt;
+            color: #000;
           }
           
           .main-item {
-            background: #f8f9fa;
-            font-weight: 600;
-          }
-          
-          .main-item td {
-            padding-top: 15px;
-            border-top: 2px solid #dee2e6;
-          }
-          
-          .sub-item {
-            font-size: 12px;
-            color: #666;
-          }
-          
-          .sub-label {
-            padding-left: 25px;
-          }
-          
-          .subtotal {
-            background: #e9ecef;
-            font-weight: 600;
-          }
-          
-          .subtotal-label {
-            font-weight: 600;
-            padding-left: 15px;
-          }
-          
-          .total-row {
-            background: #1a73e8;
-            color: white;
+            background: #f5f5f5;
             font-weight: bold;
           }
           
+          .main-item td {
+            padding-top: 8px;
+            border-top: 1px solid #000;
+          }
+          
+          .sub-item {
+            font-size: 10pt;
+            color: #000;
+          }
+          
+          .sub-label {
+            padding-left: 20px;
+            font-style: italic;
+          }
+          
+          .subtotal {
+            background: #f5f5f5;
+            font-weight: bold;
+          }
+          
+          .subtotal-label {
+            font-weight: bold;
+            padding-left: 10px;
+          }
+          
+          .total-row {
+            background: white;
+            color: #000;
+            font-weight: bold;
+            border-top: 2px solid #000;
+            border-bottom: 2px solid #000;
+          }
+          
           .total-row td {
-            padding: 15px 12px;
-            border: none;
+            padding: 8px 10px;
+            font-weight: bold;
           }
           
           .amount {
             text-align: right;
-            font-family: 'Courier New', monospace;
-            font-weight: 500;
+            font-family: 'Times New Roman', Times, serif;
+            font-weight: normal;
+          }
+          
+          .total-label {
+            font-weight: bold;
+          }
+          
+          .total-amount {
+            text-align: right;
+            font-weight: bold;
+            font-family: 'Times New Roman', Times, serif;
           }
           
           .footer {
-            margin-top: 50px;
-            padding-top: 20px;
-            border-top: 1px solid #ddd;
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid #000;
             text-align: center;
-            font-size: 11px;
-            color: #999;
+            font-size: 9pt;
+            color: #000;
           }
           
           .disclaimer {
-            margin-top: 10px;
-            font-size: 10px;
+            margin-top: 8px;
+            font-size: 8pt;
             font-style: italic;
+            color: #000;
           }
           
           @media print {
@@ -427,7 +478,7 @@ export class PDFExportService {
         </div>
         
         <!-- Executive Summary -->
-        ${generateExecutiveSummary()}
+        ${generateExecutiveSummary(data)}
         
         <!-- Detailed Breakdown -->
         ${data.sections.map(section => generateSection(section)).join('')}
@@ -443,186 +494,357 @@ export class PDFExportService {
       </body>
       </html>
     `;
+  };
+
+  // Helper methods for creating report data
+  static createIncomeStatementData = (
+    propertyName: string,
+    dateRange: string,
+    incomeData: any[],
+    expenseData: any[]
+  ): ReportData => {
+    const totalIncome = incomeData.reduce((sum, item) => sum + item.amount, 0);
+    const totalExpenses = expenseData.reduce((sum, item) => sum + Math.abs(item.amount), 0);
+    const netIncome = totalIncome - totalExpenses;
+
+    return {
+      title: 'Income Statement',
+      propertyName,
+      dateRange,
+      generatedAt: new Date().toLocaleString(),
+      executiveSummary: {
+        totalIncome,
+        totalExpenses,
+        netIncome,
+      },
+      sections: [
+        {
+          title: 'Income',
+          items: incomeData.map(item => ({
+            label: item.label,
+            amount: item.amount,
+            subItems: item.transactions?.map((t: any) => ({
+              label: `${t.tenant || t.description} - ${t.property || ''}`,
+              amount: t.amount,
+            })) || [],
+          })),
+          total: totalIncome,
+          showTotal: true,
+        },
+        {
+          title: 'Expenses',
+          items: expenseData.map(item => ({
+            label: item.label,
+            amount: item.amount,
+            subItems: item.transactions?.map((t: any) => ({
+              label: t.description,
+              amount: t.amount,
+            })) || [],
+          })),
+          total: totalExpenses,
+          showTotal: true,
+        },
+      ],
     };
+  };
 
-    // Helper methods for creating report data
-    static createIncomeStatementData = (
-        propertyName: string,
-        dateRange: string,
-        incomeData: any[],
-        expenseData: any[]
-    ): ReportData => {
-        const totalIncome = incomeData.reduce((sum, item) => sum + item.amount, 0);
-        const totalExpenses = expenseData.reduce((sum, item) => sum + Math.abs(item.amount), 0);
-        const netIncome = totalIncome - totalExpenses;
+  static createFinancialPositionData = (
+    propertyName: string,
+    dateRange: string,
+    assetsData: any[],
+    liabilitiesData: any[],
+    equityData: any[]
+  ): ReportData => {
+    const totalAssets = assetsData.reduce((sum, item) => sum + item.amount, 0);
+    const totalLiabilities = liabilitiesData.reduce((sum, item) => sum + item.amount, 0);
+    const ownersEquity = equityData.reduce((sum, item) => sum + item.amount, 0);
 
-        return {
-            title: 'Income Statement',
-            propertyName,
-            dateRange,
-            generatedAt: new Date().toLocaleString(),
-            executiveSummary: {
-                totalIncome,
-                totalExpenses,
-                netIncome,
-            },
-            sections: [
-                {
-                    title: 'Income',
-                    items: incomeData.map(item => ({
-                        label: item.label,
-                        amount: item.amount,
-                        subItems: item.transactions?.map((t: any) => ({
-                            label: `${t.tenant || t.description} - ${t.property || ''}`,
-                            amount: t.amount,
-                        })) || [],
-                    })),
-                    total: totalIncome,
-                    showTotal: true,
-                },
-                {
-                    title: 'Expenses',
-                    items: expenseData.map(item => ({
-                        label: item.label,
-                        amount: item.amount,
-                        subItems: item.transactions?.map((t: any) => ({
-                            label: t.description,
-                            amount: t.amount,
-                        })) || [],
-                    })),
-                    total: totalExpenses,
-                    showTotal: true,
-                },
+    return {
+      title: 'Statement of Financial Position',
+      propertyName,
+      dateRange: `As at ${dateRange}`,
+      generatedAt: new Date().toLocaleString(),
+      executiveSummary: {
+        totalAssets,
+        totalLiabilities,
+        ownersEquity,
+      },
+      sections: [
+        {
+          title: 'Assets',
+          items: assetsData.map(item => ({
+            label: item.label,
+            amount: item.amount,
+            subItems: item.transactions?.map((t: any) => ({
+              label: t.description,
+              amount: t.amount,
+            })) || [],
+          })),
+          total: totalAssets,
+          showTotal: true,
+        },
+        {
+          title: 'Liabilities',
+          items: liabilitiesData.map(item => ({
+            label: item.label,
+            amount: item.amount,
+            subItems: item.transactions?.map((t: any) => ({
+              label: t.description,
+              amount: t.amount,
+            })) || [],
+          })),
+          total: totalLiabilities,
+          showTotal: true,
+        },
+        {
+          title: "Owner's Equity",
+          items: equityData.map(item => ({
+            label: item.label,
+            amount: item.amount,
+          })),
+          total: ownersEquity,
+          showTotal: true,
+        },
+      ],
+    };
+  };
+
+  static createCashflowData = (
+    propertyName: string,
+    dateRange: string,
+    operatingActivities: any[],
+    investingActivities: any[],
+    financingActivities: any[],
+    openingBalance: number,
+    netCashFlow: number,
+    closingBalance: number
+  ): ReportData => {
+    const operatingTotal = operatingActivities.reduce((sum, item) => sum + item.amount, 0);
+    const investingTotal = investingActivities.reduce((sum, item) => sum + item.amount, 0);
+    const financingTotal = financingActivities.reduce((sum, item) => sum + item.amount, 0);
+
+    return {
+      title: 'Cashflow Statement',
+      propertyName,
+      dateRange,
+      generatedAt: new Date().toLocaleString(),
+      executiveSummary: {
+        openingCashBalance: openingBalance,
+        netCashMovement: netCashFlow,
+        closingCashBalance: closingBalance,
+      },
+      sections: [
+        {
+          title: 'Operating Activities',
+          items: operatingActivities.map(item => ({
+            label: item.label,
+            amount: item.amount,
+            subItems: item.transactions?.map((t: any) => ({
+              label: t.description,
+              amount: t.amount,
+            })) || [],
+          })),
+          total: operatingTotal,
+          showTotal: true,
+        },
+        {
+          title: 'Investing Activities',
+          items: investingActivities.map(item => ({
+            label: item.label,
+            amount: item.amount,
+            subItems: item.transactions?.map((t: any) => ({
+              label: t.description,
+              amount: t.amount,
+            })) || [],
+          })),
+          total: investingTotal,
+          showTotal: true,
+        },
+        {
+          title: 'Financing Activities',
+          items: financingActivities.map(item => ({
+            label: item.label,
+            amount: item.amount,
+            subItems: item.transactions?.map((t: any) => ({
+              label: t.description,
+              amount: t.amount,
+            })) || [],
+          })),
+          total: financingTotal,
+          showTotal: true,
+        },
+      ],
+    };
+  };
+
+  static createRentCollectionData = (
+    propertyName: string,
+    dateRange: string,
+    totalCollected: number,
+    byProperty: any[],
+    recentPayments: any[]
+  ): ReportData => {
+    const totalExpected = byProperty.reduce((sum, prop) => sum + prop.expectedRent, 0);
+    const collectionRate = totalExpected > 0 ? ((totalCollected / totalExpected) * 100).toFixed(1) : '0.0';
+
+    return {
+      title: 'Rent Collection Report',
+      propertyName,
+      dateRange,
+      generatedAt: new Date().toLocaleString(),
+      executiveSummary: {
+        totalIncome: totalCollected,
+        totalExpenses: totalExpected - totalCollected,
+        netIncome: totalCollected,
+      },
+      sections: [
+        {
+          title: 'Collection Summary',
+          subtitle: `Overall collection rate: ${collectionRate}%`,
+          items: [
+            { label: 'Total Expected Rent', amount: totalExpected },
+            { label: 'Total Collected', amount: totalCollected },
+            { label: 'Outstanding Amount', amount: totalExpected - totalCollected },
+          ],
+          showTotal: false,
+        },
+        {
+          title: 'By Property Breakdown',
+          items: byProperty.map(prop => ({
+            label: prop.propertyName,
+            amount: prop.collectedRent,
+            subItems: [
+              { label: 'Expected', amount: prop.expectedRent },
+              { label: 'Collected', amount: prop.collectedRent },
+              { label: `Collection Rate: ${prop.collectionRate}%`, amount: 0 },
             ],
-        };
-    };
-
-    static createFinancialPositionData = (
-        propertyName: string,
-        dateRange: string,
-        assetsData: any[],
-        liabilitiesData: any[],
-        equityData: any[]
-    ): ReportData => {
-        const totalAssets = assetsData.reduce((sum, item) => sum + item.amount, 0);
-        const totalLiabilities = liabilitiesData.reduce((sum, item) => sum + item.amount, 0);
-        const ownersEquity = equityData.reduce((sum, item) => sum + item.amount, 0);
-
-        return {
-            title: 'Statement of Financial Position',
-            propertyName,
-            dateRange: `As at ${dateRange}`,
-            generatedAt: new Date().toLocaleString(),
-            executiveSummary: {
-                totalAssets,
-                totalLiabilities,
-                ownersEquity,
-            },
-            sections: [
-                {
-                    title: 'Assets',
-                    items: assetsData.map(item => ({
-                        label: item.label,
-                        amount: item.amount,
-                        subItems: item.transactions?.map((t: any) => ({
-                            label: t.description,
-                            amount: t.amount,
-                        })) || [],
-                    })),
-                    total: totalAssets,
-                    showTotal: true,
-                },
-                {
-                    title: 'Liabilities',
-                    items: liabilitiesData.map(item => ({
-                        label: item.label,
-                        amount: item.amount,
-                        subItems: item.transactions?.map((t: any) => ({
-                            label: t.description,
-                            amount: t.amount,
-                        })) || [],
-                    })),
-                    total: totalLiabilities,
-                    showTotal: true,
-                },
-                {
-                    title: "Owner's Equity",
-                    items: equityData.map(item => ({
-                        label: item.label,
-                        amount: item.amount,
-                    })),
-                    total: ownersEquity,
-                    showTotal: true,
-                },
+          })),
+          total: totalCollected,
+          showTotal: true,
+        },
+        {
+          title: 'Recent Payments',
+          subtitle: `Last ${recentPayments.length} payments received`,
+          items: recentPayments.slice(0, 20).map(payment => ({
+            label: `${payment.tenantName} - ${payment.propertyName} Unit ${payment.unitNumber}`,
+            amount: payment.amount,
+            subItems: [
+              { label: `Date: ${new Date(payment.paymentDate).toLocaleDateString()}`, amount: 0 },
+              { label: `Status: ${payment.status}`, amount: 0 },
             ],
-        };
+          })),
+          showTotal: false,
+        },
+      ],
     };
+  };
 
-    static createCashflowData = (
-        propertyName: string,
-        dateRange: string,
-        operatingActivities: any[],
-        investingActivities: any[],
-        financingActivities: any[],
-        openingBalance: number,
-        netCashFlow: number,
-        closingBalance: number
-    ): ReportData => {
-        const operatingTotal = operatingActivities.reduce((sum, item) => sum + item.amount, 0);
-        const investingTotal = investingActivities.reduce((sum, item) => sum + item.amount, 0);
-        const financingTotal = financingActivities.reduce((sum, item) => sum + item.amount, 0);
+  static createOutstandingRentData = (
+    propertyName: string,
+    dateRange: string,
+    totalOutstanding: number,
+    overdueTenantsCount: number,
+    outstandingItems: any[]
+  ): ReportData => {
+    const totalExpected = outstandingItems.reduce((sum, item) => sum + item.expectedRent, 0);
+    const totalCollected = outstandingItems.reduce((sum, item) => sum + item.collectedRent, 0);
 
-        return {
-            title: 'Cashflow Statement',
-            propertyName,
-            dateRange,
-            generatedAt: new Date().toLocaleString(),
-            executiveSummary: {
-                openingCashBalance: openingBalance,
-                netCashMovement: netCashFlow,
-                closingCashBalance: closingBalance,
-            },
-            sections: [
-                {
-                    title: 'Operating Activities',
-                    items: operatingActivities.map(item => ({
-                        label: item.label,
-                        amount: item.amount,
-                        subItems: item.transactions?.map((t: any) => ({
-                            label: t.description,
-                            amount: t.amount,
-                        })) || [],
-                    })),
-                    total: operatingTotal,
-                    showTotal: true,
-                },
-                {
-                    title: 'Investing Activities',
-                    items: investingActivities.map(item => ({
-                        label: item.label,
-                        amount: item.amount,
-                        subItems: item.transactions?.map((t: any) => ({
-                            label: t.description,
-                            amount: t.amount,
-                        })) || [],
-                    })),
-                    total: investingTotal,
-                    showTotal: true,
-                },
-                {
-                    title: 'Financing Activities',
-                    items: financingActivities.map(item => ({
-                        label: item.label,
-                        amount: item.amount,
-                        subItems: item.transactions?.map((t: any) => ({
-                            label: t.description,
-                            amount: t.amount,
-                        })) || [],
-                    })),
-                    total: financingTotal,
-                    showTotal: true,
-                },
+    return {
+      title: 'Outstanding Rent Report',
+      propertyName,
+      dateRange,
+      generatedAt: new Date().toLocaleString(),
+      executiveSummary: {
+        totalIncome: totalCollected,
+        totalExpenses: totalOutstanding,
+        netIncome: totalCollected - totalOutstanding,
+      },
+      sections: [
+        {
+          title: 'Outstanding Summary',
+          items: [
+            { label: 'Total Outstanding Amount', amount: totalOutstanding },
+            { label: 'Number of Overdue Tenants', amount: overdueTenantsCount },
+            { label: 'Total Expected Rent', amount: totalExpected },
+            { label: 'Total Collected', amount: totalCollected },
+          ],
+          showTotal: false,
+        },
+        {
+          title: 'Outstanding by Tenant',
+          items: outstandingItems.map(item => ({
+            label: `${item.tenantName} - ${item.propertyName} Unit ${item.unitNumber}`,
+            amount: item.amountOutstanding,
+            subItems: [
+              { label: 'Expected Rent', amount: item.expectedRent },
+              { label: 'Amount Paid', amount: item.collectedRent },
+              { label: 'Outstanding', amount: item.amountOutstanding },
+              { label: `Phone: ${item.tenantPhone || 'Not available'}`, amount: 0 },
+              { label: `Last Payment: ${item.lastPaymentAt ? new Date(item.lastPaymentAt).toLocaleDateString() : 'No payments yet'}`, amount: 0 },
             ],
-        };
+          })),
+          total: totalOutstanding,
+          showTotal: true,
+        },
+      ],
     };
+  };
+
+  // Simplified export methods for direct use in screens
+  static exportRentCollection = async (data: any, propertyName: string, period: string): Promise<void> => {
+    const reportData = this.createRentCollectionData(
+      propertyName,
+      `Period: ${period}`,
+      data.totalCollected || 0,
+      data.byProperty || [],
+      data.recentPayments || []
+    );
+    await this.generateFinancialPDF(reportData);
+  };
+
+  static exportOutstandingRent = async (data: any, propertyName: string, period: string): Promise<void> => {
+    const reportData = this.createOutstandingRentData(
+      propertyName,
+      `Period: ${period}`,
+      data.totalOutstanding || 0,
+      data.overdueTenantsCount || 0,
+      data.items || []
+    );
+    await this.generateFinancialPDF(reportData);
+  };
+
+  static exportIncomeStatement = async (data: any, propertyName: string, period: string): Promise<void> => {
+    const reportData = this.createIncomeStatementData(
+      propertyName,
+      `Period: ${period}`,
+      data.income?.items || [],
+      data.expenses?.items || []
+    );
+    await this.generateFinancialPDF(reportData);
+  };
+
+  static exportFinancialPosition = async (data: any, propertyName: string, period: string): Promise<void> => {
+    const reportData = this.createFinancialPositionData(
+      propertyName,
+      period,
+      data.assets?.items || [],
+      data.liabilities?.items || [],
+      data.equity?.items || []
+    );
+    await this.generateFinancialPDF(reportData);
+  };
+
+  static exportCashflowStatement = async (data: any, propertyName: string, period: string): Promise<void> => {
+    const reportData = this.createCashflowData(
+      propertyName,
+      `Period: ${period}`,
+      data.operatingActivities?.items || [],
+      data.investingActivities?.items || [],
+      data.financingActivities?.items || [],
+      data.openingBalance || 0,
+      data.netCashFlow || 0,
+      data.closingBalance || 0
+    );
+    await this.generateFinancialPDF(reportData);
+  };
 }

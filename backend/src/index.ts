@@ -14,6 +14,8 @@ import { reportRoutes } from './routes/reports';
 import { paymentRoutes } from './routes/payments';
 import { paymentCollectionRoutes } from './routes/paymentCollection';
 import { tenantMeRoutes } from './routes/tenantMe';
+import { managerFinanceRoutes } from './routes/managerFinance';
+import { tenantFinanceRoutes } from './routes/tenantFinance';
 import { messageRoutes } from './routes/messages';
 import { notificationRoutes } from './routes/notifications';
 import { userRoutes } from './routes/users';
@@ -24,9 +26,11 @@ import { activityRoutes } from './routes/activity';
 import { managerTermsRoutes } from './routes/managerTerms';
 import { billingRoutes } from './routes/billing';
 import { webhookPaymentRoutes } from './routes/webhookPayments';
+import { ownerBillingRoutes } from './routes/ownerBilling';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
 import { runDailyBillingTasks } from './services/billingScheduler';
 import { cleanupDuplicateInvoices } from './scripts/cleanupDuplicateInvoices';
+import { timeoutStalePendingPayments } from './services/servicePaymentService';
 
 // Load environment variables
 dotenv.config();
@@ -80,6 +84,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/properties', propertyRoutes);
 app.use('/api/tenants', tenantRoutes);
 app.use('/api/tenant', tenantMeRoutes);
+app.use('/api/tenant', tenantFinanceRoutes);
 app.use('/api/leases', leaseRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/payments', paymentRoutes);
@@ -89,7 +94,9 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/units', unitRoutes);
 app.use('/api/manager', managerRoutes);
+app.use('/api/manager/finance', managerFinanceRoutes);
 app.use('/api/owner', ownerInvitationRoutes);
+app.use('/api/owner', ownerBillingRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/manager', managerTermsRoutes);
 app.use('/api/manager', billingRoutes);
@@ -181,6 +188,18 @@ cron.schedule('5 0 * * *', async () => {
 }, {
     scheduled: true,
     timezone: 'Africa/Kampala' // Use server timezone
+});
+
+// Schedule pending payment cleanup every 10 minutes
+cron.schedule('*/10 * * * *', async () => {
+    try {
+        const count = await timeoutStalePendingPayments();
+        if (count > 0) {
+            console.log(`[PaymentCleanup] Timed out ${count} stale pending payment(s)`);
+        }
+    } catch (error) {
+        console.error('[PaymentCleanup] Cleanup failed:', error);
+    }
 });
 
 // Run catch-up on startup after server is ready

@@ -1,1 +1,1 @@
-{"name": "Test Manager", "email": "test-manager-1234@example.com", "phoneNumber": "+256700000000", "password": "TestPassword123"}
+﻿{"email":"test@example.com","password":"password123","role":"OWNER"}

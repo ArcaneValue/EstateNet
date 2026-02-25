@@ -95,7 +95,8 @@ export const createLease = async (req: AuthenticatedRequest, res: Response): Pro
       tenantId,
       propertyId,
       unitId,
-      rentAmount: parseInt(rentAmount)
+      rentAmount: parseInt(rentAmount),
+      startDate: startDate
     });
 
     console.log('=== LEASE CREATED SUCCESSFULLY ===');

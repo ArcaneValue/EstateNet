@@ -1,22 +1,9 @@
 import { prisma } from '../utils/database';
+import { getCurrentBillingPeriod, validateBillingPeriod, getBillingPeriodForDate, getDueDateForPeriod } from '../utils/billingPeriodHelpers';
 
 // Type assertions for the new models
 type Payment = any;
 type PaymentStatus = any;
-
-// Helpers for billing periods and due dates
-const getBillingPeriodForDate = (referenceDate: Date) => {
-  const year = referenceDate.getUTCFullYear();
-  const month = referenceDate.getUTCMonth(); // 0-based
-  return { year, month };
-};
-
-const getDueDateForPeriod = (leaseStartDate: Date, year: number, month: number): Date => {
-  const dueDay = leaseStartDate.getUTCDate();
-  const daysInMonth = new Date(Date.UTC(year, month + 1, 0, 0, 0, 0, 0)).getUTCDate();
-  const clampedDay = Math.min(dueDay, daysInMonth);
-  return new Date(Date.UTC(year, month, clampedDay, 0, 0, 0, 0));
-};
 
 export interface CreatePaymentData {
   tenantId: string;
@@ -25,6 +12,7 @@ export interface CreatePaymentData {
   amount: number;
   paymentDate: string;
   dueDate: string;
+  billingPeriod?: string;
   status?: PaymentStatus;
   paymentMethod?: string;
   transactionId?: string;
@@ -56,6 +44,14 @@ export class PaymentService {
       throw new Error('Tenant does not have an active lease');
     }
 
+    // Determine billing period
+    let billingPeriod = data.billingPeriod;
+    if (!billingPeriod) {
+      billingPeriod = getCurrentBillingPeriod();
+    } else if (!validateBillingPeriod(billingPeriod)) {
+      throw new Error('Invalid billingPeriod format. Expected YYYY-MM');
+    }
+
     // Compute billing-period due date based on lease start date and payment date
     const paymentDate = new Date(data.paymentDate);
     const { year, month } = getBillingPeriodForDate(paymentDate);
@@ -66,6 +62,7 @@ export class PaymentService {
       ...data,
       propertyId: activeLease.propertyId,
       unitId: activeLease.unitId,
+      billingPeriod,
       status: data.status || 'PAID',
       paymentDate: new Date(data.paymentDate).toISOString(), // Convert to full ISO DateTime
       dueDate: computedDueDate.toISOString(),

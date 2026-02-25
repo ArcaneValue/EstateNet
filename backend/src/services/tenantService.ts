@@ -265,7 +265,8 @@ export class TenantService {
           tenantId: data.tenantId,
           propertyId: data.propertyId,
           unitId: data.unitId,
-          rentAmount: data.rentAmount
+          rentAmount: data.rentAmount,
+          startDate: data.startDate ? new Date(data.startDate) : new Date()
         },
         include: {
           tenantIdentity: true,

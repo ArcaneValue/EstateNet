@@ -12,7 +12,7 @@ import {
 import { authenticateToken } from '../middlewares/auth';
 import { requireUserRole } from '../middlewares/requireUserRole';
 import { UserRole } from '../types/prisma';
-import { initiateInvoicePayment, getPaymentStatusHandler } from '../controllers/servicePaymentController';
+import { initiateInvoicePayment, getPaymentStatusHandler, listManagerPaymentsHandler, getManagerPaymentHandler } from '../controllers/servicePaymentController';
 
 const router = Router();
 
@@ -49,6 +49,20 @@ router.get('/billing/payments/:paymentId',
   authenticateToken,
   requireUserRole(UserRole.MANAGER),
   getPaymentStatusHandler
+);
+
+// GET /api/manager/billing/service-payments - List manager's service payment history
+router.get('/billing/service-payments',
+  authenticateToken,
+  requireUserRole(UserRole.MANAGER),
+  listManagerPaymentsHandler
+);
+
+// GET /api/manager/billing/service-payments/:id - Get single service payment detail
+router.get('/billing/service-payments/:id',
+  authenticateToken,
+  requireUserRole(UserRole.MANAGER),
+  getManagerPaymentHandler
 );
 
 // POST /api/manager/billing/generate - Generate invoice (DEV/OWNER only)

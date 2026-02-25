@@ -62,22 +62,37 @@ export const acquireLock = async (jobName: string, ttlMs: number): Promise<boole
 
 /**
  * Get billing period string in YYYY-MM format (Africa/Kampala timezone)
+ * Uses same Kampala boundary logic as getPeriodDates() to ensure consistency
  */
 export const getBillingPeriod = (date: Date = new Date()): string => {
-  // Use Africa/Kampala timezone (UTC+3)
-  const kampalaTime = new Date(date.getTime() + (3 * 60 * 60 * 1000));
-  return kampalaTime.toISOString().slice(0, 7); // YYYY-MM
+  // Convert to Kampala timezone (UTC+3) using same offset logic as getPeriodDates
+  const kampalaOffset = 3 * 60 * 60 * 1000; // UTC+3 in milliseconds
+  const kampalaTime = new Date(date.getTime() + kampalaOffset);
+
+  // Extract year and month from Kampala local time
+  const year = kampalaTime.getUTCFullYear();
+  const month = kampalaTime.getUTCMonth() + 1; // getUTCMonth() is 0-based
+
+  return `${year}-${month.toString().padStart(2, '0')}`;
 };
 
 /**
- * Get period start and end dates for a billing period
+ * Get period start and end dates for a billing period (Africa/Kampala timezone)
  */
 export const getPeriodDates = (billingPeriod: string): { periodStart: Date; periodEnd: Date } => {
   const [year, month] = billingPeriod.split('-').map(Number);
 
-  // Period is the full month
-  const periodStart = new Date(year, month - 1, 1);
-  const periodEnd = new Date(year, month, 0, 23, 59, 59, 999); // Last day of month
+  // Create dates in Kampala timezone (UTC+3) to ensure consistent month boundaries
+  // Period is the full month in Kampala time
+  const kampalaOffset = 3 * 60 * 60 * 1000; // UTC+3 in milliseconds
+
+  // First day of month at 00:00:00 Kampala time
+  const periodStartUTC = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+  const periodStart = new Date(periodStartUTC.getTime() - kampalaOffset);
+
+  // Last day of month at 23:59:59.999 Kampala time
+  const periodEndUTC = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+  const periodEnd = new Date(periodEndUTC.getTime() - kampalaOffset);
 
   return { periodStart, periodEnd };
 };
@@ -204,12 +219,12 @@ export const ensureBackfillInvoicesForAllManagers = async (now: Date = new Date(
           continue;
         }
 
-        // Get all occupied units for this manager in the period
+        // Get all occupied units for this manager ACTIVE at period start (Option A snapshot)
         const occupiedUnits = await prisma.lease.findMany({
           where: {
             status: 'ACTIVE',
             property: { managerId: managerId as string },
-            startDate: { lte: periodEnd },
+            startDate: { lte: periodStart },
             OR: [
               { endDate: null },
               { endDate: { gte: periodStart } }
@@ -293,11 +308,11 @@ export const ensureMonthlyInvoicesForAllManagers = async (now: Date = new Date()
   let invoicesCreatedCount = 0;
 
   try {
-    // Get all managers with occupied units in the period
+    // Get all managers with occupied units ACTIVE at period start (Option A snapshot)
     const occupiedLeases = await prisma.lease.findMany({
       where: {
         status: 'ACTIVE',
-        startDate: { lte: periodEnd },
+        startDate: { lte: periodStart },
         OR: [
           { endDate: null },
           { endDate: { gte: periodStart } }
@@ -341,12 +356,12 @@ export const ensureMonthlyInvoicesForAllManagers = async (now: Date = new Date()
         continue;
       }
 
-      // Get all occupied units for this manager in the period
+      // Get all occupied units for this manager ACTIVE at period start (Option A snapshot)
       const occupiedUnits = await prisma.lease.findMany({
         where: {
           status: 'ACTIVE',
           property: { managerId: managerId as string },
-          startDate: { lte: periodEnd },
+          startDate: { lte: periodStart },
           OR: [
             { endDate: null },
             { endDate: { gte: periodStart } }
@@ -369,7 +384,8 @@ export const ensureMonthlyInvoicesForAllManagers = async (now: Date = new Date()
       const feeAmount = Math.round(subtotalAmount * FEE_RATE);
 
       try {
-        // Create invoice with DB uniqueness protection
+        // Create invoice for this manager (Option A: immutable snapshot at period start)
+        // Only leases ACTIVE at periodStart are included - no mid-period changes affect invoice
         const invoice = await prisma.invoice.create({
           data: {
             managerId: managerId as string,

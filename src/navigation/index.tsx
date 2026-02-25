@@ -217,9 +217,6 @@ const OwnerStack = () => {
             <Stack.Screen name="OwnerRegistry" component={OwnerRegistryScreen} />
             <Stack.Screen name="OutstandingRent" component={OutstandingRentScreen} />
             <Stack.Screen name="RentCollection" component={RentCollectionScreen} />
-            <Stack.Screen name="IncomeStatement" component={IncomeStatementScreen} />
-            <Stack.Screen name="FinancialPosition" component={FinancialPositionScreen} />
-            <Stack.Screen name="CashflowStatement" component={CashflowStatementScreen} />
         </Stack.Navigator>
     );
 };

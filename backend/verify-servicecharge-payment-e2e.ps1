@@ -188,9 +188,9 @@ $periodStart = (Get-Date -Year $now.Year -Month $now.Month -Day 1).ToString("yyy
 $periodEnd = (Get-Date -Year $now.Year -Month $now.Month -Day ([DateTime]::DaysInMonth($now.Year, $now.Month))).ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
 
 $genBodyObj = @{
-  managerId   = $managerId
-  periodStart = $periodStart
-  periodEnd   = $periodEnd
+    managerId   = $managerId
+    periodStart = $periodStart
+    periodEnd   = $periodEnd
 }
 $genBodyJson = $genBodyObj | ConvertTo-Json -Depth 5
 
@@ -201,11 +201,12 @@ $genRes = Invoke-Api -Method "POST" -Endpoint "/api/manager/billing/generate" -T
 Remove-Item $genFile -ErrorAction SilentlyContinue
 
 if ($genRes.StatusCode -eq 201 -or $genRes.StatusCode -eq 200) {
-  $t = Test-Result "Invoice generated" $true
-} else {
-  $t = Test-Result "Invoice generation failed" $false "Status=$($genRes.StatusCode) Body=$($genRes.RawBody)"
-  $allTests += $t
-  exit 1
+    $t = Test-Result "Invoice generated" $true
+}
+else {
+    $t = Test-Result "Invoice generation failed" $false "Status=$($genRes.StatusCode) Body=$($genRes.RawBody)"
+    $allTests += $t
+    exit 1
 }
 $allTests += $t
 
@@ -225,7 +226,7 @@ foreach ($inv in $invoices) {
     }
 }
 
-$t = Test-Result "Payable invoice found" ($null -ne $payableInvoice) $(if ($payableInvoice) { "ID: $($payableInvoice.id) Status: $($payableInvoice.status) Amount: $($payableInvoice.totalAmount)" } else { "No DUE/OVERDUE invoice" })
+$t = Test-Result "Payable invoice found" ($null -ne $payableInvoice) $(if ($payableInvoice) { "ID: $($payableInvoice.id) Status: $($payableInvoice.status) Service Fee Due: $($payableInvoice.feeAmount)" } else { "No DUE/OVERDUE invoice" })
 $allTests += $t
 
 if (-not $payableInvoice) {
@@ -348,6 +349,56 @@ $whRes2 = Invoke-Api -Method "POST" -Endpoint "/api/payments/webhook/mock" -Body
 Remove-Item $f -ErrorAction SilentlyContinue
 
 $t = Test-Result "Duplicate webhook returns 200 OK" ($whRes2.StatusCode -eq 200) "Message: $($whRes2.Body.message)"
+$allTests += $t
+
+# ─── 20. Manager Service Payments List ────────────────────────────────────────
+
+Write-Host "`n20. Manager Service Payments List" -ForegroundColor Yellow
+$spListRes = Invoke-Api -Method "GET" -Endpoint "/api/manager/billing/service-payments?limit=10" -Token $managerToken
+
+$spList = $spListRes.Body.data
+$successPayment = $null
+if ($spList -and $spList.Count -gt 0) {
+    foreach ($sp in $spList) {
+        if ($sp.status -eq "SUCCESS") {
+            $successPayment = $sp
+            break
+        }
+    }
+}
+
+$t = Test-Result "Service payments list returns 200" ($spListRes.StatusCode -eq 200) "Status: $($spListRes.StatusCode)"
+$allTests += $t
+
+$t = Test-Result "List contains SUCCESS payment" ($null -ne $successPayment) $(if ($successPayment) { "Ref: $($successPayment.externalRef)" } else { "No SUCCESS payment found" })
+$allTests += $t
+
+$t = Test-Result "SUCCESS payment has providerTxId" ($null -ne $successPayment -and $null -ne $successPayment.providerTxId -and $successPayment.providerTxId -ne "") "providerTxId: $($successPayment.providerTxId)"
+$allTests += $t
+
+$t = Test-Result "SUCCESS payment has externalRef" ($null -ne $successPayment -and $null -ne $successPayment.externalRef -and $successPayment.externalRef -ne "") "externalRef: $($successPayment.externalRef)"
+$allTests += $t
+
+# ─── 21. Owner Service Payments List ─────────────────────────────────────────
+
+Write-Host "`n21. Owner Service Payments List" -ForegroundColor Yellow
+$ownerSpRes = Invoke-Api -Method "GET" -Endpoint "/api/owner/billing/service-payments?limit=10" -Token $ownerToken
+
+$t = Test-Result "Owner service payments returns 200" ($ownerSpRes.StatusCode -eq 200) "Status: $($ownerSpRes.StatusCode)"
+$allTests += $t
+
+$ownerSpList = $ownerSpRes.Body.data
+$ownerSuccessPay = $null
+if ($ownerSpList -and $ownerSpList.Count -gt 0) {
+    foreach ($sp in $ownerSpList) {
+        if ($sp.status -eq "SUCCESS") {
+            $ownerSuccessPay = $sp
+            break
+        }
+    }
+}
+
+$t = Test-Result "Owner list contains SUCCESS payment with manager info" ($null -ne $ownerSuccessPay -and $null -ne $ownerSuccessPay.manager) $(if ($ownerSuccessPay.manager) { "Manager: $($ownerSuccessPay.manager.email)" } else { "No manager info" })
 $allTests += $t
 
 # ─── Summary ──────────────────────────────────────────────────────────────────

@@ -5,6 +5,10 @@ import {
   initiatePayment,
   processWebhook,
   getPaymentStatus,
+  listManagerServicePayments,
+  getManagerServicePayment,
+  listOwnerServicePayments,
+  getOwnerServicePayment,
   ServicePaymentError,
 } from '../services/servicePaymentService';
 
@@ -74,6 +78,93 @@ export const getPaymentStatusHandler = async (req: AuthenticatedRequest, res: Re
     res.status(200).json({ success: true, data: result });
   } catch (error) {
     console.error('Get payment status error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * GET /api/manager/billing/service-payments
+ * Manager lists their own service payment history.
+ */
+export const listManagerPaymentsHandler = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (req.user?.role !== UserRole.MANAGER) {
+      res.status(403).json({ success: false, message: 'Access denied. Manager role required.' });
+      return;
+    }
+
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+    const data = await listManagerServicePayments(req.user.id, limit);
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error('List manager payments error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * GET /api/manager/billing/service-payments/:id
+ * Manager gets a single service payment detail.
+ */
+export const getManagerPaymentHandler = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (req.user?.role !== UserRole.MANAGER) {
+      res.status(403).json({ success: false, message: 'Access denied. Manager role required.' });
+      return;
+    }
+
+    const data = await getManagerServicePayment(req.params.id, req.user.id);
+    if (!data) {
+      res.status(404).json({ success: false, message: 'Payment not found' });
+      return;
+    }
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error('Get manager payment error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * GET /api/owner/billing/service-payments
+ * Owner lists all service payments across managers.
+ */
+export const listOwnerPaymentsHandler = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (req.user?.role !== UserRole.OWNER) {
+      res.status(403).json({ success: false, message: 'Access denied. Owner role required.' });
+      return;
+    }
+
+    const status = req.query.status as string | undefined;
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+    const data = await listOwnerServicePayments({ status, limit });
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error('List owner payments error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * GET /api/owner/billing/service-payments/:id
+ * Owner gets a single service payment detail.
+ */
+export const getOwnerPaymentHandler = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (req.user?.role !== UserRole.OWNER) {
+      res.status(403).json({ success: false, message: 'Access denied. Owner role required.' });
+      return;
+    }
+
+    const data = await getOwnerServicePayment(req.params.id);
+    if (!data) {
+      res.status(404).json({ success: false, message: 'Payment not found' });
+      return;
+    }
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error('Get owner payment error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

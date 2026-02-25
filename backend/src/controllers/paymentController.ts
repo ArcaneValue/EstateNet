@@ -9,7 +9,7 @@ const notificationService = new NotificationService();
 
 export const recordPayment = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { amount, paymentDate, dueDate, paymentMethod, transactionId } = req.body;
+    const { amount, paymentDate, dueDate, billingPeriod, paymentMethod, transactionId } = req.body;
 
     // Validation
     if (!amount || !paymentDate || !dueDate) {
@@ -35,6 +35,7 @@ export const recordPayment = async (req: AuthenticatedRequest, res: Response): P
       amount,
       paymentDate,
       dueDate,
+      billingPeriod,
       status: 'PAID',
       paymentMethod,
       transactionId

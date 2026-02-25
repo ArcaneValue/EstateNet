@@ -56,6 +56,7 @@ export const PaymentsScreen: React.FC<PaymentsScreenProps> = ({ navigation }) =>
     const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
     const [payNowAmount, setPayNowAmount] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('MOBILE_MONEY_MTN');
+    const [billingPeriod, setBillingPeriod] = useState('');
 
     // Payment methods
     const paymentMethods = [
@@ -72,6 +73,10 @@ export const PaymentsScreen: React.FC<PaymentsScreenProps> = ({ navigation }) =>
 
     useEffect(() => {
         loadData();
+        // Set default billing period to current month
+        const now = new Date();
+        const currentPeriod = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+        setBillingPeriod(currentPeriod);
     }, []);
 
     const loadData = async () => {
@@ -131,6 +136,7 @@ export const PaymentsScreen: React.FC<PaymentsScreenProps> = ({ navigation }) =>
                 amount,
                 paymentDate,
                 dueDate: dueDate.toISOString().split('T')[0],
+                billingPeriod,
                 paymentMethod: paymentMethod === 'MOBILE_MONEY_MTN' || paymentMethod === 'MOBILE_MONEY_AIRTEL' ? 'MOBILE_MONEY' : paymentMethod,
                 leaseId,
                 note: `Payment recorded via ${paymentMethods.find(m => m.value === paymentMethod)?.label}`

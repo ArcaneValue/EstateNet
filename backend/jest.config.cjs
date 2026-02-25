@@ -10,4 +10,5 @@ module.exports = {
     '^\\.\\./utils/jwt$': '<rootDir>/src/utils/jwt',
     '^\\.\\./services/notificationService$': '<rootDir>/src/services/notificationService',
   },
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
 };
