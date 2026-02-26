@@ -16,6 +16,7 @@
         "db:seed": "ts-node prisma/seed.ts",
         "seed:dev:tenant": "ts-node prisma/seed-dev-tenant.ts",
         "cleanup:duplicates": "ts-node src/scripts/runCleanup.ts",
+        "setup:dev": "ts-node scripts/setupDevAccounts.ts",
         "db:reset": "prisma migrate reset --force",
         "test": "jest --runInBand"
     },

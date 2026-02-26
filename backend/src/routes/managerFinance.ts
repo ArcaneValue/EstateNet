@@ -9,12 +9,18 @@ import {
     getIncomeStatement,
     getFinancialPosition
 } from '../controllers/managerFinanceController';
+import {
+    requireManagerTermsAccepted,
+    requireCurrentBilling
+} from '../middlewares/billingEnforcement';
 
 const router = express.Router();
 
 // All routes require manager authentication
 router.use(authenticateToken);
 router.use(requireUserRole(UserRole.MANAGER));
+router.use(requireManagerTermsAccepted);
+router.use(requireCurrentBilling);
 
 // GET /api/manager/finance/rent-collection - Get rent collection data with period filtering
 router.get('/rent-collection', getRentCollection);

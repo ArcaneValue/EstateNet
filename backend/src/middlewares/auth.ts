@@ -20,14 +20,19 @@ export const authenticateToken = async (
     res: Response,
     next: NextFunction
 ): Promise<void> => {
-    console.log('=== AUTH MIDDLEWARE START ===');
-    console.log('Path:', req.path);
-    console.log('Method:', req.method);
-    console.log('Authorization header exists:', !!req.headers.authorization);
+    if (process.env.NODE_ENV !== 'production') {
+        console.log('=== AUTH MIDDLEWARE START ===');
+        console.log('Path:', req.path);
+        console.log('Method:', req.method);
+        console.log('Authorization header exists:', !!req.headers.authorization);
+    }
 
     try {
         const token = extractTokenFromHeader(req.headers.authorization);
-        console.log('Token extracted:', !!token);
+
+        if (process.env.NODE_ENV !== 'production') {
+            console.log('Token extracted:', !!token);
+        }
 
         if (!token) {
             res.status(401).json({
@@ -37,14 +42,24 @@ export const authenticateToken = async (
             return;
         }
 
-        console.log('Verifying token...');
+        if (process.env.NODE_ENV !== 'production') {
+            console.log('Verifying token...');
+        }
         const decoded = verifyToken(token);
-        console.log('Token verified, user role:', decoded.role);
+
+        if (process.env.NODE_ENV !== 'production') {
+            console.log('Token verified, user role:', decoded.role);
+        }
         req.user = decoded;
-        console.log('=== AUTH MIDDLEWARE SUCCESS ===');
+
+        if (process.env.NODE_ENV !== 'production') {
+            console.log('=== AUTH MIDDLEWARE SUCCESS ===');
+        }
         next();
     } catch (error) {
-        console.error('Auth middleware error:', error);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error('Auth middleware error:', error);
+        }
         res.status(401).json({
             success: false,
             message: 'Invalid or expired token'
