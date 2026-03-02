@@ -313,7 +313,7 @@ if ($unitId -and $tenantId) {
 # Test 8: Create historical gap (simulate 3 months ago)
 Write-Host "`n8. Create Historical Invoice Gap" -ForegroundColor Yellow
 $threeMonthsAgo = (Get-Date).AddMonths(-3).ToString("yyyy-MM-01")
-$gapQuery = 'INSERT INTO invoices (id, "managerId", "periodStart", "periodEnd", "subtotalAmount", "feeRateBps", "feeAmount", status, "dueDate", "createdAt", "updatedAt") VALUES (''test-invoice-$(Get-Random -Maximum 9999)'', ''' + $managerId + ''', ''' + $threeMonthsAgo + ''', ''' + $((Get-Date).AddMonths(-2).ToString("yyyy-MM-28")) + ''', 500000, 399, 500, ''PAID'', ''' + $((Get-Date).AddMonths(-1).ToString("yyyy-MM-dd")) + ''', NOW(), NOW()) ON CONFLICT DO NOTHING;'
+$gapQuery = 'INSERT INTO invoices (id, "managerId", "periodStart", "periodEnd", "subtotalAmount", "feeRateBps", "feeAmount", status, "dueDate", "createdAt", "updatedAt") VALUES (''test-invoice-$(Get-Random -Maximum 9999)'', ''' + $managerId + ''', ''' + $threeMonthsAgo + ''', ''' + $((Get-Date).AddMonths(-2).ToString("yyyy-MM-28")) + ''', 500000, 150, 7500, ''PAID'', ''' + $((Get-Date).AddMonths(-1).ToString("yyyy-MM-dd")) + ''', NOW(), NOW()) ON CONFLICT DO NOTHING;'
 
 $gapCreated = Invoke-Sql $gapQuery
 $gapPassed = Test-Result "Historical gap created" ($gapCreated -and $gapCreated -ne "ERROR")
@@ -404,7 +404,7 @@ if ($propertyId) {
 # Test 8: Create historical gap (simulate 3 months ago) for the first manager who has leases
 Write-Host "`n8. Create Historical Invoice Gap" -ForegroundColor Yellow
 $threeMonthsAgo = (Get-Date).AddMonths(-3).ToString("yyyy-MM-01")
-$gapQuery = 'INSERT INTO invoices (id, "managerId", "periodStart", "periodEnd", "subtotalAmount", "feeRateBps", "feeAmount", status, "dueDate", "createdAt", "updatedAt") VALUES (''test-invoice-$(Get-Random -Maximum 9999)'', ''' + $firstManagerId + ''', ''' + $threeMonthsAgo + ''', ''' + $((Get-Date).AddMonths(-2).ToString("yyyy-MM-28")) + ''', 500000, 399, 500, ''PAID'', ''' + $((Get-Date).AddMonths(-1).ToString("yyyy-MM-dd")) + ''', NOW(), NOW()) ON CONFLICT DO NOTHING;'
+$gapQuery = 'INSERT INTO invoices (id, "managerId", "periodStart", "periodEnd", "subtotalAmount", "feeRateBps", "feeAmount", status, "dueDate", "createdAt", "updatedAt") VALUES (''test-invoice-$(Get-Random -Maximum 9999)'', ''' + $firstManagerId + ''', ''' + $threeMonthsAgo + ''', ''' + $((Get-Date).AddMonths(-2).ToString("yyyy-MM-28")) + ''', 500000, 150, 7500, ''PAID'', ''' + $((Get-Date).AddMonths(-1).ToString("yyyy-MM-dd")) + ''', NOW(), NOW()) ON CONFLICT DO NOTHING;'
 
 $gapCreated = Invoke-Sql $gapQuery
 $gapPassed = Test-Result "Historical gap created" ($gapCreated -and $gapCreated -ne "ERROR")

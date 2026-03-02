@@ -12,8 +12,8 @@ router.get(
   getNotifications
 );
 
-// POST /api/notifications/:id/read - Mark notification as read
-router.post(
+// PATCH /api/notifications/:id/read - Mark notification as read
+router.patch(
   '/:id/read',
   authenticateToken,
   requireRole(['OWNER', 'TENANT', 'MANAGER']),

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, FlatList, ActivityIndicator, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,6 +9,8 @@ import { useProperties } from '../../context/PropertyContext';
 import { Card } from '../../components/Card';
 import { PdfExportPreviewModal } from '../../components/PdfExportPreviewModal';
 import { buildOutstandingRentHtml } from '../../utils/pdfReports';
+import { useManagerEnforcement } from '../../hooks/useManagerEnforcement';
+import { handleEnforcement } from '../../utils/enforcementNavigation';
 
 export const OutstandingRentScreen: React.FC<any> = ({ navigation }) => {
     const { colors, spacing, typography } = useTheme();
@@ -20,7 +22,26 @@ export const OutstandingRentScreen: React.FC<any> = ({ navigation }) => {
     const [previewHtml, setPreviewHtml] = useState('');
     const [previewFileName, setPreviewFileName] = useState('');
 
+    const { checkEnforcement, checking: checkingEnforcement } = useManagerEnforcement();
     const { data, loading, error, refetch } = useOutstandingRent(selectedPeriod, selectedPropertyId);
+
+    // Check enforcement on screen load
+    useEffect(() => {
+        const checkTermsOnLoad = async () => {
+            const { canProceed, enforcement } = await checkEnforcement('Outstanding Rent');
+
+            if (!canProceed && enforcement) {
+                if (__DEV__) {
+                    console.log('[OutstandingRentScreen] Enforcement blocked access');
+                }
+                // Navigate to billing/terms screen
+                await handleEnforcement(navigation, enforcement, { blockedFeature: 'Outstanding Rent' });
+                return;
+            }
+        };
+
+        checkTermsOnLoad();
+    }, []);
 
     const getCurrentPeriod = () => {
         const now = new Date();

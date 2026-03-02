@@ -12,6 +12,7 @@ import { leaseRoutes } from './routes/leases';
 import { reportRoutes } from './routes/reports';
 import { paymentRoutes } from './routes/payments';
 import { paymentCollectionRoutes } from './routes/paymentCollection';
+import paymentClaimRoutes from './routes/paymentClaims';
 import { tenantMeRoutes } from './routes/tenantMe';
 import { managerFinanceRoutes } from './routes/managerFinance';
 import { tenantFinanceRoutes } from './routes/tenantFinance';
@@ -49,6 +50,7 @@ app.use('/api/leases', leaseRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/payments', paymentCollectionRoutes);
+app.use('/api', paymentClaimRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/users', userRoutes);
@@ -59,7 +61,7 @@ app.use('/api/owner', ownerInvitationRoutes);
 app.use('/api/owner', ownerBillingRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/manager', managerTermsRoutes);
-app.use('/api/billing', billingRoutes);
+app.use('/api/manager', billingRoutes);
 app.use('/api/webhook', webhookPaymentRoutes);
 
 // Health check
@@ -70,9 +72,9 @@ app.get('/health', (req, res) => {
 // Error handling
 app.use((err: any, req: any, res: any, next: any) => {
     console.error('Error:', err);
-    res.status(500).json({ 
-        success: false, 
-        message: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message 
+    res.status(500).json({
+        success: false,
+        message: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
     });
 });
 

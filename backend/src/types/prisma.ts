@@ -102,3 +102,6 @@ export interface OwnerManagerInvitation {
     email: string;
   };
 }
+
+// Transaction client type
+export type PrismaTransactionClient = Parameters<Parameters<typeof import('../utils/database').prisma.$transaction>[0]>[0];

@@ -1,0 +1,6 @@
+console.log('E2E test environment cleanup complete');
+    } catch (error) {
+      console.log('E2E cleanup error:', error);
+    }
+  }
+});

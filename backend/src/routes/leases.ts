@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getActiveLease, endLease, createLease } from '../controllers/leaseController';
 import { authenticateToken } from '../middlewares/auth';
 import { requireUserRole } from '../middlewares/requireUserRole';
+import { requireRestrictedOperations, requireSuspendedOperations } from '../middlewares/billingEnforcement';
 import { UserRole } from '../types/prisma';
 
 const router = Router();
@@ -17,6 +18,8 @@ router.get('/me/active-lease',
 router.post('/',
   authenticateToken,
   requireUserRole(UserRole.MANAGER),
+  requireRestrictedOperations,
+  requireSuspendedOperations,
   createLease
 );
 

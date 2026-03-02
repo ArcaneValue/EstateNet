@@ -1,9 +1,9 @@
 import { prisma } from '../utils/database';
 import { UserRole } from '../types/prisma';
 
-// Fee rate: 3.99% = 399 basis points
-const FEE_RATE_BPS = 399;
-const FEE_RATE = 0.0399;
+// Fee rate: 1.5% = 150 basis points
+const FEE_RATE_BPS = 150;
+const FEE_RATE = 0.015;
 
 // Instance identifier for distributed locking
 const INSTANCE_ID = `instance-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -518,7 +518,7 @@ export const syncManagerBillingStatus = async (now: Date = new Date()): Promise<
         }
       });
 
-      let newBillingStatus: string;
+      let newBillingStatus: 'CURRENT' | 'OVERDUE' | 'RESTRICTED' | 'SUSPENDED';
 
       if (hasOverdueInvoice) {
         newBillingStatus = 'OVERDUE';

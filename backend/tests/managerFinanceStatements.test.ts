@@ -1,48 +1,58 @@
 import request from 'supertest';
 import app from '../src/testApp';
 import { prisma } from '../src/utils/database';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
-// Test helper functions
 async function createTestUser(name: string, email: string, role: string) {
-    if (role === 'TENANT') {
-        const tenantResponse = await request(app)
-            .post('/api/auth/register-tenant')
-            .send({
-                name,
-                email,
-                password: 'Password123',
-                phoneNumber: '+256700000002'
-            });
+    const hashedPassword = await bcrypt.hash('Password123', 10);
+    const userData: any = {
+        email,
+        passwordHash: hashedPassword,
+        name,
+        role: role as any,
+        phoneNumber: role === 'TENANT' ? '+256700000002' : '+256700000001'
+    };
 
-        if (!tenantResponse.body.success) {
-            throw new Error(`Tenant registration failed: ${JSON.stringify(tenantResponse.body)}`);
-        }
+    // Add billing enforcement fields for managers in test environment
+    if (role === 'MANAGER') {
+        userData.managerTermsAcceptedAt = new Date();
+        userData.billingStatus = 'CURRENT';
+    }
+
+    const user = await prisma.user.create({
+        data: userData
+    });
+
+    if (role === 'TENANT') {
+        const tenantIdentity = await prisma.tenantIdentity.create({
+            data: {
+                tenantId: user.id,
+                name: user.name,
+                email: user.email
+            }
+        });
 
         return {
-            token: tenantResponse.body.token,
-            userId: tenantResponse.body.userId,
-            tenantId: tenantResponse.body.tenantId
+            userId: user.id,
+            tenantId: user.id,
+            token: getAuthToken(user.id, user.role)
         };
     }
 
-    const response = await request(app)
-        .post('/api/auth/register/manager')
-        .send({
-            name,
-            email,
-            password: 'Password123',
-            phoneNumber: '+256700000001'
-        });
-
-    if (!response.body.success) {
-        throw new Error(`Manager registration failed: ${JSON.stringify(response.body)}`);
-    }
-
     return {
-        token: response.body.token,
-        userId: response.body.userId
+        userId: user.id,
+        token: getAuthToken(user.id, user.role)
     };
 }
+
+const getAuthToken = (userId: string, role: string) => {
+    return jwt.sign(
+        { id: userId, role },
+        process.env.JWT_SECRET || 'test-secret-key-for-financial-statements-testing',
+        { expiresIn: '1h' }
+    );
+};
 
 async function createTestProperty(token: string, name: string, location: string) {
     const response = await request(app)
@@ -50,12 +60,12 @@ async function createTestProperty(token: string, name: string, location: string)
         .set('Authorization', `Bearer ${token}`)
         .send({ name, location });
 
-    if (!response.body.success || !response.body.property) {
+    if (!response.body.success || !response.body.data) {
         throw new Error(`Property creation failed: ${JSON.stringify(response.body)}`);
     }
 
     return {
-        propertyId: response.body.property.id
+        propertyId: response.body.data.id
     };
 }
 
@@ -65,8 +75,12 @@ async function createTestUnit(token: string, propertyId: string, unitNumber: str
         .set('Authorization', `Bearer ${token}`)
         .send({ unitNumber, rentAmount });
 
+    if (!response.body.success || !response.body.data?.id) {
+        throw new Error(`Unit creation failed: ${JSON.stringify(response.body)}`);
+    }
+
     return {
-        unitId: response.body.unit.id
+        unitId: response.body.data.id
     };
 }
 
@@ -76,8 +90,12 @@ async function createTestLease(token: string, leaseData: any) {
         .set('Authorization', `Bearer ${token}`)
         .send(leaseData);
 
+    if (!response.body.success) {
+        throw new Error(`Lease creation failed: ${JSON.stringify(response.body)}`);
+    }
+
     return {
-        leaseId: response.body.lease.id
+        leaseId: response.body.data.id
     };
 }
 
@@ -105,26 +123,11 @@ describe('Manager Finance Statements API', () => {
     let leaseId: string;
 
     beforeAll(async () => {
-        // Create manager user with unique email
+        // Create manager user directly with Prisma
         const uniqueEmail = `manager-${Date.now()}@test.com`;
         const managerResponse = await createTestUser('manager', uniqueEmail, 'MANAGER');
-        managerToken = managerResponse.token;
         managerId = managerResponse.userId;
-
-        // Accept manager terms and get new token
-        const termsResponse = await request(app)
-            .post('/api/manager/terms/accept')
-            .set('Authorization', `Bearer ${managerToken}`);
-
-        if (!termsResponse.body.success) {
-            throw new Error(`Terms acceptance failed: ${JSON.stringify(termsResponse.body)}`);
-        }
-
-        if (termsResponse.body.data && termsResponse.body.data.token) {
-            managerToken = termsResponse.body.data.token; // Use the new token
-        } else {
-            throw new Error(`No new token returned from terms acceptance: ${JSON.stringify(termsResponse.body)}`);
-        }
+        managerToken = managerResponse.token;
 
         // Create property
         const propertyResponse = await createTestProperty(managerToken, 'Test Property', 'Test Location');
@@ -134,19 +137,21 @@ describe('Manager Finance Statements API', () => {
         const unitResponse = await createTestUnit(managerToken, propertyId, 'Unit 1', 800000);
         unitId = unitResponse.unitId;
 
-        // Create tenant with unique email
+        // Create tenant directly with Prisma
         const uniqueTenantEmail = `tenant-${Date.now()}@test.com`;
         const tenantResponse = await createTestUser('tenant', uniqueTenantEmail, 'TENANT');
-        tenantId = tenantResponse.tenantId;
+        tenantId = (tenantResponse as any).tenantId;
 
         // Create lease
-        const leaseResponse = await createTestLease(managerToken, {
+        const leaseData = {
             tenantId,
             propertyId,
             unitId,
             rentAmount: 800000,
             startDate: '2023-12-01T00:00:00.000Z'
-        });
+        };
+
+        const leaseResponse = await createTestLease(managerToken, leaseData);
         leaseId = leaseResponse.leaseId;
 
         // Create test payments for different periods

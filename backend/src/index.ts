@@ -13,6 +13,7 @@ import { leaseRoutes } from './routes/leases';
 import { reportRoutes } from './routes/reports';
 import { paymentRoutes } from './routes/payments';
 import { paymentCollectionRoutes } from './routes/paymentCollection';
+import paymentClaimRoutes from './routes/paymentClaims';
 import { tenantMeRoutes } from './routes/tenantMe';
 import { managerFinanceRoutes } from './routes/managerFinance';
 import { tenantFinanceRoutes } from './routes/tenantFinance';
@@ -89,6 +90,7 @@ app.use('/api/leases', leaseRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/payments', paymentCollectionRoutes);
+app.use('/api', paymentClaimRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/users', userRoutes);
@@ -169,60 +171,69 @@ const startServer = (port: number) => {
     });
 };
 
-// Start server
-startServer(Number(PORT));
+// Start server only if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+    startServer(Number(PORT));
+} else {
+    console.log('[Server] Skipping server startup in test environment');
+}
 
-// Schedule daily billing tasks at 00:05 server time
-cron.schedule('5 0 * * *', async () => {
-    console.log('[BillingScheduler] Starting daily billing tasks...');
-    try {
-        const results = await runDailyBillingTasks();
-        console.log('[BillingScheduler] Daily tasks completed:', {
-            invoicesCreatedCount: results.invoicesCreatedCount,
-            invoicesMarkedOverdueCount: results.invoicesMarkedOverdueCount,
-            managersUpdatedCount: results.managersUpdatedCount
-        });
-    } catch (error) {
-        console.error('[BillingScheduler] Daily tasks failed:', error);
-    }
-}, {
-    scheduled: true,
-    timezone: 'Africa/Kampala' // Use server timezone
-});
-
-// Schedule pending payment cleanup every 10 minutes
-cron.schedule('*/10 * * * *', async () => {
-    try {
-        const count = await timeoutStalePendingPayments();
-        if (count > 0) {
-            console.log(`[PaymentCleanup] Timed out ${count} stale pending payment(s)`);
+// Only run background jobs if not disabled (e.g., in test environment)
+if (process.env.DISABLE_BACKGROUND_JOBS !== 'true') {
+    // Schedule daily billing tasks at 00:05 server time
+    cron.schedule('5 0 * * *', async () => {
+        console.log('[BillingScheduler] Starting daily billing tasks...');
+        try {
+            const results = await runDailyBillingTasks();
+            console.log('[BillingScheduler] Daily tasks completed:', {
+                invoicesCreatedCount: results.invoicesCreatedCount,
+                invoicesMarkedOverdueCount: results.invoicesMarkedOverdueCount,
+                managersUpdatedCount: results.managersUpdatedCount
+            });
+        } catch (error) {
+            console.error('[BillingScheduler] Daily tasks failed:', error);
         }
-    } catch (error) {
-        console.error('[PaymentCleanup] Cleanup failed:', error);
-    }
-});
+    }, {
+        scheduled: true,
+        timezone: 'Africa/Kampala' // Use server timezone
+    });
 
-// Run catch-up on startup after server is ready
-setTimeout(async () => {
-    console.log('[BillingScheduler] Starting startup catch-up...');
-    try {
-        // Step 1: Clean up any duplicate invoices before applying constraints
-        console.log('[BillingScheduler] Checking for duplicate invoices...');
-        const cleanupResult = await cleanupDuplicateInvoices();
-        if (cleanupResult.deletedCount > 0) {
-            console.log(`[BillingScheduler] Cleaned up ${cleanupResult.deletedCount} duplicate invoices`);
+    // Schedule pending payment cleanup every 10 minutes
+    cron.schedule('*/10 * * * *', async () => {
+        try {
+            const count = await timeoutStalePendingPayments();
+            if (count > 0) {
+                console.log(`[PaymentCleanup] Timed out ${count} stale pending payment(s)`);
+            }
+        } catch (error) {
+            console.error('[PaymentCleanup] Cleanup failed:', error);
         }
+    });
 
-        // Step 2: Run normal billing tasks
-        const results = await runDailyBillingTasks();
-        console.log('[BillingScheduler] Startup catch-up completed:', {
-            invoicesCreatedCount: results.invoicesCreatedCount,
-            invoicesMarkedOverdueCount: results.invoicesMarkedOverdueCount,
-            managersUpdatedCount: results.managersUpdatedCount
-        });
-    } catch (error) {
-        console.error('[BillingScheduler] Startup catch-up failed:', error);
-    }
-}, 5000); // Wait 5 seconds for DB to be ready
+    // Run catch-up on startup after server is ready
+    setTimeout(async () => {
+        console.log('[BillingScheduler] Starting startup catch-up...');
+        try {
+            // Step 1: Clean up any duplicate invoices before applying constraints
+            console.log('[BillingScheduler] Checking for duplicate invoices...');
+            const cleanupResult = await cleanupDuplicateInvoices();
+            if (cleanupResult.deletedCount > 0) {
+                console.log(`[BillingScheduler] Cleaned up ${cleanupResult.deletedCount} duplicate invoices`);
+            }
+
+            // Step 2: Run normal billing tasks
+            const results = await runDailyBillingTasks();
+            console.log('[BillingScheduler] Startup catch-up completed:', {
+                invoicesCreatedCount: results.invoicesCreatedCount,
+                invoicesMarkedOverdueCount: results.invoicesMarkedOverdueCount,
+                managersUpdatedCount: results.managersUpdatedCount
+            });
+        } catch (error) {
+            console.error('[BillingScheduler] Startup catch-up failed:', error);
+        }
+    }, 5000); // Wait 5 seconds for DB to be ready
+} else {
+    console.log('[BillingScheduler] Background jobs disabled for test environment');
+}
 
 export default app;

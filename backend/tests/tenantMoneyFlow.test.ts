@@ -10,13 +10,21 @@ import { getCurrentBillingPeriod, validateBillingPeriod } from '../src/utils/bil
 // Test utilities
 const createTestUser = async (role: string, email: string) => {
     const hashedPassword = await bcrypt.hash('TestPass123!', 10);
+    const userData: any = {
+        email,
+        passwordHash: hashedPassword,
+        name: `Test ${role}`,
+        role: role as any
+    };
+
+    // Add billing enforcement fields for managers
+    if (role === 'MANAGER') {
+        userData.managerTermsAcceptedAt = new Date();
+        userData.billingStatus = 'CURRENT';
+    }
+
     const user = await prisma.user.create({
-        data: {
-            email,
-            passwordHash: hashedPassword,
-            name: `Test ${role}`,
-            role: role as any
-        }
+        data: userData
     });
 
     if (role === 'TENANT') {

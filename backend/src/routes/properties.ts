@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { createProperty, getAllProperties, getPropertyById, updateProperty, deleteProperty, createUnit, updateUnit, deleteUnit } from '../controllers/propertyController';
 import { authenticateToken } from '../middlewares/auth';
 import { requireRole } from '../middlewares/requireRole';
-import { requireManagerTermsAccepted, requireCurrentBilling } from '../middlewares/billingEnforcement';
+import { requireManagerTermsAccepted, requireCurrentBilling, requireRestrictedOperations, requireSuspendedOperations } from '../middlewares/billingEnforcement';
 
 const router = Router();
 
@@ -11,7 +11,8 @@ router.post('/',
   authenticateToken,
   requireRole('OWNER', 'MANAGER'),
   requireManagerTermsAccepted,
-  requireCurrentBilling,
+  requireRestrictedOperations,
+  requireSuspendedOperations,
   createProperty
 );
 
@@ -48,7 +49,8 @@ router.post('/:id/units',
   authenticateToken,
   requireRole('OWNER', 'MANAGER'),
   requireManagerTermsAccepted,
-  requireCurrentBilling,
+  requireRestrictedOperations,
+  requireSuspendedOperations,
   createUnit
 );
 

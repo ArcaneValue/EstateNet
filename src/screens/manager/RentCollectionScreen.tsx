@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, FlatList, ActivityIndicator, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,6 +9,8 @@ import { useProperties } from '../../context/PropertyContext';
 import { Card } from '../../components/Card';
 import { PdfExportPreviewModal } from '../../components/PdfExportPreviewModal';
 import { buildRentCollectionHtml } from '../../utils/pdfReports';
+import { useManagerEnforcement } from '../../hooks/useManagerEnforcement';
+import { handleEnforcement } from '../../utils/enforcementNavigation';
 
 export const RentCollectionScreen: React.FC<any> = ({ navigation }) => {
     const { colors, spacing, typography } = useTheme();
@@ -20,7 +22,26 @@ export const RentCollectionScreen: React.FC<any> = ({ navigation }) => {
     const [previewHtml, setPreviewHtml] = useState('');
     const [previewFileName, setPreviewFileName] = useState('');
 
+    const { checkEnforcement, checking: checkingEnforcement } = useManagerEnforcement();
     const { data, loading, error, refetch } = useRentCollection(selectedPeriod, selectedPropertyId);
+
+    // Check enforcement on screen load
+    useEffect(() => {
+        const checkTermsOnLoad = async () => {
+            const { canProceed, enforcement } = await checkEnforcement('Rent Collection');
+
+            if (!canProceed && enforcement) {
+                if (__DEV__) {
+                    console.log('[RentCollectionScreen] Enforcement blocked access');
+                }
+                // Navigate to billing/terms screen
+                await handleEnforcement(navigation, enforcement, { blockedFeature: 'Rent Collection' });
+                return;
+            }
+        };
+
+        checkTermsOnLoad();
+    }, []);
 
     const getCurrentPeriod = () => {
         const now = new Date();

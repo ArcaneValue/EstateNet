@@ -3,9 +3,9 @@ import { AuthenticatedRequest } from '../middlewares/auth';
 import { prisma } from '../utils/database';
 import { UserRole } from '../types/prisma';
 
-// Fee rate: 3.99% = 399 basis points
-const FEE_RATE_BPS = 399;
-const FEE_RATE = 0.0399;
+// Fee rate: 1.5% = 150 basis points
+const FEE_RATE_BPS = 150;
+const FEE_RATE = 0.015;
 
 export const getBillingStatus = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
@@ -75,6 +75,120 @@ export const getBillingStatus = async (req: AuthenticatedRequest, res: Response)
 
   } catch (error) {
     console.error('Get billing status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+export const getBillingOverview = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    // Only managers can access this endpoint
+    if (req.user?.role !== UserRole.MANAGER) {
+      res.status(403).json({
+        success: false,
+        message: 'Access denied. Manager role required.'
+      });
+      return;
+    }
+
+    const managerId = req.user.id;
+
+    // Get billing status
+    const freshUser = await prisma.user.findUnique({
+      where: { id: managerId },
+      select: { billingStatus: true, billingGraceUntil: true }
+    });
+
+    const billingStatus = freshUser?.billingStatus || 'CURRENT';
+
+    // Get current invoice (DUE or OVERDUE)
+    const currentInvoice = await prisma.invoice.findFirst({
+      where: {
+        managerId,
+        status: { in: ['DUE', 'OVERDUE'] }
+      },
+      orderBy: {
+        dueDate: 'asc'
+      }
+    });
+
+    // Get all overdue invoices
+    const overdueInvoices = await prisma.invoice.findMany({
+      where: {
+        managerId,
+        status: 'OVERDUE'
+      },
+      orderBy: {
+        dueDate: 'asc'
+      },
+      select: {
+        id: true,
+        feeAmount: true,
+        dueDate: true,
+        periodStart: true,
+        periodEnd: true
+      }
+    });
+
+    // Calculate total outstanding
+    const totalOutstanding = overdueInvoices.reduce((sum, invoice) => sum + invoice.feeAmount, 0) +
+      (currentInvoice && currentInvoice.status === 'DUE' ? currentInvoice.feeAmount : 0);
+
+    // Get current occupied unit count
+    const occupiedUnitCount = await prisma.lease.count({
+      where: {
+        status: 'ACTIVE',
+        property: {
+          managerId
+        }
+      }
+    });
+
+    // Calculate projected fee for next month (current occupied units * fee rate)
+    const currentActiveLeases = await prisma.lease.findMany({
+      where: {
+        status: 'ACTIVE',
+        property: {
+          managerId
+        }
+      },
+      select: {
+        rentAmount: true
+      }
+    });
+
+    const totalActiveRent = currentActiveLeases.reduce((sum, lease) => sum + lease.rentAmount, 0);
+    const projectedFeeNextMonth = Math.round(totalActiveRent * FEE_RATE);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        billingStatus,
+        currentInvoice: currentInvoice ? {
+          id: currentInvoice.id,
+          feeAmount: currentInvoice.feeAmount,
+          dueDate: currentInvoice.dueDate,
+          status: currentInvoice.status,
+          periodStart: currentInvoice.periodStart,
+          periodEnd: currentInvoice.periodEnd
+        } : null,
+        overdueInvoices: overdueInvoices.map(invoice => ({
+          id: invoice.id,
+          feeAmount: invoice.feeAmount,
+          dueDate: invoice.dueDate,
+          periodStart: invoice.periodStart,
+          periodEnd: invoice.periodEnd
+        })),
+        totalOutstanding,
+        occupiedUnitCount,
+        projectedFeeNextMonth
+      }
+    });
+
+  } catch (error) {
+    console.error('Get billing overview error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'

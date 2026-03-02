@@ -55,4 +55,13 @@ export class NotificationService {
       data: { readAt: new Date() },
     });
   }
+
+  async getUnreadCount(userId: string): Promise<number> {
+    return await (prisma as any).notification.count({
+      where: {
+        userId,
+        readAt: null,
+      },
+    });
+  }
 }

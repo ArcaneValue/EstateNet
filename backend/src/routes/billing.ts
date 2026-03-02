@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getBillingStatus,
+  getBillingOverview,
   getInvoices,
   getInvoiceById,
   generateInvoice,
@@ -21,6 +22,13 @@ router.get('/billing/status',
   authenticateToken,
   requireUserRole(UserRole.MANAGER),
   getBillingStatus
+);
+
+// GET /api/manager/billing/overview - Get comprehensive billing overview
+router.get('/billing/overview',
+  authenticateToken,
+  requireUserRole(UserRole.MANAGER),
+  getBillingOverview
 );
 
 // GET /api/manager/billing/invoices - List all invoices for manager

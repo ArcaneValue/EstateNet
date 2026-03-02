@@ -23,6 +23,7 @@ import { RentCollectionScreen } from '../screens/manager/RentCollectionScreen';
 import { ManagerPaymentsScreen } from '../screens/manager/ManagerPaymentsScreen';
 import { ManagerTermsScreen } from '../screens/manager/ManagerTermsScreen';
 import { ManagerBillingScreen } from '../screens/manager/ManagerBillingScreen';
+import { ManagerPaymentClaimsScreen } from '../screens/manager/ManagerPaymentClaimsScreen';
 import { IncomeStatementScreen } from '../screens/manager/IncomeStatementScreen';
 import { FinancialPositionScreen } from '../screens/manager/FinancialPositionScreen';
 import { CashflowStatementScreen } from '../screens/manager/CashflowStatementScreen';
@@ -128,6 +129,7 @@ const ManagerStack = () => {
             <Stack.Screen name="OutstandingRent" component={OutstandingRentScreen} />
             <Stack.Screen name="RentCollection" component={RentCollectionScreen} />
             <Stack.Screen name="ManagerPayments" component={ManagerPaymentsScreen} />
+            <Stack.Screen name="ManagerPaymentClaims" component={ManagerPaymentClaimsScreen} />
             <Stack.Screen name="ManagerTerms" component={ManagerTermsScreen} />
             <Stack.Screen name="ManagerBilling" component={ManagerBillingScreen} />
             <Stack.Screen name="IncomeStatement" component={IncomeStatementScreen} />

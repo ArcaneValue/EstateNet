@@ -514,7 +514,7 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                                     Key Terms:
                                 </Text>
                                 <Text style={[typography.bodySmall, { color: colors.text }]}>
-                                    {'\u2022'} 3.99% fee per occupied unit per month{'\n'}
+                                    {'•'} 1.5% fee per occupied unit per month{'\n'}
                                     {'\u2022'} Monthly billing for manager services{'\n'}
                                     {'\u2022'} Payment via MTN Mobile Money or Airtel Money{'\n'}
                                     {'\u2022'} Grace period for overdue payments
@@ -615,7 +615,7 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                                         <Text style={[typography.body, { color: colors.textSecondary }]}>UGX {formatNumber(inv.subtotalAmount)}</Text>
                                     </View>
                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
-                                        <Text style={[typography.body, { color: colors.textSecondary }]}>Service Fee (3.99%):</Text>
+                                        <Text style={[typography.body, { color: colors.textSecondary }]}>Service Fee (1.5%):</Text>
                                         <Text style={[typography.body, { color: colors.text }]}>UGX {formatNumber(inv.feeAmount)}</Text>
                                     </View>
                                     <View style={{

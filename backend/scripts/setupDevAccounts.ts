@@ -225,8 +225,8 @@ async function createTestData(users: any) {
       periodStart: thisMonth,
       periodEnd: new Date(thisMonth.getFullYear(), thisMonth.getMonth() + 1, 0), // Last day of month
       subtotalAmount: units[0].rentAmount,
-      feeRateBps: 399, // 3.99%
-      feeAmount: Math.round(units[0].rentAmount * 0.0399),
+      feeRateBps: 150, // 1.5%
+      feeAmount: Math.round(units[0].rentAmount * 0.015),
       status: 'DUE',
       dueDate: new Date(thisMonth.getTime() + 30 * 24 * 60 * 60 * 1000), // 30 days
       lines: {

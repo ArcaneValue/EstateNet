@@ -115,7 +115,7 @@ export const ManagerTermsScreen: React.FC<ManagerTermsScreenProps> = ({ navigati
                                 💰 Billing Terms
                             </Text>
                             <Text style={[typography.body, { color: colors.text, marginBottom: spacing.sm }]}>
-                                • EstateNet charges 3.99% of monthly rent amount per occupied unit
+                                • EstateNet charges 1.5% of monthly rent amount per occupied unit
                             </Text>
                             <Text style={[typography.body, { color: colors.text, marginBottom: spacing.sm }]}>
                                 • Fee is charged to the Manager, not the tenant
@@ -219,7 +219,7 @@ export const ManagerTermsScreen: React.FC<ManagerTermsScreenProps> = ({ navigati
                         Version 1.0 • Last Updated: February 2026
                     </Text>
                     <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.xs }]}>
-                        By accepting, you agree to pay 3.99% per occupied unit per month based on configured rent.
+                        By accepting, you agree to pay 1.5% per occupied unit per month based on configured rent.
                     </Text>
                 </View>
             </View>

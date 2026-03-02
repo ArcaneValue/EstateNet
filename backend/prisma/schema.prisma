@@ -26,7 +26,7 @@ model User {
 
   // Manager billing fields
   managerTermsAcceptedAt DateTime?
-  billingStatus         String? // 'CURRENT' | 'OVERDUE'
+  billingStatus         BillingStatus? @default(CURRENT)
   billingGraceUntil     DateTime?
 
   // Relations
@@ -41,6 +41,9 @@ model User {
   receivedManagerInvitations OwnerManagerInvitation[] @relation("ManagerInvitations")
   invoices     Invoice[]
   servicePayments ServicePayment[] @relation("ServicePayments")
+  managerPaymentClaims PaymentClaim[] @relation("ManagerPaymentClaims")
+  managerVerifications PaymentClaimVerification[] @relation("ManagerVerifications")
+  auditLogs AuditLog[] @relation("UserAuditLogs")
 
   @@map("users")
 }
@@ -60,6 +63,7 @@ model TenantIdentity {
   leases Lease[]
   invitations TenantInvitation[]
   payments Payment[]
+  paymentClaims PaymentClaim[]
 
   @@map("tenant_identities")
 }
@@ -90,6 +94,24 @@ enum PaymentStatus {
   FAILED
   PAID
   OVERDUE
+}
+
+enum PaymentClaimStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum PaymentClaimDecision {
+  VERIFIED
+  REJECTED
+}
+
+enum BillingStatus {
+  CURRENT
+  OVERDUE
+  RESTRICTED
+  SUSPENDED
 }
 
 model Property {
@@ -150,6 +172,7 @@ model Lease {
   tenantIdentity TenantIdentity @relation(fields: [tenantId], references: [tenantId], onDelete: Restrict)
   messages       Message[]
   invoiceLines   InvoiceLine[]
+  paymentClaims  PaymentClaim[]
 
   @@index([tenantId, status])
   @@map("leases")
@@ -261,7 +284,7 @@ model Invoice {
   periodStart   DateTime
   periodEnd     DateTime
   subtotalAmount Int
-  feeRateBps    Int      // 399 = 3.99%
+  feeRateBps    Int      // 150 = 1.5%
   feeAmount     Int
   status        String   // 'DUE' | 'PAID' | 'OVERDUE'
   dueDate       DateTime
@@ -318,6 +341,68 @@ model ServicePayment {
   manager           User     @relation("ServicePayments", fields: [managerId], references: [id])
 
   @@map("service_payments")
+}
+
+model PaymentClaim {
+  id              String   @id @default(cuid())
+  tenantId        String
+  leaseId         String
+  managerId       String
+  amount          Int
+  currency        String   @default("UGX")
+  claimedPaidAt   DateTime
+  method          String   // 'CASH' | 'MTN' | 'AIRTEL' | 'BANK_TRANSFER'
+  referenceText   String?
+  status          PaymentClaimStatus @default(PENDING)
+  flagged         Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  tenantIdentity  TenantIdentity @relation(fields: [tenantId], references: [tenantId])
+  lease           Lease @relation(fields: [leaseId], references: [id])
+  manager         User @relation("ManagerPaymentClaims", fields: [managerId], references: [id])
+  verification    PaymentClaimVerification?
+
+  @@index([managerId, status])
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@map("payment_claims")
+}
+
+model PaymentClaimVerification {
+  id          String @id @default(cuid())
+  claimId     String @unique
+  managerId   String
+  decision    PaymentClaimDecision
+  note        String?
+  decidedAt   DateTime @default(now())
+
+  // Relations
+  claim       PaymentClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  manager     User @relation("ManagerVerifications", fields: [managerId], references: [id])
+
+  @@map("payment_claim_verifications")
+}
+
+model AuditLog {
+  id                String   @id @default(cuid())
+  entityType        String   // 'PAYMENT_CLAIM'
+  entityId          String
+  action            String   // 'CREATED', 'VERIFIED', 'REJECTED'
+  performedByUserId String
+  previousState     Json?
+  newState          Json
+  metadata          Json?
+  ipAddress         String?
+  createdAt         DateTime @default(now())
+
+  // Relations
+  performedByUser   User     @relation("UserAuditLogs", fields: [performedByUserId], references: [id])
+
+  @@index([entityId, entityType, createdAt])
+  @@index([performedByUserId, createdAt])
+  @@map("audit_logs")
 }
 
 model JobLock {

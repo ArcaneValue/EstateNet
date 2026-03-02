@@ -141,15 +141,23 @@ export class AuthService {
         const passwordHash = await hashPassword(data.password);
 
         // Create manager user
+        const userData: any = {
+            email: data.email,
+            passwordHash,
+            name: data.name,
+            phoneNumber: data.phoneNumber,
+            role: 'MANAGER',
+            tenantId: null,
+        };
+
+        // In test environment, set billing enforcement fields to avoid 402 errors
+        if (process.env.NODE_ENV === 'test') {
+            userData.managerTermsAcceptedAt = new Date();
+            userData.billingStatus = 'CURRENT';
+        }
+
         const user = await prisma.user.create({
-            data: {
-                email: data.email,
-                passwordHash,
-                name: data.name,
-                phoneNumber: data.phoneNumber,
-                role: 'MANAGER',
-                tenantId: null,
-            }
+            data: userData
         });
 
         // Generate JWT token

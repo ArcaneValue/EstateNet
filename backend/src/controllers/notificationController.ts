@@ -15,9 +15,11 @@ export const getNotifications = async (req: AuthenticatedRequest, res: Response)
     }
 
     const notifications = await notificationService.getNotificationsForUser(req.user.id);
+    const unreadCount = await notificationService.getUnreadCount(req.user.id);
 
     res.status(200).json({
       success: true,
+      unreadCount,
       data: notifications,
     });
   } catch (error) {

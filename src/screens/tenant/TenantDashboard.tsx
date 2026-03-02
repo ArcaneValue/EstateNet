@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { apiGet } from '../../utils/apiClient';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { StatusBadge } from '../../components/StatusBadge';
 import { Modal } from '../../components/Modal';
+import { RecordPaymentClaimModal } from '../../components/RecordPaymentClaimModal';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -20,7 +22,11 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ navigation }) 
 
     const [showAllPaymentsModal, setShowAllPaymentsModal] = useState(false);
     const [showPaymentDetailsModal, setShowPaymentDetailsModal] = useState(false);
+    const [showClaimModal, setShowClaimModal] = useState(false);
     const [selectedPayment, setSelectedPayment] = useState<any>(null);
+    const [paymentClaims, setPaymentClaims] = useState<any[]>([]);
+    const [activeLease, setActiveLease] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
 
     const rentDueDate = 'Jan 31, 2026';
     const daysUntilDue = 19;
@@ -83,11 +89,45 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ navigation }) 
         },
     ];
 
+    useEffect(() => {
+        loadDashboardData();
+    }, []);
+
+    const loadDashboardData = async () => {
+        setLoading(true);
+        try {
+            // Load payment claims
+            const { status: claimStatus, json: claimJson } = await apiGet('/tenant/payment-claims');
+            if (claimStatus === 200 && claimJson?.success) {
+                setPaymentClaims(claimJson.data || []);
+            }
+
+            // Load active lease
+            const { status: leaseStatus, json: leaseJson } = await apiGet('/tenant/me/active-lease');
+            if (leaseStatus === 200 && leaseJson?.success && leaseJson.data) {
+                setActiveLease(leaseJson.data);
+            }
+        } catch (err) {
+            console.error('Load dashboard data error:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handlePaymentPress = (payment: any) => {
         setSelectedPayment(payment);
         setShowAllPaymentsModal(false);
         setTimeout(() => setShowPaymentDetailsModal(true), 300);
     };
+
+    const handleClaimRecorded = () => {
+        setShowClaimModal(false);
+        loadDashboardData(); // Reload to show new claim
+    };
+
+    // Get pending claims count for status display
+    const pendingClaimsCount = paymentClaims.filter(claim => claim.status === 'PENDING').length;
+    const hasVerifiedClaims = paymentClaims.some(claim => claim.status === 'VERIFIED');
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
@@ -165,11 +205,40 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ navigation }) 
                         </View>
 
                         <Button
-                            title="Make Payment"
-                            onPress={() => { }}
+                            title="Record Payment Claim"
+                            onPress={() => setShowClaimModal(true)}
                             variant="secondary"
                             style={{ marginTop: spacing.lg }}
                         />
+
+                        {/* Payment Claims Status */}
+                        {(pendingClaimsCount > 0 || hasVerifiedClaims) && (
+                            <View style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                marginTop: spacing.md,
+                                padding: spacing.sm,
+                                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                                borderRadius: borderRadius.sm
+                            }}>
+                                <Ionicons
+                                    name={pendingClaimsCount > 0 ? "time" : "checkmark-circle"}
+                                    size={16}
+                                    color="#FFFFFF"
+                                />
+                                <Text style={{
+                                    color: '#FFFFFF',
+                                    fontSize: 12,
+                                    marginLeft: spacing.xs,
+                                    opacity: 0.9
+                                }}>
+                                    {pendingClaimsCount > 0
+                                        ? `${pendingClaimsCount} claim${pendingClaimsCount > 1 ? 's' : ''} pending review`
+                                        : 'Latest claims verified'
+                                    }
+                                </Text>
+                            </View>
+                        )}
                     </LinearGradient>
                 </Card>
 
@@ -480,6 +549,17 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ navigation }) 
                         </View>
                     )}
                 </Modal>
+
+                {/* Record Payment Claim Modal */}
+                {activeLease && (
+                    <RecordPaymentClaimModal
+                        visible={showClaimModal}
+                        onClose={() => setShowClaimModal(false)}
+                        leaseId={activeLease.id}
+                        monthlyRent={activeLease.rentAmount || 300000}
+                        onClaimRecorded={handleClaimRecorded}
+                    />
+                )}
             </ScrollView>
         </SafeAreaView>
     );

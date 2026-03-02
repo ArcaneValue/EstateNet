@@ -147,7 +147,7 @@ describe('Billing Invoice Generation - Option A Snapshot', () => {
         id: 'inv-001',
         managerId: 'mgr-1',
         subtotalAmount: 800000, // Only lease A's rent
-        feeAmount: 31920, // 3.99% of 800000
+        feeAmount: 12000, // 1.5% of 800000
         status: 'DUE'
       };
       mockPrisma.invoice.create.mockResolvedValue(mockInvoice);
@@ -198,8 +198,8 @@ describe('Billing Invoice Generation - Option A Snapshot', () => {
           periodStart,
           periodEnd,
           subtotalAmount: 800000, // Only lease A's 800000, not lease B's 900000
-          feeRateBps: 399,
-          feeAmount: 31920, // 3.99% of 800000
+          feeRateBps: 150,
+          feeAmount: 12000, // 1.5% of 800000
           status: 'DUE',
           dueDate: expect.any(Date),
           lines: {
@@ -291,7 +291,7 @@ describe('Billing Invoice Generation - Option A Snapshot', () => {
         id: 'inv-001',
         managerId: 'mgr-1',
         subtotalAmount: 800000,
-        feeAmount: 31920,
+        feeAmount: 12000,
         status: 'DUE'
       };
       mockPrisma.invoice.create.mockResolvedValue(mockInvoice);

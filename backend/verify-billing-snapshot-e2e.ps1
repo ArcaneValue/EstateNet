@@ -477,8 +477,8 @@ try {
         exit 1
     }
     
-    # Verify fee amount (3.99% of subtotal)
-    $expectedFee = [Math]::Round($expectedSubtotal * 0.0399)
+    # Verify fee amount (1.5% of subtotal)
+    $expectedFee = [Math]::Round($expectedSubtotal * 0.015)
     $t = Test-Result "Fee amount" ($currentInvoice.feeAmount -eq $expectedFee) "Expected: $expectedFee, Actual: $($currentInvoice.feeAmount)"
     $allTests += $t
     

@@ -251,6 +251,27 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
                             color={colors.info}
                         />
                     </TouchableOpacity>
+                    <TouchableOpacity style={{ flex: 1, marginLeft: spacing.sm }} onPress={() => navigation.navigate('ManagerPaymentClaims')}>
+                        <MetricCard
+                            value={loading ? '...' : 'Review'}
+                            label="Payment Claims"
+                            icon={
+                                <View
+                                    style={{
+                                        backgroundColor: colors.warning + '20',
+                                        width: 40,
+                                        height: 40,
+                                        borderRadius: 20,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    }}
+                                >
+                                    <Ionicons name="document-text-outline" size={20} color={colors.warning} />
+                                </View>
+                            }
+                            color={colors.warning}
+                        />
+                    </TouchableOpacity>
                 </View>
 
                 {/* Outstanding Rent Card */}

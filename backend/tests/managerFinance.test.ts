@@ -9,13 +9,21 @@ import bcrypt from 'bcryptjs';
 // Test utilities
 const createTestUser = async (role: string, email: string) => {
     const hashedPassword = await bcrypt.hash('TestPass123!', 10);
+    const userData: any = {
+        email,
+        passwordHash: hashedPassword,
+        name: `Test ${role}`,
+        role: role as any
+    };
+
+    // Add billing enforcement fields for managers
+    if (role === 'MANAGER') {
+        userData.managerTermsAcceptedAt = new Date();
+        userData.billingStatus = 'CURRENT';
+    }
+
     const user = await prisma.user.create({
-        data: {
-            email,
-            passwordHash: hashedPassword,
-            name: `Test ${role}`,
-            role: role as any
-        }
+        data: userData
     });
 
     if (role === 'TENANT') {
@@ -75,7 +83,8 @@ const createTestPayment = async (data: any) => {
             status: data.status || 'PAID',
             paymentDate: data.paymentDate,
             dueDate: data.paymentDate,
-            paymentMethod: 'BANK_TRANSFER'
+            paymentMethod: 'BANK_TRANSFER',
+            billingPeriod: data.billingPeriod || '2026-02'
         }
     });
 };
@@ -114,13 +123,13 @@ describe('Manager Finance Endpoints', () => {
         const tenant = await createTestUser('TENANT', `tenant-${Date.now()}@test.com`);
         tenantId = tenant.id;
 
-        // Create test lease (active at period start)
+        // Create test lease (active at period start - set before period start to satisfy snapshot semantics)
         const lease = await createTestLease({
             tenantId,
             propertyId,
             unitId,
             rentAmount: 1000000, // 1M UGX
-            startDate: new Date('2024-01-01'),
+            startDate: new Date('2023-12-31T20:00:00.000Z'), // Before period start for 2024-01
             status: 'ACTIVE'
         });
         leaseId = lease.id;
@@ -149,7 +158,8 @@ describe('Manager Finance Endpoints', () => {
                 unitId,
                 amount: 800000, // 0.8M UGX (partial payment)
                 status: 'PAID',
-                paymentDate: new Date('2024-02-15')
+                paymentDate: new Date('2024-02-15'),
+                billingPeriod: '2024-02'
             });
 
             const response = await request(app)
@@ -224,7 +234,8 @@ describe('Manager Finance Endpoints', () => {
                 unitId,
                 amount: 1000000,
                 status: 'PAID',
-                paymentDate: new Date('2024-02-15')
+                paymentDate: new Date('2024-02-15'),
+                billingPeriod: '2024-02'
             });
 
             await createTestPayment({
@@ -233,7 +244,8 @@ describe('Manager Finance Endpoints', () => {
                 unitId: unit2.id,
                 amount: 500000,
                 status: 'PAID',
-                paymentDate: new Date('2024-02-15')
+                paymentDate: new Date('2024-02-15'),
+                billingPeriod: '2024-02'
             });
 
             const response = await request(app)
@@ -263,7 +275,8 @@ describe('Manager Finance Endpoints', () => {
                 unitId,
                 amount: 800000,
                 status: 'PAID',
-                paymentDate: new Date('2024-02-15')
+                paymentDate: new Date('2024-02-15'),
+                billingPeriod: '2024-02'
             });
 
             const response = await request(app)
@@ -300,7 +313,8 @@ describe('Manager Finance Endpoints', () => {
                 unitId,
                 amount: 1000000,
                 status: 'PAID',
-                paymentDate: new Date('2024-02-15')
+                paymentDate: new Date('2024-02-15'),
+                billingPeriod: '2024-02'
             });
 
             const response = await request(app)
