@@ -25,6 +25,7 @@ interface Payment {
     unit?: {
         unitNumber: string;
     };
+    isClaim?: boolean; // Flag to indicate if this is from a verified claim
 }
 
 interface PaymentSummary {
@@ -63,9 +64,32 @@ export const ManagerPaymentsScreen: React.FC<ManagerPaymentsScreenProps> = ({ na
 
             // Load recent payments
             const { status: paymentsStatus, json: paymentsJson } = await apiGet('/payments');
-            if (paymentsStatus === 200 && paymentsJson?.success) {
-                setPayments(paymentsJson.data || []);
-            }
+            const actualPayments = paymentsStatus === 200 && paymentsJson?.success ? (paymentsJson.data || []) : [];
+
+            // Load verified payment claims
+            const { status: claimsStatus, json: claimsJson } = await apiGet('/manager/payment-claims?status=VERIFIED');
+            const verifiedClaims = claimsStatus === 200 && claimsJson?.success ? (claimsJson.data || []) : [];
+
+            // Convert verified claims to payment format
+            const claimPayments = verifiedClaims.map((claim: any) => ({
+                id: claim.id,
+                amount: claim.amount,
+                paymentDate: claim.verification?.decidedAt || claim.createdAt,
+                dueDate: claim.claimedPaidAt,
+                status: 'VERIFIED',
+                paymentMethod: claim.method,
+                transactionId: claim.referenceText,
+                tenantIdentity: claim.tenantIdentity,
+                property: claim.lease?.property,
+                unit: claim.lease?.unit,
+                isClaim: true // Flag to indicate this is from a claim
+            }));
+
+            // Combine actual payments and verified claims
+            const allPayments = [...actualPayments, ...claimPayments];
+            // Sort by payment date (most recent first)
+            allPayments.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
+            setPayments(allPayments);
         } catch (err) {
             setError('Failed to load payments data');
         } finally {
@@ -77,9 +101,24 @@ export const ManagerPaymentsScreen: React.FC<ManagerPaymentsScreenProps> = ({ na
         <Card style={{ marginBottom: spacing.sm }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <View style={{ flex: 1 }}>
-                    <Text style={[typography.h4, { color: colors.text }]}>
-                        UGX {item.amount.toLocaleString()}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                        <Text style={[typography.h4, { color: colors.text }]}>
+                            UGX {item.amount.toLocaleString()}
+                        </Text>
+                        {item.isClaim && (
+                            <View style={{
+                                marginLeft: spacing.sm,
+                                paddingHorizontal: spacing.sm,
+                                paddingVertical: 2,
+                                backgroundColor: colors.success,
+                                borderRadius: borderRadius.sm
+                            }}>
+                                <Text style={[typography.caption, { color: '#fff' }]}>
+                                    CLAIM
+                                </Text>
+                            </View>
+                        )}
+                    </View>
                     <Text style={[typography.body, { color: colors.textSecondary }]}>
                         {item.tenantIdentity?.name || 'Unknown Tenant'}
                     </Text>

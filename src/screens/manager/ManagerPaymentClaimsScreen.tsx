@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, FlatList, Alert, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, ScrollView, RefreshControl, Alert, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { apiGet, apiPost } from '../../utils/apiClient';
@@ -16,26 +16,27 @@ interface PaymentClaim {
     method: string;
     referenceText?: string;
     status: 'PENDING' | 'VERIFIED' | 'REJECTED';
-    tenant: {
-        user: {
-            firstName: string;
-            lastName: string;
-        };
+    tenantIdentity: {
+        name: string;
+        email: string;
+        phoneNumber: string;
     };
     lease: {
         property: {
             name: string;
+            location?: string;
         };
         unit: {
             unitNumber: string;
         };
     };
-    verification?: {
-        decision: 'VERIFY' | 'REJECT';
-        note?: string;
-        verifiedAt: string;
-    };
     createdAt: string;
+    respondedAt?: string;
+    verification?: {
+        decision: 'VERIFIED' | 'REJECTED';
+        note?: string;
+        decidedAt: string;
+    };
 }
 
 interface ManagerPaymentClaimsScreenProps {
@@ -48,13 +49,17 @@ export const ManagerPaymentClaimsScreen: React.FC<ManagerPaymentClaimsScreenProp
 
     // State
     const [claims, setClaims] = useState<PaymentClaim[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [processingClaimId, setProcessingClaimId] = useState<string | null>(null);
-
-    // Filters
     const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'VERIFIED' | 'REJECTED'>('PENDING');
+    const [decisionDialog, setDecisionDialog] = useState<{
+        visible: boolean;
+        claim: PaymentClaim | null;
+        decision: 'VERIFY' | 'REJECT' | null;
+        note: string;
+    }>({ visible: false, claim: null, decision: null, note: '' });
 
     const statusOptions = [
         { value: 'ALL', label: 'All Claims' },
@@ -64,10 +69,12 @@ export const ManagerPaymentClaimsScreen: React.FC<ManagerPaymentClaimsScreenProp
     ];
 
     useEffect(() => {
+        console.log('statusFilter changed:', statusFilter);
         loadClaims();
     }, [statusFilter]);
 
     const loadClaims = async (isRefresh = false) => {
+        console.log('loadClaims called with isRefresh:', isRefresh);
         if (isRefresh) {
             setRefreshing(true);
         } else {
@@ -79,7 +86,7 @@ export const ManagerPaymentClaimsScreen: React.FC<ManagerPaymentClaimsScreenProp
             const params = statusFilter !== 'ALL' ? `?status=${statusFilter}` : '';
             const { status, json } = await apiGet(`/manager/payment-claims${params}`);
 
-            if (status === 200 && json?.success) {
+            if (status >= 200 && status < 300 && json?.success) {
                 setClaims(json.data || []);
             } else {
                 setError(json?.message || 'Failed to load payment claims');
@@ -94,14 +101,23 @@ export const ManagerPaymentClaimsScreen: React.FC<ManagerPaymentClaimsScreenProp
     };
 
     const handleClaimDecision = async (claimId: string, decision: 'VERIFY' | 'REJECT', note?: string) => {
+        console.log('Processing claim:', claimId, 'Decision:', decision);
         setProcessingClaimId(claimId);
         setError(null);
 
         try {
-            const { status, json } = await apiPost(`/manager/payment-claims/${claimId}/decision`, {
-                decision,
-                note: note?.trim() || undefined
-            });
+            const requestBody: any = {
+                decision: decision === 'VERIFY' ? 'VERIFIED' : 'REJECTED'
+            };
+
+            if (note && note.trim()) {
+                requestBody.note = note.trim();
+            }
+            console.log('Sending verify request:', requestBody);
+
+            const { status, json } = await apiPost(`/manager/payment-claims/${claimId}/verify`, requestBody);
+
+            console.log('Verify response:', { status, json });
 
             if (status === 200 && json?.success) {
                 Alert.alert(
@@ -111,35 +127,40 @@ export const ManagerPaymentClaimsScreen: React.FC<ManagerPaymentClaimsScreenProp
                 );
                 loadClaims(); // Refresh the list
             } else {
-                setError(json?.message || `Failed to ${decision.toLowerCase()} payment claim`);
+                const errorMessage = json?.message || `Failed to ${decision.toLowerCase()} payment claim`;
+                console.error('Verification failed:', errorMessage);
+                setError(errorMessage);
+                Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
             }
         } catch (error) {
             console.error(`${decision} payment claim error:`, error);
-            setError(`Network error. Please try again.`);
+            const errorMessage = `Network error. Please try again.`;
+            setError(errorMessage);
+            Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
         } finally {
             setProcessingClaimId(null);
         }
     };
 
     const showDecisionDialog = (claim: PaymentClaim, decision: 'VERIFY' | 'REJECT') => {
-        const actionText = decision === 'VERIFY' ? 'verify' : 'reject';
-        const title = decision === 'VERIFY' ? 'Verify Payment Claim' : 'Reject Payment Claim';
+        setDecisionDialog({
+            visible: true,
+            claim,
+            decision,
+            note: ''
+        });
+    };
 
-        Alert.prompt(
-            title,
-            `${decision === 'VERIFY' ? 'Confirm verification of' : 'Reason for rejecting'} this payment claim for ${formatFullCurrency(claim.amount)}?\n\nTenant: ${claim.tenant.user.firstName} ${claim.tenant.user.lastName}\nProperty: ${claim.lease.property.name} - Unit ${claim.lease.unit.unitNumber}`,
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: decision === 'VERIFY' ? 'Verify' : 'Reject',
-                    style: decision === 'VERIFY' ? 'default' : 'destructive',
-                    onPress: (note?: string) => handleClaimDecision(claim.id, decision, note)
-                }
-            ],
-            'plain-text',
-            '',
-            'default'
+    const handleDecisionConfirm = async () => {
+        if (!decisionDialog.claim || !decisionDialog.decision) return;
+
+        await handleClaimDecision(
+            decisionDialog.claim.id,
+            decisionDialog.decision,
+            decisionDialog.decision === 'REJECT' ? decisionDialog.note : undefined
         );
+
+        setDecisionDialog({ visible: false, claim: null, decision: null, note: '' });
     };
 
     const getStatusColor = (status: string) => {
@@ -173,7 +194,7 @@ export const ManagerPaymentClaimsScreen: React.FC<ManagerPaymentClaimsScreenProp
                                 {formatFullCurrency(item.amount)}
                             </Text>
                             <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
-                                {item.tenant?.user?.firstName || 'Unknown'} {item.tenant?.user?.lastName || ''}
+                                {item.tenantIdentity?.name || 'Unknown Tenant'}
                             </Text>
                         </View>
                         <View style={{ alignItems: 'flex-end' }}>
@@ -224,7 +245,7 @@ export const ManagerPaymentClaimsScreen: React.FC<ManagerPaymentClaimsScreenProp
                                 Note: {item.verification.note}
                             </Text>
                             <Text style={[typography.bodySmall, { color: colors.textSecondary, fontSize: 12, marginTop: 2 }]}>
-                                {item.verification.decision}ed on {new Date(item.verification.verifiedAt).toLocaleDateString()}
+                                {item.verification.decision}ed on {new Date(item.verification.decidedAt).toLocaleDateString()}
                             </Text>
                         </View>
                     )}
@@ -360,6 +381,75 @@ export const ManagerPaymentClaimsScreen: React.FC<ManagerPaymentClaimsScreenProp
                     )}
                 </View>
             </ScrollView>
+
+            {/* Custom Decision Dialog */}
+            {decisionDialog.visible && decisionDialog.claim && (
+                <View style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    padding: spacing.lg,
+                }}>
+                    <View style={{
+                        backgroundColor: colors.surface,
+                        borderRadius: borderRadius.lg,
+                        padding: spacing.lg,
+                        width: '100%',
+                        maxWidth: 400,
+                        maxHeight: '80%',
+                    }}>
+                        <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md }]}>
+                            {decisionDialog.decision === 'VERIFY' ? 'Verify Payment Claim' : 'Reject Payment Claim'}
+                        </Text>
+
+                        <Text style={[typography.body, { color: colors.textSecondary, marginBottom: spacing.md }]}>
+                            {decisionDialog.decision === 'VERIFY'
+                                ? `Confirm verification of this payment claim for ${formatFullCurrency(decisionDialog.claim.amount)}?`
+                                : `Reason for rejecting this payment claim for ${formatFullCurrency(decisionDialog.claim.amount)}?`
+                            }
+                        </Text>
+
+                        <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.lg }]}>
+                            Tenant: {decisionDialog.claim.tenantIdentity?.name || 'Unknown Tenant'}
+                            {'\n'}
+                            Property: {decisionDialog.claim.lease?.property?.name || 'Unknown'} - Unit {decisionDialog.claim.lease?.unit?.unitNumber || 'Unknown'}
+                        </Text>
+
+                        {decisionDialog.decision === 'REJECT' && (
+                            <Input
+                                placeholder="Enter reason for rejection (optional)"
+                                value={decisionDialog.note}
+                                onChangeText={(text) => setDecisionDialog(prev => ({ ...prev, note: text }))}
+                                multiline
+                                numberOfLines={3}
+                                style={{ marginBottom: spacing.lg }}
+                            />
+                        )}
+
+                        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                            <Button
+                                title="Cancel"
+                                onPress={() => setDecisionDialog({ visible: false, claim: null, decision: null, note: '' })}
+                                variant="outline"
+                                style={{ flex: 1 }}
+                            />
+                            <Button
+                                title={decisionDialog.decision === 'VERIFY' ? 'Verify' : 'Reject'}
+                                onPress={handleDecisionConfirm}
+                                style={{
+                                    flex: 1,
+                                    backgroundColor: decisionDialog.decision === 'VERIFY' ? colors.success : colors.error
+                                }}
+                            />
+                        </View>
+                    </View>
+                </View>
+            )}
         </View>
     );
 };
