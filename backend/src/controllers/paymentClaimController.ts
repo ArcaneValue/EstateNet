@@ -380,7 +380,9 @@ export const verifyPaymentClaim = async (req: AuthenticatedRequest, res: Respons
       include: {
         lease: {
           select: {
-            rentAmount: true
+            rentAmount: true,
+            propertyId: true,
+            unitId: true
           }
         },
         tenantIdentity: {
@@ -395,6 +397,14 @@ export const verifyPaymentClaim = async (req: AuthenticatedRequest, res: Respons
       res.status(404).json({
         success: false,
         message: 'Payment claim not found or already processed'
+      });
+      return;
+    }
+
+    if (!claim.lease) {
+      res.status(400).json({
+        success: false,
+        message: 'Lease information not found for this payment claim'
       });
       return;
     }
@@ -419,8 +429,35 @@ export const verifyPaymentClaim = async (req: AuthenticatedRequest, res: Respons
 
       // If verified, allocate payment to rent periods
       if (decision === 'VERIFIED') {
-        // TODO: Implement payment allocation service
-        console.log(`Payment claim ${claimId} verified - allocation logic needed`);
+        // Check if payment already exists for this claim (idempotency)
+        const existingPayment = await (tx as any).payment.findUnique({
+          where: { paymentClaimId: claimId }
+        });
+
+        if (!existingPayment) {
+          // Create a payment record from the verified claim
+          const payment = await (tx as any).payment.create({
+            data: {
+              tenantId: claim.tenantId,
+              propertyId: claim.lease.propertyId,
+              unitId: claim.lease.unitId,
+              leaseId: claim.leaseId,
+              amount: claim.amount,
+              currency: claim.currency,
+              paymentDate: verification.decidedAt,
+              dueDate: claim.claimedPaidAt,
+              paymentMethod: claim.method,
+              transactionId: claim.referenceText,
+              status: 'PAID',
+              billingPeriod: new Date(claim.claimedPaidAt).toISOString().slice(0, 7), // YYYY-MM format
+              paymentClaimId: claim.id // Reference to the original claim
+            }
+          });
+
+          console.log(`Payment record created from claim ${claimId}:`, payment.id);
+        } else {
+          console.log(`Payment already exists for claim ${claimId}:`, existingPayment.id);
+        }
       }
 
       return { verification, updatedClaim };

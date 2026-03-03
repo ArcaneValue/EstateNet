@@ -173,6 +173,7 @@ model Lease {
   messages       Message[]
   invoiceLines   InvoiceLine[]
   paymentClaims  PaymentClaim[]
+  payments       Payment[]
 
   @@index([tenantId, status])
   @@map("leases")
@@ -203,6 +204,7 @@ model Payment {
   tenantId      String
   propertyId    String
   unitId        String
+  leaseId       String?
   amount        Int
   status        PaymentStatus @default(PENDING)
   paymentMethod String?
@@ -210,6 +212,7 @@ model Payment {
   paymentDate   DateTime
   dueDate       DateTime
   billingPeriod String        // format "YYYY-MM"
+  paymentClaimId String?      // Reference to the original payment claim
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -217,9 +220,13 @@ model Payment {
   tenantIdentity TenantIdentity @relation(fields: [tenantId], references: [tenantId], onDelete: Cascade)
   property       Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   unit           Unit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  lease          Lease?         @relation(fields: [leaseId], references: [id], onDelete: SetNull)
 
   @@index([billingPeriod, tenantId])
-  @@index([billingPeriod, propertyId])
+  @@index([propertyId, status])
+  @@index([status, paymentDate])
+  @@index([leaseId])
+  @@unique([paymentClaimId])
   @@map("payments")
 }
 

@@ -152,10 +152,11 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // Start server with retry logic
 const startServer = (port: number) => {
-    app.listen(port, () => {
+    app.listen(port, '0.0.0.0', () => {
         console.log(`🚀 EstateNet Backend running on port ${port}`);
         console.log(`📊 Health check: http://localhost:${port}/health`);
         console.log(`📚 API docs: http://localhost:${port}/api`);
+        console.log(`🌍 Network access: http://10.79.234.41:${port}`);
         console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     }).on('error', (err: any) => {
         if (err.code === 'EADDRINUSE') {
