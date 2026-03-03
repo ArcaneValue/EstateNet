@@ -173,7 +173,7 @@ export const ManagerPaymentClaimsScreen: React.FC<ManagerPaymentClaimsScreenProp
                                 {formatFullCurrency(item.amount)}
                             </Text>
                             <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
-                                {item.tenant.user.firstName} {item.tenant.user.lastName}
+                                {item.tenant?.user?.firstName || 'Unknown'} {item.tenant?.user?.lastName || ''}
                             </Text>
                         </View>
                         <View style={{ alignItems: 'flex-end' }}>

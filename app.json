@@ -21,7 +21,10 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0D7C7C"
       },
-      "package": "com.estatenet.app"
+      "package": "com.estatenet.app",
+      "buildToolsVersion": "33.0.0",
+      "compileSdkVersion": 33,
+      "targetSdkVersion": 33
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -29,6 +32,12 @@
     },
     "plugins": [
       "@react-native-community/datetimepicker"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c176bd7c-58ed-4a4d-a0c7-4e664c976cd1"
+      }
+    },
+    "owner": "muculezigeorge"
   }
 }

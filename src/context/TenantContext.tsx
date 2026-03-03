@@ -9,12 +9,13 @@ export interface TenantInvitation {
     tenantEmail: string;
     propertyId: string;
     propertyName: string;
+    propertyLocation?: string;
     unitId: string;
     unitNumber: string;
     rentAmount: number;
     status: 'pending' | 'accepted' | 'rejected' | 'declined' | 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED';
-    createdAt: Date;
-    respondedAt?: Date;
+    createdAt: Date | string;
+    respondedAt?: Date | string;
     managerId?: string;
 }
 
@@ -80,6 +81,7 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
                         tenantEmail: inv.tenantIdentity?.email ?? inv.tenantEmail ?? '',
                         propertyId: inv.propertyId,
                         propertyName: inv.property?.name ?? inv.propertyName ?? '',
+                        propertyLocation: inv.property?.location,
                         unitId: inv.unitId,
                         unitNumber: inv.unit?.unitNumber ?? inv.unitNumber ?? '',
                         rentAmount: inv.rentAmount ?? 0,

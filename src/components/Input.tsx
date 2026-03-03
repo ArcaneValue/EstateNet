@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, memo } from 'react';
 import {
     TextInput as RNTextInput,
     View,
@@ -6,7 +6,7 @@ import {
     StyleSheet,
     TextInputProps as RNTextInputProps,
     ViewStyle,
-    Animated,
+    Platform,
 } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -31,48 +31,43 @@ const InputComponent: React.FC<InputProps> = ({
     onBlur,
     ...props
 }) => {
-    const { colors, spacing, borderRadius, typography, shadows } = useTheme();
+    const { colors, spacing, borderRadius, typography } = useTheme();
+
+    // Only use focus state on iOS - Android will use static styling
     const [isFocused, setIsFocused] = useState(false);
 
-    // Memoize dynamic styles to prevent re-renders
-    const labelStyle = useMemo(() => ({
-        color: isFocused ? colors.accent : colors.textSecondary,
-        marginBottom: spacing.sm,
-        fontWeight: '600' as const,
-        letterSpacing: 0.3,
-    }), [isFocused, colors.accent, colors.textSecondary, spacing.sm]);
-
-    const containerStyleMemo = useMemo(() => ({
-        backgroundColor: isFocused ? colors.surface : colors.background,
-        borderColor: error ? colors.error : isFocused ? colors.accent : colors.border,
-        borderRadius: borderRadius.md,
-        paddingHorizontal: spacing.base,
-        borderWidth: 2,
-    }), [isFocused, error, colors.surface, colors.background, colors.error, colors.accent, colors.border, borderRadius.md, spacing.base]);
-
-    const getBorderColor = () => {
-        if (error) return colors.error;
-        if (isFocused) return colors.accent;
-        return colors.border;
-    };
-
-    const getBackgroundColor = () => {
-        if (isFocused) return colors.surface;
-        return colors.background;
-    };
-
     const handleFocus = useCallback((e: any) => {
-        setIsFocused(true);
+        if (Platform.OS === 'ios') {
+            setIsFocused(true);
+        }
         onFocus?.(e);
     }, [onFocus]);
 
     const handleBlur = useCallback((e: any) => {
-        setIsFocused(false);
+        if (Platform.OS === 'ios') {
+            setIsFocused(false);
+        }
         onBlur?.(e);
     }, [onBlur]);
 
+    // Static styles for Android, dynamic for iOS
+    const labelStyle = {
+        color: Platform.OS === 'android' ? colors.textSecondary : (isFocused ? colors.accent : colors.textSecondary),
+        marginBottom: spacing.sm,
+        fontWeight: '600' as const,
+        letterSpacing: 0.3,
+    };
+
+    const inputContainerStyle = {
+        backgroundColor: colors.background,
+        borderColor: error ? colors.error : (Platform.OS === 'android' ? colors.border : (isFocused ? colors.accent : colors.border)),
+        borderRadius: borderRadius.md,
+        paddingHorizontal: spacing.base,
+        borderWidth: 2,
+    };
+
     return (
-        <View style={[styles.container, { marginBottom: spacing.base }, containerStyle]}>
+        <View style={[baseStyles.container, { marginBottom: spacing.base }, containerStyle]}>
             {label && (
                 <Text
                     style={labelStyle}
@@ -84,13 +79,12 @@ const InputComponent: React.FC<InputProps> = ({
 
             <View
                 style={[
-                    styles.inputContainer,
-                    containerStyleMemo,
-                    isFocused && shadows.sm,
+                    baseStyles.inputContainer,
+                    inputContainerStyle,
                 ]}
             >
                 {icon && (
-                    <View style={[styles.iconContainer, { marginRight: spacing.sm }]}>
+                    <View style={[baseStyles.iconContainer, { marginRight: spacing.sm }]}>
                         {icon}
                     </View>
                 )}
@@ -98,15 +92,21 @@ const InputComponent: React.FC<InputProps> = ({
                     {...props}
                     style={[
                         typography.body,
-                        inputStyle,
+                        baseStyles.input,
+                        { color: colors.text },
                         style,
                     ]}
                     placeholderTextColor={colors.textTertiary}
                     onFocus={handleFocus}
                     onBlur={handleBlur}
+                    // Android-specific props to prevent autofill interference
+                    {...(Platform.OS === 'android' && {
+                        importantForAutofill: 'no',
+                        autoComplete: 'off',
+                    })}
                 />
                 {rightIcon && (
-                    <View style={[styles.iconContainer, { marginLeft: spacing.sm }]}>
+                    <View style={[baseStyles.iconContainer, { marginLeft: spacing.sm }]}>
                         {rightIcon}
                     </View>
                 )}
@@ -130,7 +130,7 @@ const InputComponent: React.FC<InputProps> = ({
     );
 };
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
     container: {},
     inputContainer: {
         flexDirection: 'row',
@@ -138,6 +138,7 @@ const styles = StyleSheet.create({
     },
     input: {
         flex: 1,
+        paddingVertical: 14,
     },
     iconContainer: {
         justifyContent: 'center',
@@ -145,11 +146,19 @@ const styles = StyleSheet.create({
     },
 });
 
-// Static input style
-const inputStyle = {
-    flex: 1,
-    paddingVertical: 14,
-};
+// Use memo with a stable comparison
+export const Input = memo(InputComponent, (prevProps, nextProps) => {
+    // Only re-render if essential props change
+    const keysToCheck: (keyof InputProps)[] = [
+        'value', 'onChangeText', 'placeholder', 'label', 'error', 'hint',
+        'secureTextEntry', 'keyboardType', 'autoCapitalize', 'editable',
+        'multiline', 'numberOfLines', 'maxLength', 'style', 'containerStyle'
+    ];
 
-// Export memoized version to prevent unnecessary re-renders
-export const Input = React.memo(InputComponent);
+    for (const key of keysToCheck) {
+        if (prevProps[key] !== nextProps[key]) {
+            return false;
+        }
+    }
+    return true;
+});

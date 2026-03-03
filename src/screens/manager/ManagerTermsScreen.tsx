@@ -45,12 +45,12 @@ export const ManagerTermsScreen: React.FC<ManagerTermsScreenProps> = ({ navigati
 
                 Alert.alert(
                     'Terms Accepted',
-                    'Thank you for accepting the EstateNet Manager Terms and Conditions.',
+                    'Thank you for accepting the EstateNet Manager Terms and Conditions. Please complete your billing setup.',
                     [
                         {
-                            text: 'Continue',
+                            text: 'Continue to Billing',
                             onPress: () => {
-                                navigation.goBack();
+                                navigation.replace('ManagerBilling');
                             }
                         }
                     ]

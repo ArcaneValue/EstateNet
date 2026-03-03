@@ -263,6 +263,8 @@ export const PaymentsScreen: React.FC<PaymentsScreenProps> = ({ navigation }) =>
                         onClose={() => setShowClaimModal(false)}
                         leaseId={selectedLease.id}
                         monthlyRent={selectedLease.rentAmount}
+                        propertyName={selectedLease.property?.name}
+                        unitNumber={selectedLease.unit?.unitNumber}
                         onClaimRecorded={handleClaimRecorded}
                     />
                 )}

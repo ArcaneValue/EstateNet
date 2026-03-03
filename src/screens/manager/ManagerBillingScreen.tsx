@@ -258,7 +258,7 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                 await refreshMe();
                 Alert.alert(
                     'Terms Accepted',
-                    'Thank you for accepting EstateNet Manager Terms and Conditions.',
+                    'Thank you for accepting EstateNet Manager Terms and Conditions. Billing features are now enabled.',
                     [{ text: 'OK' }],
                 );
                 // Reload to get fresh status (termsAcceptedAt will now be set)

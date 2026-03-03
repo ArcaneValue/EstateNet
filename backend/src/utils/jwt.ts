@@ -6,9 +6,9 @@ export interface JWTPayload {
     role: string;
     tenantId?: string;
     phoneNumber?: string;
-    managerTermsAcceptedAt?: Date | null | undefined;
+    managerTermsAcceptedAt?: string | null | undefined;
     billingStatus?: string | null | undefined;
-    billingGraceUntil?: Date | null | undefined;
+    billingGraceUntil?: string | null | undefined;
 }
 
 export const generateToken = (user: JWTPayload): string => {

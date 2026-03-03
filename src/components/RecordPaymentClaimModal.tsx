@@ -20,6 +20,9 @@ interface RecordPaymentClaimModalProps {
   onClose: () => void;
   leaseId: string;
   monthlyRent: number;
+  propertyName?: string;
+  unitNumber?: string;
+  tenantId?: string;
   onClaimRecorded?: () => void;
 }
 
@@ -71,6 +74,9 @@ export const RecordPaymentClaimModal: React.FC<RecordPaymentClaimModalProps> = (
   onClose,
   leaseId,
   monthlyRent,
+  propertyName,
+  unitNumber,
+  tenantId,
   onClaimRecorded
 }) => {
   const [amount, setAmount] = useState('');
@@ -204,6 +210,29 @@ export const RecordPaymentClaimModal: React.FC<RecordPaymentClaimModalProps> = (
           </View>
 
           <ScrollView style={styles.content}>
+            {/* Lease Information */}
+            {(propertyName || unitNumber) && (
+              <View style={[styles.section, styles.leaseInfo]}>
+                <Text style={styles.sectionTitle}>Lease Information</Text>
+                {propertyName && (
+                  <View style={styles.infoRow}>
+                    <Ionicons name="business-outline" size={16} color="#666" />
+                    <Text style={styles.infoText}>Property: {propertyName}</Text>
+                  </View>
+                )}
+                {unitNumber && (
+                  <View style={styles.infoRow}>
+                    <Ionicons name="home-outline" size={16} color="#666" />
+                    <Text style={styles.infoText}>Unit: {unitNumber}</Text>
+                  </View>
+                )}
+                <View style={styles.infoRow}>
+                  <Ionicons name="card-outline" size={16} color="#666" />
+                  <Text style={styles.infoText}>Monthly Rent: {formatFullCurrency(monthlyRent)}</Text>
+                </View>
+              </View>
+            )}
+
             {/* Amount Input */}
             <View style={styles.section}>
               <Text style={styles.label}>Amount Paid</Text>
@@ -324,8 +353,8 @@ export const RecordPaymentClaimModal: React.FC<RecordPaymentClaimModalProps> = (
             {/* Info Box */}
             <View style={styles.infoBox}>
               <Ionicons name="information-circle-outline" size={20} color="#007AFF" />
-              <Text style={styles.infoText}>
-                Your payment claim will be reviewed by your property manager. You'll receive a notification once it's verified or if additional information is needed.
+              <Text style={styles.infoBoxText}>
+                By submitting this claim, you confirm that you have made the payment. The property manager will verify and approve your payment.
               </Text>
             </View>
           </ScrollView>
@@ -368,14 +397,23 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
   },
   modalContainer: {
     backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '90%',
-    paddingBottom: Platform.OS === 'ios' ? 34 : 0,
+    borderRadius: 20,
+    width: '95%',
+    height: '85%',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   header: {
     flexDirection: 'row',
@@ -520,7 +558,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 8,
   },
-  infoText: {
+  infoBoxText: {
     fontSize: 14,
     color: '#007AFF',
     marginLeft: 8,
@@ -548,5 +586,28 @@ const styles = StyleSheet.create({
   },
   submitButtonTextDisabled: {
     color: '#999',
+  },
+  leaseInfo: {
+    backgroundColor: '#F8F9FA',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 8,
+    flex: 1,
   },
 });

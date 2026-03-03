@@ -36,31 +36,35 @@ const extractEnforcement = (status: number, json: any): EnforcementInfo | undefi
   };
 };
 
+
 export const apiPatch = async (endpoint: string, body?: any): Promise<ApiResult> => {
   const token = await getAuthToken();
+  const res = await fetch(createApiUrl(endpoint), {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  const json = text ? safeParseJson(text) : null;
 
-  try {
-    const response = await fetch(createApiUrl(endpoint), {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-
-    let json: any = null;
-    try {
-      json = await response.json();
-    } catch {
-      // Ignore JSON parse errors
+  // Handle authentication errors - only logout on 401 (unauthorized)
+  // 403 (forbidden) might just mean user doesn't have permission for specific resource
+  if (res.status === 401) {
+    console.warn('Authentication error (401) - logging out');
+    const AsyncStorage = getAsyncStorage();
+    if (AsyncStorage) {
+      await AsyncStorage.multiRemove(['authToken', 'user']);
     }
-
-    return { status: response.status, json, enforcement: extractEnforcement(response.status, json) };
-  } catch (error) {
-    console.error('API PATCH error:', error);
-    return { status: 0, json: null, enforcement: undefined };
+    // Force reload to clear authentication state
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
   }
+
+  return { status: res.status, json, enforcement: extractEnforcement(res.status, json) };
 };
 
 export const getAuthToken = async (): Promise<string | null> => {
@@ -86,6 +90,21 @@ export const apiGet = async (endpoint: string): Promise<ApiResult> => {
   });
   const text = await res.text();
   const json = text ? safeParseJson(text) : null;
+
+  // Handle authentication errors - only logout on 401 (unauthorized)
+  // 403 (forbidden) might just mean user doesn't have permission for specific resource
+  if (res.status === 401) {
+    console.warn('Authentication error (401) - logging out');
+    const AsyncStorage = getAsyncStorage();
+    if (AsyncStorage) {
+      await AsyncStorage.multiRemove(['authToken', 'user']);
+    }
+    // Force reload to clear authentication state
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
+  }
+
   return { status: res.status, json, enforcement: extractEnforcement(res.status, json) };
 };
 
@@ -101,6 +120,21 @@ export const apiPost = async (endpoint: string, body?: any): Promise<ApiResult> 
   });
   const text = await res.text();
   const json = text ? safeParseJson(text) : null;
+
+  // Handle authentication errors - only logout on 401 (unauthorized)
+  // 403 (forbidden) might just mean user doesn't have permission for specific resource
+  if (res.status === 401) {
+    console.warn('Authentication error (401) - logging out');
+    const AsyncStorage = getAsyncStorage();
+    if (AsyncStorage) {
+      await AsyncStorage.multiRemove(['authToken', 'user']);
+    }
+    // Force reload to clear authentication state
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
+  }
+
   return { status: res.status, json, enforcement: extractEnforcement(res.status, json) };
 };
 
@@ -112,5 +146,20 @@ export const apiDelete = async (endpoint: string): Promise<ApiResult> => {
   });
   const text = await res.text();
   const json = text ? safeParseJson(text) : null;
+
+  // Handle authentication errors - only logout on 401 (unauthorized)
+  // 403 (forbidden) might just mean user doesn't have permission for specific resource
+  if (res.status === 401) {
+    console.warn('Authentication error (401) - logging out');
+    const AsyncStorage = getAsyncStorage();
+    if (AsyncStorage) {
+      await AsyncStorage.multiRemove(['authToken', 'user']);
+    }
+    // Force reload to clear authentication state
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
+  }
+
   return { status: res.status, json, enforcement: extractEnforcement(res.status, json) };
 };

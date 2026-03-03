@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createApiUrl } from '../config/api';
+
 let AsyncStorage: any;
 try {
     AsyncStorage = require('@react-native-async-storage/async-storage').default;
@@ -8,10 +10,9 @@ try {
         getItem: async () => null,
         setItem: async () => { },
         removeItem: async () => { },
+        multiRemove: async () => { },
     };
 }
-
-import { createApiUrl } from '../config/api';
 
 export type UserRole = 'OWNER' | 'MANAGER' | 'TENANT';
 
@@ -82,9 +83,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 const storedToken = await AsyncStorage.getItem('authToken');
 
                 if (storedUser && storedToken) {
-                    const userData = JSON.parse(storedUser);
-                    // Keep role as-is (uppercase from backend)
-                    setUser(userData);
+                    // Validate token by making a test API call
+                    try {
+                        const response = await fetch(createApiUrl('/users/me'), {
+                            headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${storedToken}`,
+                            },
+                        });
+
+                        if (response.ok) {
+                            const userData = JSON.parse(storedUser);
+                            // Keep role as-is (uppercase from backend)
+                            setUser(userData);
+                        } else {
+                            // Token is invalid, clear storage
+                            await AsyncStorage.multiRemove(['authToken', 'user']);
+                        }
+                    } catch (error) {
+                        console.error('Token validation failed:', error);
+                        // Clear invalid token
+                        await AsyncStorage.multiRemove(['authToken', 'user']);
+                    }
                 }
             } catch (error) {
                 console.error('Failed to load persisted user:', error);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
@@ -87,132 +87,174 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
         }
     };
 
+    // Render form content - shared between iOS and Android
+    const renderFormContent = () => (
+        <>
+            {/* Header */}
+            <View style={styles.header}>
+                <Text
+                    style={[
+                        typography.h1,
+                        {
+                            color: colors.text,
+                        },
+                    ]}
+                >
+                    Create Account
+                </Text>
+                <Text
+                    style={[
+                        typography.body,
+                        {
+                            color: colors.textSecondary,
+                            marginTop: spacing.sm,
+                        },
+                    ]}
+                >
+                    Register as {roleNames[role] || 'User'}
+                </Text>
+            </View>
+
+            {/* Form */}
+            <View style={[styles.form, { marginTop: spacing['2xl'] }]}>
+                <Input
+                    label="Full Name"
+                    placeholder="Enter your full name"
+                    value={name}
+                    onChangeText={setName}
+                    error={errors.name}
+                    autoCorrect={false}
+                    // Only include these props on iOS to avoid Android autofill issues
+                    {...(Platform.OS === 'ios' && {
+                        textContentType: 'name',
+                        autoComplete: 'name',
+                    })}
+                />
+
+                <Input
+                    label="Email"
+                    placeholder="Enter your email"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    error={errors.email}
+                    {...(Platform.OS === 'ios' && {
+                        textContentType: 'emailAddress',
+                        autoComplete: 'email',
+                    })}
+                />
+
+                <Input
+                    label="Phone Number (Optional)"
+                    placeholder="Enter your phone number"
+                    value={phoneNumber}
+                    onChangeText={setPhoneNumber}
+                    keyboardType="phone-pad"
+                    {...(Platform.OS === 'ios' && {
+                        textContentType: 'telephoneNumber',
+                        autoComplete: 'tel',
+                    })}
+                />
+
+                <Input
+                    label="Password"
+                    placeholder="Create a password"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                    error={errors.password}
+                    {...(Platform.OS === 'ios' && {
+                        textContentType: 'password',
+                        autoComplete: 'password',
+                    })}
+                />
+
+                <Input
+                    label="Confirm Password"
+                    placeholder="Confirm your password"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry
+                    error={errors.confirmPassword}
+                    {...(Platform.OS === 'ios' && {
+                        textContentType: 'password',
+                        autoComplete: 'password',
+                    })}
+                />
+
+                {errors.general && (
+                    <Text
+                        style={[
+                            typography.bodySmall,
+                            {
+                                color: colors.error,
+                                marginTop: spacing.sm,
+                            },
+                        ]}
+                    >
+                        {errors.general}
+                    </Text>
+                )}
+
+                <Button
+                    title="Create Account"
+                    onPress={handleSignUp}
+                    loading={loading}
+                    style={{ marginTop: spacing.xl }}
+                />
+            </View>
+
+            {/* Footer */}
+            <View style={[styles.footer, { marginTop: spacing.lg }]}>
+                <Text
+                    style={[
+                        typography.body,
+                        {
+                            color: colors.textSecondary,
+                            textAlign: 'center',
+                        },
+                    ]}
+                >
+                    Already have an account?{' '}
+                    <Text
+                        style={{ color: colors.primary, fontWeight: '600' }}
+                        onPress={() => navigation.navigate('SignIn')}
+                    >
+                        Sign In
+                    </Text>
+                </Text>
+            </View>
+        </>
+    );
+
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={{ flex: 1 }}
-            >
-                <ScrollView
-                    contentContainerStyle={[styles.container, { padding: spacing['2xl'] }]}
-                    keyboardShouldPersistTaps="handled"
+            {Platform.OS === 'ios' ? (
+                <KeyboardAvoidingView
+                    behavior="padding"
+                    style={{ flex: 1 }}
                 >
-                    {/* Header */}
-                    <View style={styles.header}>
-                        <Text
-                            style={[
-                                typography.h1,
-                                {
-                                    color: colors.text,
-                                },
-                            ]}
-                        >
-                            Create Account
-                        </Text>
-                        <Text
-                            style={[
-                                typography.body,
-                                {
-                                    color: colors.textSecondary,
-                                    marginTop: spacing.sm,
-                                },
-                            ]}
-                        >
-                            Register as {roleNames[role] || 'User'}
-                        </Text>
-                    </View>
-
-                    {/* Form */}
-                    <View style={[styles.form, { marginTop: spacing['2xl'] }]}>
-                        <Input
-                            label="Full Name"
-                            placeholder="Enter your full name"
-                            value={name}
-                            onChangeText={setName}
-                            error={errors.name}
-                        />
-
-                        <Input
-                            label="Email"
-                            placeholder="Enter your email"
-                            value={email}
-                            onChangeText={setEmail}
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                            error={errors.email}
-                        />
-
-                        <Input
-                            label="Phone Number (Optional)"
-                            placeholder="Enter your phone number"
-                            value={phoneNumber}
-                            onChangeText={setPhoneNumber}
-                            keyboardType="phone-pad"
-                        />
-
-                        <Input
-                            label="Password"
-                            placeholder="Create a password"
-                            value={password}
-                            onChangeText={setPassword}
-                            secureTextEntry
-                            error={errors.password}
-                        />
-
-                        <Input
-                            label="Confirm Password"
-                            placeholder="Confirm your password"
-                            value={confirmPassword}
-                            onChangeText={setConfirmPassword}
-                            secureTextEntry
-                            error={errors.confirmPassword}
-                        />
-
-                        {errors.general && (
-                            <Text
-                                style={[
-                                    typography.bodySmall,
-                                    {
-                                        color: colors.error,
-                                        marginTop: spacing.sm,
-                                    },
-                                ]}
-                            >
-                                {errors.general}
-                            </Text>
-                        )}
-
-                        <Button
-                            title="Create Account"
-                            onPress={handleSignUp}
-                            loading={loading}
-                            style={{ marginTop: spacing.xl }}
-                        />
-                    </View>
-
-                    {/* Footer */}
-                    <View style={[styles.footer, { marginTop: spacing.lg }]}>
-                        <Text
-                            style={[
-                                typography.body,
-                                {
-                                    color: colors.textSecondary,
-                                    textAlign: 'center',
-                                },
-                            ]}
-                        >
-                            Already have an account?{' '}
-                            <Text
-                                style={{ color: colors.primary, fontWeight: '600' }}
-                                onPress={() => navigation.navigate('SignIn')}
-                            >
-                                Sign In
-                            </Text>
-                        </Text>
-                    </View>
-                </ScrollView>
-            </KeyboardAvoidingView>
-
+                    <ScrollView
+                        style={[styles.container, { backgroundColor: colors.background }]}
+                        contentContainerStyle={{ padding: spacing['2xl'] }}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        {renderFormContent()}
+                    </ScrollView>
+                </KeyboardAvoidingView>
+            ) : (
+                <View style={{ flex: 1 }}>
+                    <ScrollView
+                        style={[styles.container, { backgroundColor: colors.background }]}
+                        contentContainerStyle={{ padding: spacing['2xl'] }}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        {renderFormContent()}
+                    </ScrollView>
+                </View>
+            )}
             {/* Welcome Modal with Tenant ID */}
             {user && user.role === 'TENANT' && user.tenantId && (
                 <Modal

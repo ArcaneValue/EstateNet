@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView } from 'react-native';
-import { Modal } from '../../components/Modal';
+import { Modal } from '../../components';
 import { Button } from '../../components/Button';
 import { useTheme } from '../../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -51,9 +51,22 @@ export const InvitationModal: React.FC<InvitationModalProps> = ({
 
                 {/* Message */}
                 <View style={{ marginBottom: spacing.lg, alignItems: 'center' }}>
-                    <Text style={[typography.h3, { color: colors.text, textAlign: 'center', marginBottom: spacing.md }]}>
-                        You're Invited!
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
+                        <Text style={[typography.h3, { color: colors.text, textAlign: 'center' }]}>
+                            You're Invited!
+                        </Text>
+                        <View style={{
+                            marginLeft: spacing.sm,
+                            paddingHorizontal: spacing.sm,
+                            paddingVertical: spacing.xs,
+                            backgroundColor: colors.warning + '20',
+                            borderRadius: borderRadius.sm
+                        }}>
+                            <Text style={[typography.caption, { color: colors.warning, fontWeight: '600' }]}>
+                                {invitation.status.toUpperCase()}
+                            </Text>
+                        </View>
+                    </View>
                     <Text style={[typography.body, { color: colors.textSecondary, textAlign: 'center', lineHeight: 24 }]}>
                         Property Manager is inviting you to join{'\n'}
                         <Text style={{ fontWeight: '700', color: colors.text }}>
@@ -105,7 +118,7 @@ export const InvitationModal: React.FC<InvitationModalProps> = ({
                     <View style={{ height: 1, backgroundColor: colors.border, marginVertical: spacing.md }} />
 
                     {/* Property */}
-                    <View>
+                    <View style={{ marginBottom: spacing.md }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
                             <Ionicons name="location-outline" size={18} color={colors.primary} style={{ marginRight: spacing.sm }} />
                             <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
@@ -114,6 +127,30 @@ export const InvitationModal: React.FC<InvitationModalProps> = ({
                         </View>
                         <Text style={[typography.h4, { color: colors.text }]}>
                             {invitation.propertyName}
+                        </Text>
+                        {invitation.propertyLocation && (
+                            <Text style={[typography.body, { color: colors.textSecondary, marginTop: 4 }]}>
+                                {invitation.propertyLocation}
+                            </Text>
+                        )}
+                    </View>
+
+                    <View style={{ height: 1, backgroundColor: colors.border, marginVertical: spacing.md }} />
+
+                    {/* Invitation Date */}
+                    <View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
+                            <Ionicons name="calendar-outline" size={18} color={colors.primary} style={{ marginRight: spacing.sm }} />
+                            <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                                Invited On
+                            </Text>
+                        </View>
+                        <Text style={[typography.h4, { color: colors.text }]}>
+                            {new Date(invitation.createdAt).toLocaleDateString('en-GB', {
+                                day: 'numeric',
+                                month: 'long',
+                                year: 'numeric'
+                            })}
                         </Text>
                     </View>
                 </View>

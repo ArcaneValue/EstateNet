@@ -47,10 +47,17 @@ export const authenticateToken = async (
         }
         const decoded = verifyToken(token);
 
+        // Convert date strings back to Date objects for the user object
+        const userWithDates = {
+            ...decoded,
+            managerTermsAcceptedAt: decoded.managerTermsAcceptedAt ? new Date(decoded.managerTermsAcceptedAt) : null,
+            billingGraceUntil: decoded.billingGraceUntil ? new Date(decoded.billingGraceUntil) : null,
+        };
+
         if (process.env.NODE_ENV !== 'production') {
             console.log('Token verified, user role:', decoded.role);
         }
-        req.user = decoded;
+        req.user = userWithDates;
 
         if (process.env.NODE_ENV !== 'production') {
             console.log('=== AUTH MIDDLEWARE SUCCESS ===');

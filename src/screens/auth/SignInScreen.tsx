@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { Input } from '../../components/Input';
@@ -50,7 +50,11 @@ export const SignInScreen: React.FC<SignInScreenProps> = ({ navigation }) => {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background, padding: spacing['2xl'] }]}>
+        <ScrollView
+            style={[styles.container, { backgroundColor: colors.background }]}
+            contentContainerStyle={{ padding: spacing['2xl'] }}
+            keyboardShouldPersistTaps="handled"
+        >
             <Text style={[typography.h1, { color: colors.text, marginTop: 40 }]}>
                 Welcome Back
             </Text>
@@ -66,6 +70,11 @@ export const SignInScreen: React.FC<SignInScreenProps> = ({ navigation }) => {
                     onChangeText={setEmail}
                     keyboardType="email-address"
                     autoCapitalize="none"
+                    autoCorrect={false}
+                    {...(Platform.OS === 'ios' && {
+                        textContentType: 'emailAddress',
+                        autoComplete: 'email',
+                    })}
                 />
 
                 <Input
@@ -74,6 +83,10 @@ export const SignInScreen: React.FC<SignInScreenProps> = ({ navigation }) => {
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry
+                    {...(Platform.OS === 'ios' && {
+                        textContentType: 'password',
+                        autoComplete: 'password',
+                    })}
                 />
 
                 {error ? (
@@ -101,7 +114,7 @@ export const SignInScreen: React.FC<SignInScreenProps> = ({ navigation }) => {
                     </Text>
                 </Text>
             </View>
-        </View>
+        </ScrollView>
     );
 };
 

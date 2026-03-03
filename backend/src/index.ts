@@ -29,9 +29,12 @@ import { billingRoutes } from './routes/billing';
 import { webhookPaymentRoutes } from './routes/webhookPayments';
 import { ownerBillingRoutes } from './routes/ownerBilling';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
-import { runDailyBillingTasks } from './services/billingScheduler';
+import { PrismaClient } from '@prisma/client';
 import { cleanupDuplicateInvoices } from './scripts/cleanupDuplicateInvoices';
+import { runDailyBillingTasks } from './services/billingScheduler';
 import { timeoutStalePendingPayments } from './services/servicePaymentService';
+import { prisma } from './utils/database';
+import { initializeDatabase } from './utils/waitForDatabase';
 
 // Load environment variables
 dotenv.config();
@@ -211,9 +214,17 @@ if (process.env.DISABLE_BACKGROUND_JOBS !== 'true') {
     });
 
     // Run catch-up on startup after server is ready
-    setTimeout(async () => {
+    const runStartupTasks = async () => {
         console.log('[BillingScheduler] Starting startup catch-up...');
         try {
+            // Wait for database to be ready
+            const dbReady = await initializeDatabase();
+            if (!dbReady) {
+                console.log('[BillingScheduler] Database not ready, scheduling retry in 30 seconds');
+                setTimeout(runStartupTasks, 30000);
+                return;
+            }
+
             // Step 1: Clean up any duplicate invoices before applying constraints
             console.log('[BillingScheduler] Checking for duplicate invoices...');
             const cleanupResult = await cleanupDuplicateInvoices();
@@ -230,8 +241,16 @@ if (process.env.DISABLE_BACKGROUND_JOBS !== 'true') {
             });
         } catch (error) {
             console.error('[BillingScheduler] Startup catch-up failed:', error);
+            // Retry after 30 seconds if it's a connection error
+            if (error instanceof Error && error.message.includes('database')) {
+                console.log('[BillingScheduler] Database error detected, retrying in 30 seconds');
+                setTimeout(runStartupTasks, 30000);
+            }
         }
-    }, 5000); // Wait 5 seconds for DB to be ready
+    };
+
+    // Start startup tasks after a short delay to let server initialize
+    setTimeout(runStartupTasks, 1000);
 } else {
     console.log('[BillingScheduler] Background jobs disabled for test environment');
 }

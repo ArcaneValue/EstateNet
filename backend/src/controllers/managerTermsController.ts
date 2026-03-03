@@ -48,12 +48,14 @@ export const acceptManagerTerms = async (req: AuthenticatedRequest, res: Respons
     }
 
     // Update user record with terms acceptance timestamp
+    console.log('[Terms] Updating user:', req.user.id, 'with role:', req.user?.role);
     const updatedUser = await prisma.user.update({
       where: { id: req.user.id },
       data: {
         managerTermsAcceptedAt: new Date()
       }
     });
+    console.log('[Terms] User updated successfully');
 
     // Generate new token with updated user data
     const newToken = generateToken({
@@ -62,9 +64,9 @@ export const acceptManagerTerms = async (req: AuthenticatedRequest, res: Respons
       role: updatedUser.role,
       tenantId: updatedUser.tenantId || undefined,
       phoneNumber: updatedUser.phoneNumber || undefined,
-      managerTermsAcceptedAt: updatedUser.managerTermsAcceptedAt || undefined,
-      billingStatus: updatedUser.billingStatus || undefined,
-      billingGraceUntil: updatedUser.billingGraceUntil || undefined
+      managerTermsAcceptedAt: updatedUser.managerTermsAcceptedAt?.toISOString() || null,
+      billingStatus: updatedUser.billingStatus || null,
+      billingGraceUntil: updatedUser.billingGraceUntil?.toISOString() || null
     });
 
     res.status(200).json({
@@ -78,6 +80,16 @@ export const acceptManagerTerms = async (req: AuthenticatedRequest, res: Respons
 
   } catch (error) {
     console.error('Accept manager terms error:', error);
+
+    // Handle specific case where user is not found
+    if (error instanceof Error && 'code' in error && error.code === 'P2025') {
+      res.status(401).json({
+        success: false,
+        message: 'User session expired. Please log out and log back in.'
+      });
+      return;
+    }
+
     res.status(500).json({
       success: false,
       message: 'Internal server error'

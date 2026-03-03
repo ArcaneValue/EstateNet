@@ -11,6 +11,7 @@ import { Button } from '../../components/Button';
 import { StatusBadge } from '../../components/StatusBadge';
 import { TopAppBar } from '../../components/TopAppBar';
 import { Modal } from '../../components/Modal';
+import { ScreenWrapper } from '../../components/ScreenWrapper';
 import { OccupiedUnitsModal } from './OccupiedUnitsModal';
 import { InviteTenantModal } from './InviteTenantModal';
 import { RecordPaymentModal } from './RecordPaymentModal';
@@ -115,7 +116,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
     };
 
     return (
-        <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <ScreenWrapper>
             {/* Top App Bar */}
             <TopAppBar
                 onNotificationsPress={() => setShowNotificationsModal(true)}
@@ -484,7 +485,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
                     </ScrollView>
                 </Modal>
             </ScrollView>
-        </View>
+        </ScreenWrapper>
     );
 };
 

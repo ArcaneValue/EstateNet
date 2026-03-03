@@ -56,9 +56,9 @@ export class AuthService {
             role: user.role,
             tenantId: user.tenantId || undefined,
             phoneNumber: user.phoneNumber || undefined,
-            managerTermsAcceptedAt: user.managerTermsAcceptedAt || undefined,
-            billingStatus: user.billingStatus || undefined,
-            billingGraceUntil: user.billingGraceUntil || undefined
+            managerTermsAcceptedAt: user.managerTermsAcceptedAt?.toISOString() || null,
+            billingStatus: user.billingStatus || null,
+            billingGraceUntil: user.billingGraceUntil?.toISOString() || null
         });
 
         return {
@@ -103,9 +103,9 @@ export class AuthService {
             role: user.role,
             tenantId: user.tenantId || undefined,
             phoneNumber: user.phoneNumber || undefined,
-            managerTermsAcceptedAt: user.managerTermsAcceptedAt || undefined,
-            billingStatus: user.billingStatus || undefined,
-            billingGraceUntil: user.billingGraceUntil || undefined
+            managerTermsAcceptedAt: user.managerTermsAcceptedAt?.toISOString() || null,
+            billingStatus: user.billingStatus || null,
+            billingGraceUntil: user.billingGraceUntil?.toISOString() || null
         });
 
         return {
@@ -166,9 +166,9 @@ export class AuthService {
             email: user.email,
             role: user.role,
             phoneNumber: user.phoneNumber || undefined,
-            managerTermsAcceptedAt: user.managerTermsAcceptedAt || undefined,
-            billingStatus: user.billingStatus || undefined,
-            billingGraceUntil: user.billingGraceUntil || undefined
+            managerTermsAcceptedAt: user.managerTermsAcceptedAt?.toISOString() || null,
+            billingStatus: user.billingStatus || null,
+            billingGraceUntil: user.billingGraceUntil?.toISOString() || null
         });
 
         return {
@@ -239,9 +239,9 @@ export class AuthService {
                 role: user.role,
                 tenantId: user.tenantId || undefined,
                 phoneNumber: user.phoneNumber || undefined,
-                managerTermsAcceptedAt: user.managerTermsAcceptedAt || undefined,
-                billingStatus: user.billingStatus || undefined,
-                billingGraceUntil: user.billingGraceUntil || undefined
+                managerTermsAcceptedAt: user.managerTermsAcceptedAt?.toISOString() || null,
+                billingStatus: user.billingStatus || null,
+                billingGraceUntil: user.billingGraceUntil?.toISOString() || null
             });
 
             return {
@@ -296,9 +296,9 @@ export class AuthService {
             email: user.email,
             role: user.role,
             phoneNumber: user.phoneNumber || undefined,
-            managerTermsAcceptedAt: user.managerTermsAcceptedAt || undefined,
-            billingStatus: user.billingStatus || undefined,
-            billingGraceUntil: user.billingGraceUntil || undefined
+            managerTermsAcceptedAt: user.managerTermsAcceptedAt?.toISOString() || null,
+            billingStatus: user.billingStatus || null,
+            billingGraceUntil: user.billingGraceUntil?.toISOString() || null
         });
 
         return {

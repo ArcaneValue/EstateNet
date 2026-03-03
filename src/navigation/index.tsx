@@ -3,8 +3,10 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { Platform } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
+import { Header } from '../components/Header';
 
 // Auth Screens
 import { SplashScreen } from '../screens/auth/SplashScreen';
@@ -70,9 +72,9 @@ const ManagerTabs = () => {
                     backgroundColor: colors.surface,
                     borderTopColor: colors.border,
                     borderTopWidth: 1,
-                    paddingBottom: 8,
+                    paddingBottom: Platform.OS === 'android' ? 55 : 8,
                     paddingTop: 8,
-                    height: 64,
+                    height: Platform.OS === 'android' ? 115 : 64,
                 },
                 tabBarActiveTintColor: colors.primary,
                 tabBarInactiveTintColor: colors.textSecondary,
@@ -151,9 +153,9 @@ const OwnerTabs = () => {
                     backgroundColor: colors.surface,
                     borderTopColor: colors.border,
                     borderTopWidth: 1,
-                    paddingBottom: 8,
+                    paddingBottom: Platform.OS === 'android' ? 55 : 8,
                     paddingTop: 8,
-                    height: 64,
+                    height: Platform.OS === 'android' ? 115 : 64,
                 },
                 tabBarActiveTintColor: colors.primary,
                 tabBarInactiveTintColor: colors.textSecondary,
@@ -235,9 +237,9 @@ const TenantTabs = () => {
                     backgroundColor: colors.surface,
                     borderTopColor: colors.border,
                     borderTopWidth: 1,
-                    paddingBottom: 8,
+                    paddingBottom: Platform.OS === 'android' ? 55 : 8,
                     paddingTop: 8,
-                    height: 64,
+                    height: Platform.OS === 'android' ? 115 : 64,
                 },
                 tabBarActiveTintColor: colors.primary,
                 tabBarInactiveTintColor: colors.textSecondary,

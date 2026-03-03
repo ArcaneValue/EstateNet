@@ -15,7 +15,7 @@ import {
 import { useTheme } from '../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface ModalProps {
     visible: boolean;
@@ -35,21 +35,23 @@ export const Modal: React.FC<ModalProps> = ({
     showCloseButton = true,
 }) => {
     const { colors, spacing, typography, borderRadius, shadows } = useTheme();
-    const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+    const scaleAnim = useRef(new Animated.Value(0.8)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         if (visible) {
+            // Reset position before animating
+            scaleAnim.setValue(0.8);
             Animated.parallel([
                 Animated.timing(fadeAnim, {
                     toValue: 1,
-                    duration: 200,
+                    duration: 250,
                     useNativeDriver: true,
                 }),
-                Animated.spring(slideAnim, {
-                    toValue: 0,
+                Animated.spring(scaleAnim, {
+                    toValue: 1,
                     damping: 20,
-                    stiffness: 150,
+                    stiffness: 200,
                     useNativeDriver: true,
                 }),
             ]).start();
@@ -57,23 +59,23 @@ export const Modal: React.FC<ModalProps> = ({
             Animated.parallel([
                 Animated.timing(fadeAnim, {
                     toValue: 0,
-                    duration: 150,
+                    duration: 200,
                     useNativeDriver: true,
                 }),
-                Animated.timing(slideAnim, {
-                    toValue: SCREEN_HEIGHT,
+                Animated.timing(scaleAnim, {
+                    toValue: 0.8,
                     duration: 200,
                     useNativeDriver: true,
                 }),
             ]).start();
         }
-    }, [visible]);
+    }, [visible, scaleAnim, fadeAnim]);
 
     const sizeStyles = {
-        small: { maxHeight: SCREEN_HEIGHT * 0.4 },
-        medium: { maxHeight: SCREEN_HEIGHT * 0.6 },
-        large: { maxHeight: SCREEN_HEIGHT * 0.85 },
-        full: { height: '100%' as const },
+        small: { height: SCREEN_HEIGHT * 0.6, width: SCREEN_WIDTH * 0.95 },
+        medium: { height: SCREEN_HEIGHT * 0.85, width: SCREEN_WIDTH * 0.95 },
+        large: { height: SCREEN_HEIGHT * 0.9, width: SCREEN_WIDTH * 0.98 },
+        full: { height: SCREEN_HEIGHT, width: SCREEN_WIDTH },
     };
 
     return (
@@ -87,104 +89,96 @@ export const Modal: React.FC<ModalProps> = ({
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.keyboardView}
+                keyboardVerticalOffset={Platform.OS === 'android' ? 0 : 0}
             >
-                <Animated.View
-                    style={[
-                        styles.overlay,
-                        {
-                            backgroundColor: colors.overlay,
-                            opacity: fadeAnim,
-                        },
-                    ]}
-                >
+                <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
                     <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-                </Animated.View>
+                </View>
 
-                <Animated.View
-                    style={[
-                        styles.modalContainer,
-                        {
-                            backgroundColor: colors.surface,
-                            borderTopLeftRadius: size === 'full' ? 0 : borderRadius['2xl'],
-                            borderTopRightRadius: size === 'full' ? 0 : borderRadius['2xl'],
-                            borderWidth: size === 'full' ? 0 : 1,
-                            borderBottomWidth: 0,
-                            borderColor: colors.border,
-                            transform: [{ translateY: slideAnim }],
-                            ...sizeStyles[size],
-                            ...shadows.xl,
-                        },
-                    ]}
-                >
-                    {/* Accent Header Bar */}
-                    <View
+                <View style={[styles.modalShadow, sizeStyles[size]]}>
+                    <Animated.View
                         style={[
-                            styles.accentBar,
+                            styles.modalContainer,
                             {
-                                backgroundColor: colors.accent,
-                                borderTopLeftRadius: size === 'full' ? 0 : borderRadius['2xl'],
-                                borderTopRightRadius: size === 'full' ? 0 : borderRadius['2xl'],
+                                backgroundColor: colors.surface,
+                                borderRadius: borderRadius['2xl'],
+                                borderWidth: 1,
+                                borderColor: colors.border,
+                                transform: [{ scale: scaleAnim }],
+                                opacity: fadeAnim,
                             },
                         ]}
-                    />
-
-                    {/* Drag Handle */}
-                    {size !== 'full' && (
-                        <View style={styles.handleContainer}>
-                            <View
-                                style={[
-                                    styles.handle,
-                                    { backgroundColor: colors.borderStrong },
-                                ]}
-                            />
-                        </View>
-                    )}
-
-                    {/* Header */}
-                    {(title || showCloseButton) && (
+                    >
+                        {/* Accent Header Bar */}
                         <View
                             style={[
-                                styles.header,
+                                styles.accentBar,
                                 {
-                                    borderBottomColor: colors.border,
-                                    paddingHorizontal: spacing.lg,
-                                    paddingTop: spacing.sm,
-                                    paddingBottom: spacing.base,
+                                    backgroundColor: colors.accent,
+                                    borderTopLeftRadius: size === 'full' ? 0 : borderRadius['2xl'],
+                                    borderTopRightRadius: size === 'full' ? 0 : borderRadius['2xl'],
                                 },
                             ]}
-                        >
-                            {title && (
-                                <Text style={[typography.h3, { color: colors.text, flex: 1, fontWeight: '700' }]}>
-                                    {title}
-                                </Text>
-                            )}
-                            {showCloseButton && (
-                                <TouchableOpacity
-                                    onPress={onClose}
-                                    style={[
-                                        styles.closeButton,
-                                        {
-                                            backgroundColor: colors.background,
-                                            borderRadius: borderRadius.full,
-                                        },
-                                    ]}
-                                >
-                                    <Ionicons name="close" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                            )}
-                        </View>
-                    )}
+                        />
 
-                    {/* Content */}
-                    <ScrollView
-                        style={styles.content}
-                        contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl }}
-                        showsVerticalScrollIndicator={false}
-                        bounces={false}
-                    >
-                        {children}
-                    </ScrollView>
-                </Animated.View>
+                        {/* Drag Handle */}
+                        {size !== 'full' && (
+                            <View style={styles.handleContainer}>
+                                <View
+                                    style={[
+                                        styles.handle,
+                                        { backgroundColor: colors.borderStrong },
+                                    ]}
+                                />
+                            </View>
+                        )}
+
+                        {/* Header */}
+                        {(title || showCloseButton) && (
+                            <View
+                                style={[
+                                    styles.header,
+                                    {
+                                        borderBottomColor: colors.border,
+                                        paddingHorizontal: spacing.lg,
+                                        paddingTop: spacing.sm,
+                                        paddingBottom: spacing.base,
+                                    },
+                                ]}
+                            >
+                                {title && (
+                                    <Text style={[typography.h3, { color: colors.text, flex: 1, fontWeight: '700' }]}>
+                                        {title}
+                                    </Text>
+                                )}
+                                {showCloseButton && (
+                                    <TouchableOpacity
+                                        onPress={onClose}
+                                        style={[
+                                            styles.closeButton,
+                                            {
+                                                backgroundColor: colors.background,
+                                                borderRadius: borderRadius.full,
+                                            },
+                                        ]}
+                                    >
+                                        <Ionicons name="close" size={20} color={colors.textSecondary} />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        )}
+
+                        {/* Content */}
+                        <ScrollView
+                            style={styles.content}
+                            contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl }}
+                            showsVerticalScrollIndicator={false}
+                            bounces={false}
+                        >
+                            {children}
+                        </ScrollView>
+                    </Animated.View>
+                </View>
             </KeyboardAvoidingView>
         </RNModal>
     );
@@ -193,14 +187,25 @@ export const Modal: React.FC<ModalProps> = ({
 const styles = StyleSheet.create({
     keyboardView: {
         flex: 1,
-        justifyContent: 'flex-end',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 10,
     },
     overlay: {
         ...StyleSheet.absoluteFillObject,
     },
     modalContainer: {
-        width: '100%',
         overflow: 'hidden',
+    },
+    modalShadow: {
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
     },
     accentBar: {
         height: 4,

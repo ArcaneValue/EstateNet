@@ -282,7 +282,10 @@ export const declineInvitation = async (req: AuthenticatedRequest, res: Response
 
 export const getTenantInvitations = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
+    console.log('[Tenant] Getting invitations for user:', req.user?.id, 'tenantId:', req.user?.tenantId);
+
     if (!req.user?.tenantId) {
+      console.log('[Tenant] No tenantId found for user:', req.user?.id);
       res.status(400).json({
         success: false,
         message: 'Tenant ID not found in user profile'
@@ -291,6 +294,7 @@ export const getTenantInvitations = async (req: AuthenticatedRequest, res: Respo
     }
 
     const invitations = await tenantService.getInvitationsByTenant(req.user.tenantId);
+    console.log('[Tenant] Found invitations:', invitations.length);
 
     res.status(200).json({
       success: true,
