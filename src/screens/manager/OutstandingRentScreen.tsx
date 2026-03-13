@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useOutstandingRent } from '../../hooks/useManagerFinance';
+import { formatCompactCurrencyUGX } from '../../utils/formatters';
 import { useProperties } from '../../context/PropertyContext';
 import { Card } from '../../components/Card';
 import { PdfExportPreviewModal } from '../../components/PdfExportPreviewModal';
@@ -104,9 +105,6 @@ export const OutstandingRentScreen: React.FC<any> = ({ navigation }) => {
         }
     };
 
-    const formatCurrency = (amount: number) => {
-        return `UGX ${(amount / 1000000).toFixed(1)}M`;
-    };
 
     const formatDate = (dateString: string | null) => {
         if (!dateString) return 'No payments yet';
@@ -142,10 +140,10 @@ export const OutstandingRentScreen: React.FC<any> = ({ navigation }) => {
                         </Text>
                     )}
                     <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.xs }]}>
-                        Expected: {formatCurrency(item.expectedRent)}
+                        Expected: {formatCompactCurrencyUGX(item.expectedRent)}
                     </Text>
                     <Text style={[typography.bodySmall, { color: colors.success, marginTop: spacing.xs }]}>
-                        Paid: {formatCurrency(item.collectedRent)}
+                        Paid: {formatCompactCurrencyUGX(item.collectedRent)}
                     </Text>
                     <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.xs }]}>
                         Last Payment: {formatDate(item.lastPaymentAt)}
@@ -153,7 +151,7 @@ export const OutstandingRentScreen: React.FC<any> = ({ navigation }) => {
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                     <Text style={[typography.h4, { color: colors.error, marginBottom: spacing.sm }]}>
-                        {formatCurrency(item.amountOutstanding)}
+                        {formatCompactCurrencyUGX(item.amountOutstanding)}
                     </Text>
                     <TouchableOpacity
                         onPress={() => handleMessageTenant(item)}
@@ -330,7 +328,7 @@ export const OutstandingRentScreen: React.FC<any> = ({ navigation }) => {
                                     <Ionicons name="alert-circle" size={30} color={colors.error} />
                                 </View>
                                 <Text style={[typography.h3, { color: colors.error, textAlign: 'center' }]}>
-                                    {formatCurrency(data?.totalOutstanding || 0)}
+                                    {formatCompactCurrencyUGX(data?.totalOutstanding || 0)}
                                 </Text>
                                 <Text style={[typography.bodySmall, { color: colors.textSecondary, textAlign: 'center' }]}>
                                     Total Outstanding
@@ -367,12 +365,13 @@ export const OutstandingRentScreen: React.FC<any> = ({ navigation }) => {
                             Outstanding Payments
                         </Text>
                         {data?.items && data.items.length > 0 ? (
-                            <FlatList
-                                data={data.items}
-                                renderItem={renderOutstandingItem}
-                                keyExtractor={(item) => `${item.tenantId}-${item.unitId}`}
-                                scrollEnabled={false}
-                            />
+                            <>
+                                {data.items.map((item) => (
+                                    <View key={`${item.tenantId}-${item.unitId}`}>
+                                        {renderOutstandingItem({ item })}
+                                    </View>
+                                ))}
+                            </>
                         ) : (
                             <Card style={{ padding: spacing.lg }}>
                                 <View style={{ alignItems: 'center' }}>

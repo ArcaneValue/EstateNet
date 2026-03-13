@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, RefreshControl, ActivityIndicator } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useManagerDashboard } from '../../hooks/useManagerDashboard';
@@ -21,6 +21,7 @@ import { OwnerCenter } from '../../components/OwnerCenter';
 import { Ionicons } from '@expo/vector-icons';
 import { useManagerEnforcement } from '../../hooks/useManagerEnforcement';
 import { handleEnforcement } from '../../utils/enforcementNavigation';
+import { formatUGX, formatUGXCompact, formatPercentage } from '../../utils/formatters';
 
 interface ManagerDashboardProps {
     navigation: any;
@@ -43,9 +44,17 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
     const [showNotificationsModal, setShowNotificationsModal] = useState(false);
     const [profileImage, setProfileImage] = useState<string | null>(null);
     const [showAllActivitiesModal, setShowAllActivitiesModal] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
 
     // Check if user is an owner
     const isUserOwner = isOwner();
+
+    // Pull-to-refresh handler
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await refetch();
+        setRefreshing(false);
+    };
 
     // Dashboard data calculations
     const totalProperties = dashboardData?.propertiesCount ?? 0;
@@ -115,6 +124,9 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
         setShowInviteModal(true);
     };
 
+    // Calculate occupancy rate
+    const occupancyRate = totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0;
+
     return (
         <ScreenWrapper>
             {/* Top App Bar */}
@@ -130,283 +142,290 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
                 unitCount={totalUnits}
             />
 
-            <ScrollView contentContainerStyle={{ padding: spacing.base }}>
+            <ScrollView
+                contentContainerStyle={{
+                    padding: spacing.base,
+                    paddingBottom: Platform.OS === 'android' ? 115 : 64
+                }}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor={colors.primary}
+                        colors={[colors.primary]}
+                    />
+                }
+            >
 
                 {/* Owner Center - Only show if user is an owner */}
                 {isUserOwner && (
                     <OwnerCenter navigation={navigation} />
                 )}
 
-                {/* Metrics Grid */}
-                <View style={[styles.metricsGrid, { marginBottom: spacing.lg }]}>
-                    <TouchableOpacity style={{ flex: 1, marginRight: spacing.sm }} onPress={() => navigation.navigate('Properties')}>
-                        <MetricCard
-                            value={loading ? '...' : totalProperties.toString()}
-                            label="Total Properties"
-                            icon={
-                                <View
-                                    style={{
-                                        backgroundColor: colors.primary + '20',
-                                        width: 40,
-                                        height: 40,
-                                        borderRadius: 20,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}
-                                >
-                                    <Ionicons name="business" size={20} color={colors.primary} />
-                                </View>
-                            }
-                            color={colors.primary}
-                        />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={{ flex: 1, marginLeft: spacing.sm }} onPress={() => setShowOccupiedModal(true)}>
-                        <MetricCard
-                            value={loading ? '...' : `${occupiedUnits}/${totalUnits}`}
-                            label="Occupied Units"
-                            icon={
-                                <View
-                                    style={{
-                                        backgroundColor: colors.success + '20',
-                                        width: 40,
-                                        height: 40,
-                                        borderRadius: 20,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}
-                                >
-                                    <Ionicons name="people" size={20} color={colors.success} />
-                                </View>
-                            }
-                            trend={{ value: '+5%', isPositive: true }}
-                            color={colors.success}
-                        />
-                    </TouchableOpacity>
-                </View>
-
-                <View style={[styles.metricsGrid, { marginBottom: spacing.lg }]}>
-                    <TouchableOpacity style={{ flex: 1, marginRight: spacing.sm }} onPress={() => setShowOccupiedModal(true)}>
-                        <MetricCard
-                            value={loading ? '...' : vacancies.toString()}
-                            label="Vacancies"
-                            icon={
-                                <View
-                                    style={{
-                                        backgroundColor: colors.warning + '20',
-                                        width: 40,
-                                        height: 40,
-                                        borderRadius: 20,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}
-                                >
-                                    <Ionicons name="home-outline" size={20} color={colors.warning} />
-                                </View>
-                            }
-                            color={colors.warning}
-                        />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={{ flex: 1, marginLeft: spacing.sm }} onPress={() => navigation.navigate('RentCollection')}>
-                        <MetricCard
-                            value={loading ? '...' : `UGX ${(rentCollected / 1000000).toFixed(1)}M`}
-                            label="Rent Collected"
-                            icon={
-                                <View
-                                    style={{
-                                        backgroundColor: colors.success + '20',
-                                        width: 40,
-                                        height: 40,
-                                        borderRadius: 20,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}
-                                >
-                                    <Ionicons name="cash-outline" size={20} color={colors.success} />
-                                </View>
-                            }
-                            trend={{ value: '+12%', isPositive: true }}
-                            color={colors.success}
-                        />
-                    </TouchableOpacity>
-                </View>
-
-                <View style={[styles.metricsGrid, { marginBottom: spacing.lg }]}>
-                    <TouchableOpacity style={{ flex: 1, marginRight: spacing.sm }} onPress={() => navigation.navigate('ManagerPayments')}>
-                        <MetricCard
-                            value={loading ? '...' : 'View'}
-                            label="Payments"
-                            icon={
-                                <View
-                                    style={{
-                                        backgroundColor: colors.info + '20',
-                                        width: 40,
-                                        height: 40,
-                                        borderRadius: 20,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}
-                                >
-                                    <Ionicons name="card-outline" size={20} color={colors.info} />
-                                </View>
-                            }
-                            color={colors.info}
-                        />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={{ flex: 1, marginLeft: spacing.sm }} onPress={() => navigation.navigate('ManagerPaymentClaims')}>
-                        <MetricCard
-                            value={loading ? '...' : 'Review'}
-                            label="Payment Claims"
-                            icon={
-                                <View
-                                    style={{
-                                        backgroundColor: colors.warning + '20',
-                                        width: 40,
-                                        height: 40,
-                                        borderRadius: 20,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}
-                                >
-                                    <Ionicons name="document-text-outline" size={20} color={colors.warning} />
-                                </View>
-                            }
-                            color={colors.warning}
-                        />
-                    </TouchableOpacity>
-                </View>
-
-                {/* Outstanding Rent Card */}
-                <TouchableOpacity onPress={() => navigation.navigate('OutstandingRent')} activeOpacity={0.7}>
-                    <Card style={{ marginBottom: spacing.lg, padding: spacing.lg }}>
-                        <View style={styles.outstandingHeader}>
-                            <View>
-                                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
-                                    Outstanding Rent
-                                </Text>
-                                <Text style={[typography.h2, { color: colors.error, marginTop: spacing.sm }]}>
-                                    {loading ? '...' : `UGX ${(outstandingRent / 1000000).toFixed(1)}M`}
-                                </Text>
-                            </View>
-                            <View
-                                style={{
-                                    backgroundColor: colors.errorLight,
-                                    width: 56,
-                                    height: 56,
-                                    borderRadius: 28,
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                }}
-                            >
-                                <Ionicons name="alert-circle" size={28} color={colors.error} />
-                            </View>
+                {/* Empty State - No Properties */}
+                {!loading && totalProperties === 0 && (
+                    <Card style={{ marginBottom: spacing.lg, padding: spacing.xl, alignItems: 'center' }}>
+                        <View
+                            style={{
+                                backgroundColor: colors.primary + '15',
+                                width: 80,
+                                height: 80,
+                                borderRadius: 40,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginBottom: spacing.lg,
+                            }}
+                        >
+                            <Ionicons name="home-outline" size={40} color={colors.primary} />
                         </View>
-                        <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.md }]}>
-                            {loading ? '...' : `${overdueTenantCount} tenants with overdue payments`}
+                        <Text style={[typography.h3, { color: colors.text, textAlign: 'center', marginBottom: spacing.sm }]}>
+                            Add Your First Property
                         </Text>
+                        <Text style={[typography.body, { color: colors.textSecondary, textAlign: 'center', marginBottom: spacing.lg }]}>
+                            Start managing your properties by adding your first one
+                        </Text>
+                        <Button
+                            title="Add Property"
+                            onPress={() => navigation.navigate('Properties')}
+                            variant="primary"
+                            size="medium"
+                        />
                     </Card>
-                </TouchableOpacity>
+                )}
+
+                {/* Outstanding Rent Hero Card */}
+                {!loading && totalProperties > 0 && outstandingRent > 0 && (
+                    <TouchableOpacity onPress={() => navigation.navigate('OutstandingRent')} activeOpacity={0.7}>
+                        <Card style={{ marginBottom: spacing.lg, padding: spacing.lg }}>
+                            <View style={styles.outstandingHeader}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[typography.bodySmall, { color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.8, fontSize: 11, fontWeight: '600' }]}>
+                                        Outstanding Rent
+                                    </Text>
+                                    <Text style={{ fontSize: 36, fontWeight: '700', color: colors.error, marginTop: spacing.sm, letterSpacing: -1 }}>
+                                        {formatUGXCompact(outstandingRent)}
+                                    </Text>
+                                    <Text style={[typography.bodySmall, { color: colors.textTertiary, marginTop: spacing.xs }]}>
+                                        {formatUGX(outstandingRent)}
+                                    </Text>
+                                </View>
+                                <View
+                                    style={{
+                                        backgroundColor: colors.errorLight,
+                                        width: 64,
+                                        height: 64,
+                                        borderRadius: 32,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    }}
+                                >
+                                    <Ionicons name="alert-circle" size={32} color={colors.error} />
+                                </View>
+                            </View>
+                            <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.divider }}>
+                                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                                    {overdueTenantCount} {overdueTenantCount === 1 ? 'tenant' : 'tenants'} with overdue payments
+                                </Text>
+                            </View>
+                        </Card>
+                    </TouchableOpacity>
+                )}
+
+                {/* Overview Section */}
+                {!loading && totalProperties > 0 && (
+                    <View style={{ marginBottom: spacing.lg }}>
+                        <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md }]}>
+                            Overview
+                        </Text>
+                        <View style={{ gap: spacing.sm }}>
+                            <TouchableOpacity onPress={() => navigation.navigate('Properties')}>
+                                <MetricCard
+                                    variant="compact"
+                                    value={totalProperties.toString()}
+                                    label="Properties"
+                                    icon={<Ionicons name="business" size={18} color={colors.primary} />}
+                                    color={colors.primary}
+                                />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => setShowOccupiedModal(true)}>
+                                <MetricCard
+                                    variant="compact"
+                                    value={`${occupiedUnits}/${totalUnits}`}
+                                    label="Occupancy"
+                                    subtitle={`${formatPercentage(occupancyRate)} occupied`}
+                                    icon={<Ionicons name="people" size={18} color={colors.success} />}
+                                    color={colors.success}
+                                />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => setShowOccupiedModal(true)}>
+                                <MetricCard
+                                    variant="compact"
+                                    value={vacancies.toString()}
+                                    label="Vacancies"
+                                    icon={<Ionicons name="home-outline" size={18} color={colors.warning} />}
+                                    color={colors.warning}
+                                />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => navigation.navigate('RentCollection')}>
+                                <MetricCard
+                                    variant="compact"
+                                    value={formatUGXCompact(rentCollected)}
+                                    label="Rent Collected"
+                                    subtitle={formatUGX(rentCollected)}
+                                    icon={<Ionicons name="cash-outline" size={18} color={colors.success} />}
+                                    color={colors.success}
+                                />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => navigation.navigate('ManagerPayments')}>
+                                <MetricCard
+                                    variant="compact"
+                                    value="View"
+                                    label="Payments"
+                                    icon={<Ionicons name="card-outline" size={18} color={colors.info} />}
+                                    color={colors.info}
+                                />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => navigation.navigate('ManagerPaymentClaims')}>
+                                <MetricCard
+                                    variant="compact"
+                                    value="Review"
+                                    label="Payment Claims"
+                                    icon={<Ionicons name="document-text-outline" size={18} color={colors.warning} />}
+                                    color={colors.warning}
+                                />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
+
+                {/* Skeleton Loading State */}
+                {loading && (
+                    <View style={{ marginBottom: spacing.lg }}>
+                        <View style={{ gap: spacing.sm }}>
+                            {[1, 2, 3, 4].map((i) => (
+                                <Card key={i} style={{ padding: spacing.md }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.border, marginRight: 12 }} />
+                                        <View style={{ flex: 1 }}>
+                                            <View style={{ width: '40%', height: 10, backgroundColor: colors.border, borderRadius: 4, marginBottom: 6 }} />
+                                            <View style={{ width: '60%', height: 16, backgroundColor: colors.border, borderRadius: 4 }} />
+                                        </View>
+                                    </View>
+                                </Card>
+                            ))}
+                        </View>
+                    </View>
+                )}
 
                 {/* Quick Actions */}
-                <View style={{ marginBottom: spacing.lg }}>
-                    <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md }]}>
-                        Quick Actions
-                    </Text>
-                    <View style={styles.actionsGrid}>
-                        <ActionButton
-                            icon="person-add"
-                            label={checkingEnforcement ? 'Checking...' : 'Invite Tenant'}
-                            onPress={handleInviteTenantPress}
-                            colors={colors}
-                            spacing={spacing}
-                            borderRadius={borderRadius}
-                            disabled={checkingEnforcement}
-                        />
-                        <ActionButton
-                            icon="card"
-                            label="Record Payment"
-                            onPress={() => setShowRecordPaymentModal(true)}
-                            colors={colors}
-                            spacing={spacing}
-                            borderRadius={borderRadius}
-                        />
-                        <ActionButton
-                            icon="notifications"
-                            label="Send Reminder"
-                            onPress={() => setShowSendReminderModal(true)}
-                            colors={colors}
-                            spacing={spacing}
-                            borderRadius={borderRadius}
-                        />
-                    </View>
-                </View>
-
-                {/* Recent Activity */}
-                <View style={{ marginBottom: spacing['2xl'] }}>
-                    <View style={[styles.sectionHeader, { marginBottom: spacing.md }]}>
-                        <Text style={[typography.h3, { color: colors.text }]}>Recent Activity</Text>
-                        <TouchableOpacity onPress={() => setShowAllActivitiesModal(true)}>
-                            <Text style={[typography.bodySmall, { color: colors.primary, fontWeight: '600' }]}>
-                                View all
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {loading ? (
-                        <Card noPadding>
-                            <ActivityItem
-                                title="Loading..."
-                                time=""
-                                icon="ellipsis-horizontal"
-                                iconColor={colors.textSecondary}
-                                iconBg={colors.surface}
+                {!loading && totalProperties > 0 && (
+                    <View style={{ marginBottom: spacing.lg }}>
+                        <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md }]}>
+                            Quick Actions
+                        </Text>
+                        <View style={styles.actionsGrid}>
+                            <ActionButton
+                                icon="person-add"
+                                label={checkingEnforcement ? 'Checking...' : 'Invite Tenant'}
+                                onPress={handleInviteTenantPress}
                                 colors={colors}
                                 spacing={spacing}
+                                borderRadius={borderRadius}
+                                disabled={checkingEnforcement}
                             />
-                        </Card>
-                    ) : error ? (
-                        <Card style={{ padding: spacing.lg }}>
-                            <Text style={[typography.body, { color: colors.error }]}>
-                                Failed to load activity
-                            </Text>
-                            <TouchableOpacity onPress={refetch} style={{ marginTop: spacing.sm }}>
-                                <Text style={[typography.bodySmall, { color: colors.primary }]}>
-                                    Tap to retry
+                            <ActionButton
+                                icon="card"
+                                label="Record Payment"
+                                onPress={() => setShowRecordPaymentModal(true)}
+                                colors={colors}
+                                spacing={spacing}
+                                borderRadius={borderRadius}
+                            />
+                            <ActionButton
+                                icon="notifications"
+                                label="Send Reminder"
+                                onPress={() => setShowSendReminderModal(true)}
+                                colors={colors}
+                                spacing={spacing}
+                                borderRadius={borderRadius}
+                            />
+                        </View>
+                    </View>
+                )}
+
+                {/* Recent Activity */}
+                {!loading && totalProperties > 0 && (
+                    <View style={{ marginBottom: spacing['2xl'] }}>
+                        <View style={[styles.sectionHeader, { marginBottom: spacing.md }]}>
+                            <Text style={[typography.h3, { color: colors.text }]}>Recent Activity</Text>
+                            <TouchableOpacity onPress={() => setShowAllActivitiesModal(true)}>
+                                <Text style={[typography.bodySmall, { color: colors.primary, fontWeight: '600' }]}>
+                                    View all
                                 </Text>
                             </TouchableOpacity>
-                        </Card>
-                    ) : recentActivities.length === 0 ? (
-                        <Card style={{ padding: spacing.lg }}>
-                            <Text style={[typography.body, { color: colors.textSecondary }]}>
-                                No recent activity
-                            </Text>
-                        </Card>
-                    ) : (
-                        <Card noPadding>
-                            {recentActivities.slice(0, 3).map((activity, index) => (
-                                <React.Fragment key={activity.id}>
-                                    <ActivityItem
-                                        title={activity.title}
-                                        time={new Date(activity.timestamp).toLocaleDateString()}
-                                        icon={activity.icon}
-                                        iconColor={activity.iconColor}
-                                        iconBg={activity.iconBg}
-                                        onPress={() => handleActivityPress(activity)}
-                                        colors={colors}
-                                        spacing={spacing}
-                                    />
-                                    {index < Math.min(recentActivities.length, 3) - 1 && (
-                                        <View style={{ height: 1, backgroundColor: colors.divider, marginHorizontal: spacing.base }} />
-                                    )}
-                                </React.Fragment>
-                            ))}
-                        </Card>
-                    )}
-                </View>
+                        </View>
+
+                        {error ? (
+                            <Card style={{ padding: spacing.lg }}>
+                                <Text style={[typography.body, { color: colors.error }]}>
+                                    Failed to load activity
+                                </Text>
+                                <TouchableOpacity onPress={refetch} style={{ marginTop: spacing.sm }}>
+                                    <Text style={[typography.bodySmall, { color: colors.primary }]}>
+                                        Tap to retry
+                                    </Text>
+                                </TouchableOpacity>
+                            </Card>
+                        ) : recentActivities.length === 0 ? (
+                            <Card style={{ padding: spacing.xl, alignItems: 'center' }}>
+                                <View
+                                    style={{
+                                        backgroundColor: colors.primary + '15',
+                                        width: 64,
+                                        height: 64,
+                                        borderRadius: 32,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        marginBottom: spacing.md,
+                                    }}
+                                >
+                                    <Ionicons name="time-outline" size={32} color={colors.primary} />
+                                </View>
+                                <Text style={[typography.h4, { color: colors.text, textAlign: 'center', marginBottom: spacing.xs }]}>
+                                    No Recent Activity
+                                </Text>
+                                <Text style={[typography.bodySmall, { color: colors.textSecondary, textAlign: 'center' }]}>
+                                    Activity will appear here as tenants interact with your properties
+                                </Text>
+                            </Card>
+                        ) : (
+                            <Card noPadding>
+                                {recentActivities.slice(0, 3).map((activity, index) => (
+                                    <React.Fragment key={activity.id}>
+                                        <ActivityItem
+                                            title={activity.title}
+                                            time={new Date(activity.timestamp).toLocaleDateString()}
+                                            icon={activity.icon}
+                                            iconColor={activity.iconColor}
+                                            iconBg={activity.iconBg}
+                                            onPress={() => handleActivityPress(activity)}
+                                            colors={colors}
+                                            spacing={spacing}
+                                        />
+                                        {index < Math.min(recentActivities.length, 3) - 1 && (
+                                            <View style={{ height: 1, backgroundColor: colors.divider, marginHorizontal: spacing.base }} />
+                                        )}
+                                    </React.Fragment>
+                                ))}
+                            </Card>
+                        )}
+                    </View>
+                )}
 
                 {/* Modals */}
                 <OccupiedUnitsModal visible={showOccupiedModal} onClose={() => setShowOccupiedModal(false)} />
                 <InviteTenantModal visible={showInviteModal} onClose={() => setShowInviteModal(false)} onSuccess={refetch} />
-                <RecordPaymentModal visible={showRecordPaymentModal} onClose={() => setShowRecordPaymentModal(false)} />
+                <RecordPaymentModal visible={showRecordPaymentModal} onClose={() => setShowRecordPaymentModal(false)} onSuccess={refetch} />
                 <SendReminderModal visible={showSendReminderModal} onClose={() => setShowSendReminderModal(false)} />
                 <ActivityDetailsModal
                     visible={showActivityModal}

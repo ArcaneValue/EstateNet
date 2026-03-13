@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Modal,
   View,
   Text,
   StyleSheet,
@@ -12,8 +11,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Modal } from './Modal';
 import { apiPost } from '../utils/apiClient';
 import { formatFullCurrency } from '../utils/currencyFormatter';
+import { useTheme } from '../theme/ThemeContext';
 
 interface RecordPaymentClaimModalProps {
   visible: boolean;
@@ -79,6 +80,7 @@ export const RecordPaymentClaimModal: React.FC<RecordPaymentClaimModalProps> = (
   tenantId,
   onClaimRecorded
 }) => {
+  const { colors, spacing, typography, borderRadius } = useTheme();
   const [amount, setAmount] = useState('');
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethodType | null>(null);
   const [referenceText, setReferenceText] = useState('');
@@ -199,242 +201,196 @@ export const RecordPaymentClaimModal: React.FC<RecordPaymentClaimModalProps> = (
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={true}>
-      <View style={styles.overlay}>
-        <View style={styles.modalContainer}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Record Payment Claim</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#666" />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.content}>
-            {/* Lease Information */}
-            {(propertyName || unitNumber) && (
-              <View style={[styles.section, styles.leaseInfo]}>
-                <Text style={styles.sectionTitle}>Lease Information</Text>
-                {propertyName && (
-                  <View style={styles.infoRow}>
-                    <Ionicons name="business-outline" size={16} color="#666" />
-                    <Text style={styles.infoText}>Property: {propertyName}</Text>
-                  </View>
-                )}
-                {unitNumber && (
-                  <View style={styles.infoRow}>
-                    <Ionicons name="home-outline" size={16} color="#666" />
-                    <Text style={styles.infoText}>Unit: {unitNumber}</Text>
-                  </View>
-                )}
-                <View style={styles.infoRow}>
-                  <Ionicons name="card-outline" size={16} color="#666" />
-                  <Text style={styles.infoText}>Monthly Rent: {formatFullCurrency(monthlyRent)}</Text>
-                </View>
+    <Modal
+      visible={visible}
+      onClose={onClose}
+      title="Record Payment Claim"
+      size="large"
+    >
+      <View>
+        {/* Lease Information */}
+        {(propertyName || unitNumber) && (
+          <View style={[styles.section, styles.leaseInfo]}>
+            <Text style={styles.sectionTitle}>Lease Information</Text>
+            {propertyName && (
+              <View style={styles.infoRow}>
+                <Ionicons name="business-outline" size={16} color="#666" />
+                <Text style={styles.infoText}>Property: {propertyName}</Text>
               </View>
             )}
-
-            {/* Amount Input */}
-            <View style={styles.section}>
-              <Text style={styles.label}>Amount Paid</Text>
-              <TextInput
-                style={[
-                  styles.amountInput,
-                  !isValidAmount() && amount ? styles.inputError : null
-                ]}
-                value={amount}
-                onChangeText={(text) => setAmount(formatAmountInput(text))}
-                placeholder="Enter amount"
-                keyboardType="numeric"
-                placeholderTextColor="#999"
-              />
-              {amount && (
-                <Text style={styles.amountHelp}>
-                  {isValidAmount()
-                    ? `${getMonthsPaid()} month${getMonthsPaid() > 1 ? 's' : ''} of rent`
-                    : getAmountError()
-                  }
-                </Text>
-              )}
-            </View>
-
-            {/* Quick Amount Buttons */}
-            <View style={styles.section}>
-              <Text style={styles.label}>Quick Select</Text>
-              <View style={styles.quickAmounts}>
-                {getQuickAmountOptions().map((option) => (
-                  <TouchableOpacity
-                    key={option.months}
-                    style={[
-                      styles.quickAmountButton,
-                      getAmountValue() === option.amount && styles.quickAmountSelected
-                    ]}
-                    onPress={() => handleQuickAmount(option.amount)}
-                  >
-                    <Text style={[
-                      styles.quickAmountText,
-                      getAmountValue() === option.amount && styles.quickAmountTextSelected
-                    ]}>
-                      {option.label}
-                    </Text>
-                    <Text style={[
-                      styles.quickAmountAmount,
-                      getAmountValue() === option.amount && styles.quickAmountTextSelected
-                    ]}>
-                      {formatFullCurrency(option.amount)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+            {unitNumber && (
+              <View style={styles.infoRow}>
+                <Ionicons name="home-outline" size={16} color="#666" />
+                <Text style={styles.infoText}>Unit: {unitNumber}</Text>
               </View>
+            )}
+            <View style={styles.infoRow}>
+              <Ionicons name="card-outline" size={16} color="#666" />
+              <Text style={styles.infoText}>Monthly Rent: {formatFullCurrency(monthlyRent)}</Text>
             </View>
-
-            {/* Payment Method */}
-            <View style={styles.section}>
-              <Text style={styles.label}>Payment Method</Text>
-              {paymentMethods.map((method) => (
-                <TouchableOpacity
-                  key={method.key}
-                  style={[
-                    styles.methodOption,
-                    selectedMethod === method.key && styles.methodSelected
-                  ]}
-                  onPress={() => setSelectedMethod(method.key)}
-                >
-                  <View style={styles.methodContent}>
-                    <Ionicons
-                      name={method.icon as any}
-                      size={24}
-                      color={selectedMethod === method.key ? '#007AFF' : '#666'}
-                    />
-                    <View style={styles.methodText}>
-                      <Text style={[
-                        styles.methodLabel,
-                        selectedMethod === method.key && styles.methodLabelSelected
-                      ]}>
-                        {method.label}
-                      </Text>
-                      <Text style={styles.methodDescription}>{method.description}</Text>
-                    </View>
-                  </View>
-                  {selectedMethod === method.key && (
-                    <Ionicons name="checkmark-circle" size={20} color="#007AFF" />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Payment Date */}
-            <View style={styles.section}>
-              <Text style={styles.label}>Date Paid</Text>
-              <TouchableOpacity
-                style={styles.dateButton}
-                onPress={() => setShowDatePicker(true)}
-              >
-                <Ionicons name="calendar-outline" size={20} color="#007AFF" />
-                <Text style={styles.dateText}>
-                  {claimedPaidAt.toLocaleDateString()}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Reference/Notes */}
-            <View style={styles.section}>
-              <Text style={styles.label}>Reference/Notes (Optional)</Text>
-              <TextInput
-                style={styles.referenceInput}
-                value={referenceText}
-                onChangeText={setReferenceText}
-                placeholder="Transaction reference, receipt number, etc."
-                multiline
-                numberOfLines={3}
-                placeholderTextColor="#999"
-              />
-            </View>
-
-            {/* Info Box */}
-            <View style={styles.infoBox}>
-              <Ionicons name="information-circle-outline" size={20} color="#007AFF" />
-              <Text style={styles.infoBoxText}>
-                By submitting this claim, you confirm that you have made the payment. The property manager will verify and approve your payment.
-              </Text>
-            </View>
-          </ScrollView>
-
-          {/* Submit Button */}
-          <View style={styles.footer}>
-            <TouchableOpacity
-              style={[
-                styles.submitButton,
-                (!isValidAmount() || !selectedMethod || loading) && styles.submitButtonDisabled
-              ]}
-              onPress={handleSubmit}
-              disabled={!isValidAmount() || !selectedMethod || loading}
-            >
-              <Text style={[
-                styles.submitButtonText,
-                (!isValidAmount() || !selectedMethod || loading) && styles.submitButtonTextDisabled
-              ]}>
-                {loading ? 'Submitting...' : 'Submit Payment Claim'}
-              </Text>
-            </TouchableOpacity>
           </View>
+        )}
 
-          {showDatePicker && (
-            <DateTimePicker
-              value={claimedPaidAt}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={onDateChange}
-              maximumDate={new Date()}
-            />
+        {/* Amount Input */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Amount Paid</Text>
+          <TextInput
+            style={[
+              styles.amountInput,
+              !isValidAmount() && amount ? styles.inputError : null
+            ]}
+            value={amount}
+            onChangeText={(text) => setAmount(formatAmountInput(text))}
+            placeholder="Enter amount"
+            keyboardType="numeric"
+            placeholderTextColor="#999"
+          />
+          {amount && (
+            <Text style={styles.amountHelp}>
+              {isValidAmount()
+                ? `${getMonthsPaid()} month${getMonthsPaid() > 1 ? 's' : ''} of rent`
+                : getAmountError()
+              }
+            </Text>
           )}
         </View>
+
+        {/* Quick Amount Buttons */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Quick Select</Text>
+          <View style={styles.quickAmounts}>
+            {getQuickAmountOptions().map((option) => (
+              <TouchableOpacity
+                key={option.months}
+                style={[
+                  styles.quickAmountButton,
+                  getAmountValue() === option.amount && styles.quickAmountSelected
+                ]}
+                onPress={() => handleQuickAmount(option.amount)}
+              >
+                <Text style={[
+                  styles.quickAmountText,
+                  getAmountValue() === option.amount && styles.quickAmountTextSelected
+                ]}>
+                  {option.label}
+                </Text>
+                <Text style={[
+                  styles.quickAmountAmount,
+                  getAmountValue() === option.amount && styles.quickAmountTextSelected
+                ]}>
+                  {formatFullCurrency(option.amount)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Payment Method */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Payment Method</Text>
+          {paymentMethods.map((method) => (
+            <TouchableOpacity
+              key={method.key}
+              style={[
+                styles.methodOption,
+                selectedMethod === method.key && styles.methodSelected
+              ]}
+              onPress={() => setSelectedMethod(method.key)}
+            >
+              <View style={styles.methodContent}>
+                <Ionicons
+                  name={method.icon as any}
+                  size={24}
+                  color={selectedMethod === method.key ? '#007AFF' : '#666'}
+                />
+                <View style={styles.methodText}>
+                  <Text style={[
+                    styles.methodLabel,
+                    selectedMethod === method.key && styles.methodLabelSelected
+                  ]}>
+                    {method.label}
+                  </Text>
+                  <Text style={styles.methodDescription}>{method.description}</Text>
+                </View>
+              </View>
+              {selectedMethod === method.key && (
+                <Ionicons name="checkmark-circle" size={20} color="#007AFF" />
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Payment Date */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Date Paid</Text>
+          <TouchableOpacity
+            style={styles.dateButton}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Ionicons name="calendar-outline" size={20} color="#007AFF" />
+            <Text style={styles.dateText}>
+              {claimedPaidAt.toLocaleDateString()}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Reference/Notes */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Reference/Notes (Optional)</Text>
+          <TextInput
+            style={styles.referenceInput}
+            value={referenceText}
+            onChangeText={setReferenceText}
+            placeholder="e.g., Transaction ID, receipt number, or any notes"
+            placeholderTextColor="#999"
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+          />
+        </View>
+
+        {/* Info Box */}
+        <View style={styles.infoBox}>
+          <Ionicons name="information-circle-outline" size={20} color="#007AFF" />
+          <Text style={styles.infoBoxText}>
+            By submitting this claim, you confirm that you have made the payment. The property manager will verify and approve your payment.
+          </Text>
+        </View>
+
+        {/* Submit Button */}
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={[
+              styles.submitButton,
+              (!isValidAmount() || !selectedMethod || loading) && styles.submitButtonDisabled
+            ]}
+            onPress={handleSubmit}
+            disabled={!isValidAmount() || !selectedMethod || loading}
+          >
+            <Text style={[
+              styles.submitButtonText,
+              (!isValidAmount() || !selectedMethod || loading) && styles.submitButtonTextDisabled
+            ]}>
+              {loading ? 'Submitting...' : 'Submit Payment Claim'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {showDatePicker && (
+          <DateTimePicker
+            value={claimedPaidAt}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={onDateChange}
+            maximumDate={new Date()}
+          />
+        )}
       </View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 10,
-  },
-  modalContainer: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    width: '95%',
-    height: '85%',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-  },
-  closeButton: {
-    padding: 5,
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
   section: {
     marginBottom: 24,
   },

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, TextInput } from 'react-native';
+import { View, Text, TextInput } from 'react-native';
 import { Modal } from '../../components/Modal';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
@@ -88,20 +88,17 @@ export const SendReminderModal: React.FC<SendReminderModalProps> = ({ visible, o
                             <Text style={[typography.h4, { color: colors.text, marginBottom: spacing.sm }]}>
                                 Overdue Tenants ({allOverdueTenants.length})
                             </Text>
-                            <View style={{ maxHeight: 200, marginBottom: spacing.base }}>
-                                <FlatList
-                                    data={allOverdueTenants}
-                                    renderItem={({ item }) => (
-                                        <Button
-                                            title={`${item.name} - ${getPropertyName(item.propertyId)} - UGX ${item.amountOwed.toLocaleString()}`}
-                                            onPress={() => toggleTenant(item.id)}
-                                            variant={selectedTenantIds.includes(item.id) ? 'primary' : 'outline'}
-                                            size="medium"
-                                            style={{ marginBottom: spacing.sm }}
-                                        />
-                                    )}
-                                    keyExtractor={item => item.id}
-                                />
+                            <View style={{ marginBottom: spacing.base }}>
+                                {allOverdueTenants.map((item) => (
+                                    <Button
+                                        key={item.id}
+                                        title={`${item.name} - ${getPropertyName(item.propertyId)} - UGX ${item.amountOwed.toLocaleString()}`}
+                                        onPress={() => toggleTenant(item.id)}
+                                        variant={selectedTenantIds.includes(item.id) ? 'primary' : 'outline'}
+                                        size="medium"
+                                        style={{ marginBottom: spacing.sm }}
+                                    />
+                                ))}
                             </View>
 
                             {/* Custom Message */}
@@ -113,16 +110,20 @@ export const SendReminderModal: React.FC<SendReminderModalProps> = ({ visible, o
                                     style={{
                                         backgroundColor: colors.surface,
                                         borderRadius: 8,
+                                        borderWidth: 1,
+                                        borderColor: colors.border,
                                         padding: spacing.md,
-                                        color: colors.text,
                                         minHeight: 100,
-                                        textAlignVertical: 'top',
+                                        color: colors.text,
+                                        fontSize: 14,
                                     }}
-                                    placeholder="Add a personal message..."
+                                    multiline
+                                    numberOfLines={4}
+                                    textAlignVertical="top"
+                                    placeholder="Add a personal note to this reminder..."
                                     placeholderTextColor={colors.textSecondary}
                                     value={message}
                                     onChangeText={setMessage}
-                                    multiline
                                 />
                             </View>
 

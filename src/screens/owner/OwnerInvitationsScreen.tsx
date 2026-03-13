@@ -3,25 +3,35 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   TextInput,
   Alert,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useOwnerApi } from '../../hooks/useOwnerApi';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../context/AuthContext';
+import { TopAppBar } from '../../components/TopAppBar';
+import { ScreenWrapper } from '../../components/ScreenWrapper';
 import { Button } from '../../components/Button';
 
 export const OwnerInvitationsScreen: React.FC<any> = ({ navigation, route }) => {
   const { colors, spacing, typography, shadows } = useTheme();
+  const { user } = useAuth();
   const { invitations, properties, createInvitation, cancelInvitation, loading } = useOwnerApi();
   const [showModal, setShowModal] = useState(route?.params?.openModal || false);
   const [selectedProperty, setSelectedProperty] = useState('');
   const [managerEmail, setManagerEmail] = useState('');
   const [sending, setSending] = useState(false);
+
+  // Calculate total units
+  const totalUnits = properties.reduce((sum: number, property: any) => {
+    return sum + (property.units?.length || 0);
+  }, 0);
 
   // Check if pending filter is passed from route params
   const pendingFilter = route?.params?.filter === 'pending';
@@ -83,118 +93,110 @@ export const OwnerInvitationsScreen: React.FC<any> = ({ navigation, route }) => 
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={[styles.header, { padding: spacing.lg }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8 }}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <View style={{ flex: 1, marginLeft: spacing.md }}>
-          <Text style={[typography.h2, { color: colors.text }]}>
-            {pendingFilter ? 'Pending Invitations' : 'Manager Invitations'}
-          </Text>
-          <Text style={[typography.body, { color: colors.textSecondary }]}>
-            {displayedInvitations.length} {displayedInvitations.length === 1 ? 'invitation' : 'invitations'}
-          </Text>
-        </View>
-        <TouchableOpacity
-          onPress={() => setShowModal(true)}
-          style={[styles.addButton, { backgroundColor: colors.primary }]}
-        >
-          <Ionicons name="add" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
+    <ScreenWrapper>
+      <TopAppBar
+        onNotificationsPress={() => navigation.navigate('Notifications')}
+        onProfilePress={() => navigation.navigate('Profile')}
+        profileImage={user?.profileImage}
+        propertyCount={properties.length}
+        unitCount={totalUnits}
+      />
 
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingTop: 0 }}>
-        {loading ? (
-          <Text style={[typography.body, { color: colors.textSecondary, textAlign: 'center' }]}>
-            Loading invitations...
-          </Text>
-        ) : displayedInvitations.length === 0 ? (
-          <View
-            style={[
-              styles.emptyState,
-              {
+      <FlatList
+        data={displayedInvitations}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{ padding: spacing.lg }}
+        ListEmptyComponent={
+          loading ? (
+            <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.md }]}>
+                Loading invitations...
+              </Text>
+            </View>
+          ) : (
+            <View
+              style={{
                 backgroundColor: colors.surface,
                 padding: spacing.xl,
                 borderRadius: 12,
                 alignItems: 'center',
+                ...shadows.sm,
+              }}
+            >
+              <Ionicons name="mail-outline" size={48} color={colors.textSecondary} />
+              <Text style={[typography.h3, { color: colors.text, marginTop: spacing.md }]}>
+                No Invitations Yet
+              </Text>
+              <Text
+                style={[
+                  typography.body,
+                  { color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm },
+                ]}
+              >
+                Invite a property manager to get started
+              </Text>
+            </View>
+          )
+        }
+        renderItem={({ item: invitation }) => (
+          <View
+            style={[
+              styles.invitationCard,
+              {
+                backgroundColor: colors.surface,
+                padding: spacing.lg,
+                marginBottom: spacing.md,
+                borderRadius: 12,
+                ...shadows.sm,
               },
             ]}
           >
-            <Ionicons name="mail-outline" size={64} color={colors.textSecondary} />
-            <Text style={[typography.h3, { color: colors.text, marginTop: spacing.md }]}>
-              No Invitations Yet
-            </Text>
-            <Text
-              style={[
-                typography.body,
-                { color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm },
-              ]}
-            >
-              Tap the + button to invite a property manager
-            </Text>
-          </View>
-        ) : (
-          displayedInvitations.map((invitation: any) => (
-            <View
-              key={invitation.id}
-              style={[
-                styles.invitationCard,
-                {
-                  backgroundColor: colors.surface,
-                  padding: spacing.lg,
-                  marginBottom: spacing.md,
-                  borderRadius: 12,
-                  ...shadows.sm,
-                },
-              ]}
-            >
-              <View style={styles.invitationHeader}>
-                <View style={styles.invitationInfo}>
-                  <Text style={[typography.h3, { color: colors.text }]}>
-                    {invitation.property?.name || 'Unknown Property'}
-                  </Text>
-                  <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
-                    {invitation.managerEmail}
-                  </Text>
-                </View>
-                <View
+            <View style={styles.invitationHeader}>
+              <View style={styles.invitationInfo}>
+                <Text style={[typography.h3, { color: colors.text }]}>
+                  {invitation.property?.name || 'Unknown Property'}
+                </Text>
+                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                  {invitation.managerEmail}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.statusBadge,
+                  { backgroundColor: getStatusColor(invitation.status) + '20' },
+                ]}
+              >
+                <Text
                   style={[
-                    styles.statusBadge,
-                    { backgroundColor: getStatusColor(invitation.status) + '20' },
+                    typography.bodySmall,
+                    { color: getStatusColor(invitation.status), fontWeight: '600' },
                   ]}
                 >
-                  <Text
-                    style={[
-                      typography.bodySmall,
-                      { color: getStatusColor(invitation.status), fontWeight: '600' },
-                    ]}
-                  >
-                    {invitation.status}
-                  </Text>
-                </View>
+                  {invitation.status}
+                </Text>
               </View>
-
-              {invitation.status === 'PENDING' && (
-                <TouchableOpacity
-                  onPress={() => handleCancel(invitation.id)}
-                  style={[styles.cancelButton, { marginTop: spacing.md }]}
-                >
-                  <Ionicons name="close-circle" size={20} color={colors.error} />
-                  <Text
-                    style={[
-                      typography.bodySmall,
-                      { color: colors.error, marginLeft: spacing.sm },
-                    ]}
-                  >
-                    Cancel Invitation
-                  </Text>
-                </TouchableOpacity>
-              )}
             </View>
-          ))
+
+            {invitation.status === 'PENDING' && (
+              <TouchableOpacity
+                onPress={() => handleCancel(invitation.id)}
+                style={[styles.cancelButton, { marginTop: spacing.md }]}
+              >
+                <Ionicons name="close-circle" size={20} color={colors.error} />
+                <Text
+                  style={[
+                    typography.bodySmall,
+                    { color: colors.error, marginLeft: spacing.sm },
+                  ]}
+                >
+                  Cancel Invitation
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
-      </ScrollView>
+      />
 
       {/* New Invitation Modal */}
       <Modal visible={showModal} animationType="slide" transparent>
@@ -270,24 +272,11 @@ export const OwnerInvitationsScreen: React.FC<any> = ({ navigation, route }) => 
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyState: {},
   invitationCard: {},
   invitationHeader: {
     flexDirection: 'row',

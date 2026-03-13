@@ -41,7 +41,8 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
     const [showNotificationDetails, setShowNotificationDetails] = useState(false);
     const [selectedNotification, setSelectedNotification] = useState<any>(null);
 
-    const isManager = user?.role === 'manager';
+    const isManager = user?.role === 'MANAGER';
+    const isOwner = user?.role === 'OWNER';
 
     const handleNotificationsPress = async () => {
         await loadNotifications();
@@ -99,37 +100,41 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
                 {/* Left Section: Greeting & Identity */}
                 <View style={{ flex: 1, marginRight: spacing.md }}>
                     <Text style={{
-                        fontSize: 13,
+                        fontSize: 12,
                         color: colors.textSecondary,
-                        fontWeight: '500',
-                        letterSpacing: 0.3,
+                        fontWeight: '600',
+                        letterSpacing: 0.5,
+                        textTransform: 'uppercase',
                     }}>
                         {getGreeting()}
                     </Text>
                     <Text style={{
-                        fontSize: 20,
+                        fontSize: 22,
                         fontWeight: '700',
                         color: colors.text,
-                        marginTop: 2,
+                        marginTop: 4,
+                        letterSpacing: -0.5,
                     }}>
                         {isManager ? user?.name : getFirstName(user?.name)}
                     </Text>
 
                     {/* Subtext - Role specific */}
-                    {isManager ? (
+                    {(isManager || isOwner) ? (
                         <Text style={{
-                            fontSize: 12,
+                            fontSize: 11,
                             color: colors.textTertiary,
-                            marginTop: 2,
+                            marginTop: 4,
+                            fontWeight: '500',
                         }}>
                             {propertyCount} {propertyCount === 1 ? 'Property' : 'Properties'} · {unitCount} Units
                         </Text>
                     ) : (
                         propertyName && unitNumber && (
                             <Text style={{
-                                fontSize: 12,
+                                fontSize: 11,
                                 color: colors.textTertiary,
-                                marginTop: 2,
+                                marginTop: 4,
+                                fontWeight: '500',
                             }}>
                                 {unitNumber} – {propertyName}
                             </Text>

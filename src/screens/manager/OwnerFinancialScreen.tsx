@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { formatCompactCurrencyUGX } from '../../utils/formatters';
 import { useProperties } from '../../context/PropertyContext';
 import { usePayments } from '../../context/PaymentContext';
 import { Card } from '../../components/Card';
@@ -66,9 +67,6 @@ export const OwnerFinancialScreen: React.FC<OwnerFinancialScreenProps> = ({ navi
         }, 1000);
     };
 
-    const formatCurrency = (amount: number) => {
-        return `UGX ${(amount / 1000000).toFixed(1)}M`;
-    };
 
     const formatPercentage = (value: number) => {
         return `${value.toFixed(1)}%`;
@@ -120,11 +118,11 @@ export const OwnerFinancialScreen: React.FC<OwnerFinancialScreenProps> = ({ navi
 
                 {/* Summary Cards */}
                 <View style={styles.summaryGrid}>
-                    <Card style={[styles.summaryCard, { backgroundColor: colors.successLight, marginRight: 6 }]}>
+                    <Card style={{ ...styles.summaryCard, backgroundColor: colors.successLight, marginRight: 6 }}>
                         <View style={styles.summaryContent}>
                             <Ionicons name="trending-up" size={24} color={colors.success} />
                             <Text style={[typography.h2, { color: colors.success, marginTop: spacing.sm }]}>
-                                {formatCurrency(totalRentCollected)}
+                                {formatCompactCurrencyUGX(totalRentCollected)}
                             </Text>
                             <Text style={[typography.bodySmall, { color: colors.success, marginTop: spacing.xs }]}>
                                 Total Rent Collected
@@ -132,11 +130,11 @@ export const OwnerFinancialScreen: React.FC<OwnerFinancialScreenProps> = ({ navi
                         </View>
                     </Card>
 
-                    <Card style={[styles.summaryCard, { backgroundColor: colors.errorLight, marginLeft: 6 }]}>
+                    <Card style={{ ...styles.summaryCard, backgroundColor: colors.errorLight, marginLeft: 6 }}>
                         <View style={styles.summaryContent}>
                             <Ionicons name="alert-circle" size={24} color={colors.error} />
                             <Text style={[typography.h2, { color: colors.error, marginTop: spacing.sm }]}>
-                                {formatCurrency(totalOutstanding)}
+                                {formatCompactCurrencyUGX(totalOutstanding)}
                             </Text>
                             <Text style={[typography.bodySmall, { color: colors.error, marginTop: spacing.xs }]}>
                                 Outstanding Arrears
@@ -146,11 +144,11 @@ export const OwnerFinancialScreen: React.FC<OwnerFinancialScreenProps> = ({ navi
                 </View>
 
                 <View style={[styles.summaryGrid, { marginTop: spacing.lg }]}>
-                    <Card style={[styles.summaryCard, { backgroundColor: colors.primary + '15', marginRight: 6 }]}>
+                    <Card style={{ ...styles.summaryCard, backgroundColor: colors.primary + '15', marginRight: 6 }}>
                         <View style={styles.summaryContent}>
                             <Ionicons name="cash" size={24} color={colors.primary} />
                             <Text style={[typography.h2, { color: colors.primary, marginTop: spacing.sm }]}>
-                                {formatCurrency(netIncome)}
+                                {formatCompactCurrencyUGX(netIncome)}
                             </Text>
                             <Text style={[typography.bodySmall, { color: colors.primary, marginTop: spacing.xs }]}>
                                 Net Income
@@ -158,7 +156,7 @@ export const OwnerFinancialScreen: React.FC<OwnerFinancialScreenProps> = ({ navi
                         </View>
                     </Card>
 
-                    <Card style={[styles.summaryCard, { backgroundColor: colors.accent + '15', marginLeft: 6 }]}>
+                    <Card style={{ ...styles.summaryCard, backgroundColor: colors.accent + '15', marginLeft: 6 }}>
                         <View style={styles.summaryContent}>
                             <Ionicons name="home" size={24} color={colors.accent} />
                             <Text style={[typography.h2, { color: colors.accent, marginTop: spacing.sm }]}>
@@ -183,7 +181,7 @@ export const OwnerFinancialScreen: React.FC<OwnerFinancialScreenProps> = ({ navi
                                 Total Monthly Rent
                             </Text>
                             <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>
-                                {formatCurrency(totalMonthlyRent)}
+                                {formatCompactCurrencyUGX(totalMonthlyRent)}
                             </Text>
                         </View>
 
@@ -192,7 +190,7 @@ export const OwnerFinancialScreen: React.FC<OwnerFinancialScreenProps> = ({ navi
                                 Operating Expenses
                             </Text>
                             <Text style={[typography.body, { color: colors.error, fontWeight: '600' }]}>
-                                -{formatCurrency(totalExpenses)}
+                                -{formatCompactCurrencyUGX(totalExpenses)}
                             </Text>
                         </View>
 
@@ -207,7 +205,7 @@ export const OwnerFinancialScreen: React.FC<OwnerFinancialScreenProps> = ({ navi
                                 typography.body,
                                 { color: netIncome >= 0 ? colors.success : colors.error, fontWeight: '600' }
                             ]}>
-                                {netIncome >= 0 ? '+' : ''}{formatCurrency(netIncome)}
+                                {netIncome >= 0 ? '+' : ''}{formatCompactCurrencyUGX(netIncome)}
                             </Text>
                         </View>
                     </View>
@@ -237,7 +235,7 @@ export const OwnerFinancialScreen: React.FC<OwnerFinancialScreenProps> = ({ navi
                                 </View>
                                 <View style={{ alignItems: 'flex-end' }}>
                                     <Text style={[typography.body, { color: colors.success, fontWeight: '600' }]}>
-                                        {formatCurrency(propertyRentCollected)}
+                                        {formatCompactCurrencyUGX(propertyRentCollected)}
                                     </Text>
                                     <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
                                         {formatPercentage(propertyOccupancyRate)}

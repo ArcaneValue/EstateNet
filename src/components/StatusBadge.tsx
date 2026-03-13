@@ -3,7 +3,23 @@ import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 
 type StatusType = 'success' | 'warning' | 'error' | 'info';
-type PredefinedStatus = 'available' | 'occupied' | 'pending' | 'overdue' | 'paid' | 'unpaid' | 'current' | 'past_overdue';
+type PredefinedStatus =
+    | 'available'
+    | 'occupied'
+    | 'pending'
+    | 'overdue'
+    | 'paid'
+    | 'unpaid'
+    | 'current'
+    | 'past_overdue'
+    | 'NOT_DUE'
+    | 'PAID'
+    | 'PENDING'
+    | 'OVERDUE'
+    | 'NO_LEASE'
+    | 'ACCEPTED'
+    | 'DECLINED'
+    | 'INVITED';
 
 interface StatusBadgeProps {
     status?: PredefinedStatus;
@@ -64,6 +80,47 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
             label: 'Current',
             color: colors.success,
             backgroundColor: colors.successLight,
+        },
+        // Rent status mappings with human-friendly labels
+        NOT_DUE: {
+            label: 'Paid up',
+            color: colors.success,
+            backgroundColor: colors.successLight,
+        },
+        PAID: {
+            label: 'Paid',
+            color: colors.success,
+            backgroundColor: colors.successLight,
+        },
+        PENDING: {
+            label: 'Pending',
+            color: colors.warning,
+            backgroundColor: colors.warningLight,
+        },
+        OVERDUE: {
+            label: 'Overdue',
+            color: colors.error,
+            backgroundColor: colors.errorLight,
+        },
+        NO_LEASE: {
+            label: 'No lease',
+            color: colors.textSecondary,
+            backgroundColor: colors.border,
+        },
+        ACCEPTED: {
+            label: 'Accepted',
+            color: colors.success,
+            backgroundColor: colors.successLight,
+        },
+        DECLINED: {
+            label: 'Declined',
+            color: colors.error,
+            backgroundColor: colors.errorLight,
+        },
+        INVITED: {
+            label: 'Invited',
+            color: colors.info,
+            backgroundColor: colors.infoLight,
         },
     };
 

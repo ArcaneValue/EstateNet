@@ -7,6 +7,7 @@ import { Card } from './Card';
 import { Button } from './Button';
 import { StatusBadge } from './StatusBadge';
 import { Ionicons } from '@expo/vector-icons';
+import { formatCompactCurrencyUGX } from '../utils/formatters';
 
 interface OwnerCenterProps {
     navigation: any;
@@ -132,7 +133,7 @@ export const OwnerCenter: React.FC<OwnerCenterProps> = ({ navigation }) => {
                         alignItems: 'center' as const,
                     }}>
                         <Text style={[typography.h3, { color: colors.accent }]}>
-                            UGX {(totalRentCollected / 1000000).toFixed(1)}M
+                            {formatCompactCurrencyUGX(totalRentCollected)}
                         </Text>
                         <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 4 }]}>
                             Rent Collected
@@ -151,7 +152,7 @@ export const OwnerCenter: React.FC<OwnerCenterProps> = ({ navigation }) => {
                         alignItems: 'center' as const,
                     }}>
                         <Text style={[typography.h3, { color: colors.error }]}>
-                            UGX {(totalOutstanding / 1000000).toFixed(1)}M
+                            {formatCompactCurrencyUGX(totalOutstanding)}
                         </Text>
                         <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 4 }]}>
                             Outstanding

@@ -14,7 +14,11 @@ export const getTenantRentStatus = async (req: AuthenticatedRequest, res: Respon
       return;
     }
 
-    const status = await rentService.getTenantRentStatus(req.user.tenantId);
+    // Extract optional period parameter (YYYY-MM format)
+    const { period } = req.query;
+    const periodParam = typeof period === 'string' ? period : undefined;
+
+    const status = await rentService.getTenantRentStatus(req.user.tenantId, periodParam);
 
     res.status(200).json({
       success: true,

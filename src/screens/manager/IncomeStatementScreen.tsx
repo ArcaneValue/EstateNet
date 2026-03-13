@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useIncomeStatement } from '../../hooks/useManagerFinance';
 import { useProperties } from '../../context/PropertyContext';
 import { Card } from '../../components/Card';
+import { PageHeader } from '../../components/PageHeader';
+import { FilterChips } from '../../components/FilterChips';
 import { PdfExportPreviewModal } from '../../components/PdfExportPreviewModal';
 import { buildIncomeStatementHtml } from '../../utils/pdfReports';
+import { formatCompactCurrencyUGX } from '../../utils/formatters';
 
 export const IncomeStatementScreen: React.FC<any> = ({ navigation }) => {
     const { colors, spacing, typography } = useTheme();
@@ -29,19 +30,22 @@ export const IncomeStatementScreen: React.FC<any> = ({ navigation }) => {
         return `${year}-${month.toString().padStart(2, '0')}`;
     };
 
-    const formatCurrency = (amount: number) => {
-        return `UGX ${(amount / 1000000).toFixed(1)}M`;
+    const generatePeriodOptions = () => {
+        const options = [];
+        const now = new Date();
+        for (let i = 0; i < 7; i++) {
+            const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const value = `${year}-${month.toString().padStart(2, '0')}`;
+            const label = date.toLocaleDateString('en-UG', { month: 'long', year: 'numeric' });
+            options.push({ value, label });
+        }
+        return options;
     };
 
-    const getRecentPeriods = () => {
-        const periods: string[] = [];
-        const now = new Date();
-        for (let i = 0; i < 6; i++) {
-            const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            periods.push(`${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`);
-        }
-        return periods;
-    };
+    const periodOptions = generatePeriodOptions();
+    const currentPeriod = getCurrentPeriod();
 
     const applyFilters = (period?: string, propertyId?: string) => {
         setSelectedPeriod(period);
@@ -89,183 +93,98 @@ export const IncomeStatementScreen: React.FC<any> = ({ navigation }) => {
 
     if (loading) {
         return (
-            <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+            <View style={{ flex: 1, backgroundColor: colors.background }}>
+                <PageHeader
+                    title="Income statement"
+                    onBack={() => navigation.goBack()}
+                    rightAction={{
+                        iconName: 'download-outline',
+                        onPress: handleExportPDF,
+                        loading: exportLoading
+                    }}
+                />
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                     <ActivityIndicator size="large" color={colors.primary} />
                     <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.md }]}>
                         Loading income statement...
                     </Text>
                 </View>
-            </SafeAreaView>
-        );
-    }
-
-    if (error) {
-        return (
-            <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.lg }}>
-                    <Ionicons name="alert-circle" size={48} color={colors.error} />
-                    <Text style={[typography.h3, { color: colors.error, marginTop: spacing.md, textAlign: 'center' }]}>
-                        Error Loading Data
-                    </Text>
-                    <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}>
-                        {error}
-                    </Text>
-                    <TouchableOpacity
-                        onPress={() => refetch(selectedPeriod, selectedPropertyId)}
-                        style={{
-                            backgroundColor: colors.primary,
-                            paddingHorizontal: spacing.lg,
-                            paddingVertical: spacing.md,
-                            borderRadius: 8,
-                            marginTop: spacing.lg
-                        }}
-                    >
-                        <Text style={[typography.body, { color: colors.background, fontWeight: '600' }]}>Retry</Text>
-                    </TouchableOpacity>
-                </View>
-            </SafeAreaView>
+            </View>
         );
     }
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
+            <PageHeader
+                title="Income statement"
+                onBack={() => navigation.goBack()}
+                rightAction={{
+                    iconName: 'download-outline',
+                    onPress: handleExportPDF,
+                    loading: exportLoading
+                }}
+            />
+
             <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-                <View style={{ padding: spacing.base }}>
-                    {/* Header with Back Button */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg }}>
-                        <TouchableOpacity
-                            onPress={() => navigation.goBack()}
-                            style={{ marginRight: spacing.md }}
-                        >
-                            <Ionicons name="arrow-back" size={24} color={colors.text} />
-                        </TouchableOpacity>
-                        <View style={{ flex: 1 }}>
-                            <Text style={[typography.h2, { color: colors.text }]}>
-                                Income Statement
-                            </Text>
-                            <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm }]}>
-                                Period: {data?.period || getCurrentPeriod()}
-                            </Text>
-                        </View>
-                        <TouchableOpacity
-                            onPress={handleExportPDF}
-                            disabled={exportLoading || !data}
-                            style={{
-                                backgroundColor: exportLoading || !data ? colors.border : colors.primary,
-                                paddingHorizontal: spacing.md,
-                                paddingVertical: spacing.sm,
-                                borderRadius: 8,
-                                flexDirection: 'row',
-                                alignItems: 'center'
-                            }}
-                        >
-                            {exportLoading ? (
-                                <ActivityIndicator size="small" color={colors.background} style={{ marginRight: spacing.xs }} />
-                            ) : (
-                                <Ionicons name="download-outline" size={16} color={colors.background} style={{ marginRight: spacing.xs }} />
-                            )}
-                            <Text style={[typography.bodySmall, { color: colors.background }]}>
-                                {exportLoading ? 'Exporting...' : 'Export PDF'}
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    <Card style={{ marginBottom: spacing.md, padding: spacing.md, backgroundColor: colors.warning + '15' }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Ionicons name="warning-outline" size={18} color={colors.warning} style={{ marginRight: spacing.sm }} />
-                            <Text style={[typography.bodySmall, { color: colors.text, flex: 1 }]}>Simplified statement (rent collections only).</Text>
-                        </View>
-                    </Card>
-
-                    <Card style={{ marginBottom: spacing.lg, padding: spacing.md }}>
-                        <Text style={[typography.body, { color: colors.text, fontWeight: '600', marginBottom: spacing.sm }]}>Period</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.md }}>
-                            <TouchableOpacity
-                                onPress={() => applyFilters(undefined, selectedPropertyId)}
-                                style={{
-                                    backgroundColor: !selectedPeriod ? colors.primary : colors.surface,
-                                    borderWidth: 1,
-                                    borderColor: colors.border,
-                                    paddingHorizontal: spacing.md,
-                                    paddingVertical: spacing.sm,
-                                    borderRadius: 20,
-                                    marginRight: spacing.sm,
-                                }}
-                            >
-                                <Text style={[typography.bodySmall, { color: !selectedPeriod ? colors.background : colors.text }]}>Current</Text>
-                            </TouchableOpacity>
-                            {getRecentPeriods().map((period) => (
-                                <TouchableOpacity
-                                    key={period}
-                                    onPress={() => applyFilters(period, selectedPropertyId)}
-                                    style={{
-                                        backgroundColor: selectedPeriod === period ? colors.primary : colors.surface,
-                                        borderWidth: 1,
-                                        borderColor: colors.border,
-                                        paddingHorizontal: spacing.md,
-                                        paddingVertical: spacing.sm,
-                                        borderRadius: 20,
-                                        marginRight: spacing.sm,
-                                    }}
-                                >
-                                    <Text style={[typography.bodySmall, { color: selectedPeriod === period ? colors.background : colors.text }]}>{period}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
-
-                        <Text style={[typography.body, { color: colors.text, fontWeight: '600', marginBottom: spacing.sm }]}>Property</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                            <TouchableOpacity
-                                onPress={() => applyFilters(selectedPeriod, undefined)}
-                                style={{
-                                    backgroundColor: !selectedPropertyId ? colors.primary : colors.surface,
-                                    borderWidth: 1,
-                                    borderColor: colors.border,
-                                    paddingHorizontal: spacing.md,
-                                    paddingVertical: spacing.sm,
-                                    borderRadius: 20,
-                                    marginRight: spacing.sm,
-                                }}
-                            >
-                                <Text style={[typography.bodySmall, { color: !selectedPropertyId ? colors.background : colors.text }]}>All Properties</Text>
-                            </TouchableOpacity>
-                            {properties.map((property) => (
-                                <TouchableOpacity
-                                    key={property.id}
-                                    onPress={() => applyFilters(selectedPeriod, property.id)}
-                                    style={{
-                                        backgroundColor: selectedPropertyId === property.id ? colors.primary : colors.surface,
-                                        borderWidth: 1,
-                                        borderColor: colors.border,
-                                        paddingHorizontal: spacing.md,
-                                        paddingVertical: spacing.sm,
-                                        borderRadius: 20,
-                                        marginRight: spacing.sm,
-                                    }}
-                                >
-                                    <Text style={[typography.bodySmall, { color: selectedPropertyId === property.id ? colors.background : colors.text }]}>{property.name}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
-                    </Card>
-
-                    {/* Net Income Summary */}
-                    <Card style={{ marginBottom: spacing.lg, padding: spacing.lg }}>
-                        <View style={{ alignItems: 'center' }}>
-                            <View style={{
-                                backgroundColor: colors.success + '20',
-                                width: 80,
-                                height: 80,
-                                borderRadius: 40,
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                marginBottom: spacing.md
-                            }}>
-                                <Ionicons name="trending-up" size={40} color={colors.success} />
+                <View style={{ padding: spacing.lg }}>
+                    {/* Error Display */}
+                    {error && (
+                        <Card style={{
+                            backgroundColor: colors.error + '10',
+                            borderColor: colors.error,
+                            borderWidth: 1,
+                            marginBottom: spacing.lg
+                        }}>
+                            <View style={{ padding: spacing.md }}>
+                                <Text style={[typography.bodySmall, { color: colors.error }]}>
+                                    {error}
+                                </Text>
                             </View>
-                            <Text style={[typography.h1, { color: colors.success, textAlign: 'center' }]}>
-                                {formatCurrency(data?.netIncome || 0)}
+                        </Card>
+                    )}
+
+                    {/* Info Banner */}
+                    <Card style={{ marginBottom: spacing.lg, padding: spacing.md, backgroundColor: colors.info + '10' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Ionicons name="information-circle" size={18} color={colors.info} style={{ marginRight: spacing.sm }} />
+                            <Text style={[typography.bodySmall, { color: colors.text, flex: 1 }]}>Simplified statement (rent collections only)</Text>
+                        </View>
+                    </Card>
+
+                    {/* Filters Section */}
+                    <Card style={{ marginBottom: spacing.lg, padding: spacing.md }}>
+                        <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md }]}>Filters</Text>
+
+                        <View style={{ marginBottom: spacing.md }}>
+                            <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.sm }]}>Period</Text>
+                            <FilterChips
+                                options={periodOptions}
+                                selectedValue={selectedPeriod || currentPeriod}
+                                onSelect={(value) => applyFilters(value, selectedPropertyId)}
+                                allowClear={false}
+                            />
+                        </View>
+
+                        <View>
+                            <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.sm }]}>Property</Text>
+                            <FilterChips
+                                options={[
+                                    { label: 'All Properties', value: 'all' },
+                                    ...properties.map(p => ({ label: p.name, value: p.id }))
+                                ]}
+                                selectedValue={selectedPropertyId || 'all'}
+                                onSelect={(value) => applyFilters(selectedPeriod, value === 'all' ? undefined : value)}
+                                allowClear={false}
+                            />
+                        </View>
+                    </Card>
+
+                    {/* Hero Card - Net Income */}
+                    <Card style={{ marginBottom: spacing.lg, padding: spacing.xl }}>
+                        <View style={{ alignItems: 'center' }}>
+                            <Ionicons name="trending-up" size={48} color={colors.success} style={{ marginBottom: spacing.md }} />
+                            <Text style={[typography.h1, { color: colors.success, textAlign: 'center', marginBottom: spacing.xs }]}>
+                                {formatCompactCurrencyUGX(data?.netIncome || 0)}
                             </Text>
                             <Text style={[typography.body, { color: colors.textSecondary, textAlign: 'center' }]}>
                                 Net Income
@@ -282,14 +201,14 @@ export const IncomeStatementScreen: React.FC<any> = ({ navigation }) => {
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm }}>
                             <Text style={[typography.body, { color: colors.text }]}>Rent Income</Text>
                             <Text style={[typography.body, { color: colors.success, fontWeight: '600' }]}>
-                                {formatCurrency(data?.revenue.rentIncome || 0)}
+                                {formatCompactCurrencyUGX(data?.revenue.rentIncome || 0)}
                             </Text>
                         </View>
 
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm }}>
                             <Text style={[typography.body, { color: colors.text }]}>Other Income</Text>
                             <Text style={[typography.body, { color: colors.textSecondary }]}>
-                                {formatCurrency(data?.revenue.otherIncome || 0)}
+                                {formatCompactCurrencyUGX(data?.revenue.otherIncome || 0)}
                             </Text>
                         </View>
 
@@ -298,7 +217,7 @@ export const IncomeStatementScreen: React.FC<any> = ({ navigation }) => {
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                             <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>Total Revenue</Text>
                             <Text style={[typography.body, { color: colors.success, fontWeight: '600' }]}>
-                                {formatCurrency(data?.revenue.totalRevenue || 0)}
+                                {formatCompactCurrencyUGX(data?.revenue.totalRevenue || 0)}
                             </Text>
                         </View>
                     </Card>
@@ -312,21 +231,21 @@ export const IncomeStatementScreen: React.FC<any> = ({ navigation }) => {
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm }}>
                             <Text style={[typography.body, { color: colors.text }]}>Operating Expenses</Text>
                             <Text style={[typography.body, { color: colors.textSecondary }]}>
-                                {formatCurrency(data?.expenses.operatingExpenses || 0)}
+                                {formatCompactCurrencyUGX(data?.expenses.operatingExpenses || 0)}
                             </Text>
                         </View>
 
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm }}>
                             <Text style={[typography.body, { color: colors.text }]}>Maintenance Expenses</Text>
                             <Text style={[typography.body, { color: colors.textSecondary }]}>
-                                {formatCurrency(data?.expenses.maintenanceExpenses || 0)}
+                                {formatCompactCurrencyUGX(data?.expenses.maintenanceExpenses || 0)}
                             </Text>
                         </View>
 
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm }}>
                             <Text style={[typography.body, { color: colors.text }]}>Administrative Expenses</Text>
                             <Text style={[typography.body, { color: colors.textSecondary }]}>
-                                {formatCurrency(data?.expenses.administrativeExpenses || 0)}
+                                {formatCompactCurrencyUGX(data?.expenses.administrativeExpenses || 0)}
                             </Text>
                         </View>
 
@@ -335,7 +254,7 @@ export const IncomeStatementScreen: React.FC<any> = ({ navigation }) => {
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                             <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>Total Expenses</Text>
                             <Text style={[typography.body, { color: colors.textSecondary, fontWeight: '600' }]}>
-                                {formatCurrency(data?.expenses.totalExpenses || 0)}
+                                {formatCompactCurrencyUGX(data?.expenses.totalExpenses || 0)}
                             </Text>
                         </View>
 
@@ -353,14 +272,14 @@ export const IncomeStatementScreen: React.FC<any> = ({ navigation }) => {
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm }}>
                             <Text style={[typography.body, { color: colors.text }]}>Total Revenue</Text>
                             <Text style={[typography.body, { color: colors.success, fontWeight: '600' }]}>
-                                {formatCurrency(data?.revenue.totalRevenue || 0)}
+                                {formatCompactCurrencyUGX(data?.revenue.totalRevenue || 0)}
                             </Text>
                         </View>
 
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm }}>
                             <Text style={[typography.body, { color: colors.text }]}>Less: Total Expenses</Text>
                             <Text style={[typography.body, { color: colors.error, fontWeight: '600' }]}>
-                                ({formatCurrency(data?.expenses.totalExpenses || 0)})
+                                ({formatCompactCurrencyUGX(data?.expenses.totalExpenses || 0)})
                             </Text>
                         </View>
 
@@ -369,7 +288,7 @@ export const IncomeStatementScreen: React.FC<any> = ({ navigation }) => {
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                             <Text style={[typography.h3, { color: colors.text }]}>Net Income</Text>
                             <Text style={[typography.h3, { color: colors.success }]}>
-                                {formatCurrency(data?.netIncome || 0)}
+                                {formatCompactCurrencyUGX(data?.netIncome || 0)}
                             </Text>
                         </View>
                     </Card>
@@ -393,6 +312,6 @@ export const IncomeStatementScreen: React.FC<any> = ({ navigation }) => {
                 fileName={previewFileName}
                 onClose={() => setShowPreviewModal(false)}
             />
-        </SafeAreaView>
+        </View>
     );
 };

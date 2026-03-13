@@ -6,7 +6,9 @@ import { TenantListItem } from '../../components/TenantListItem';
 import { Modal } from '../../components/Modal';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
+import { TopAppBar } from '../../components/TopAppBar';
 import { useProperties } from '../../context/PropertyContext';
+import { useAuth } from '../../context/AuthContext';
 import { InviteTenantModal } from './InviteTenantModal';
 import { InvitationsList, ManagerInvitation } from './InvitationsList';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,6 +36,7 @@ interface ManagerTenant {
 
 export const TenantsScreen: React.FC<any> = ({ navigation }) => {
     const { colors, spacing, typography, borderRadius } = useTheme();
+    const { user } = useAuth();
     const { properties } = useProperties();
     const { sendMessage } = useMessages();
     const { checkEnforcement, checking: checkingEnforcement } = useManagerEnforcement();
@@ -232,6 +235,27 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
         }
     };
 
+    const handleSendTenantReminder = () => {
+        if (!selectedTenant || !reminderText.trim()) {
+            return;
+        }
+
+        // In a real app, this would send SMS/email notification
+        Alert.alert(
+            'Reminder Sent',
+            `Payment reminder has been sent to ${selectedTenant.name}`,
+            [
+                {
+                    text: 'OK',
+                    onPress: () => {
+                        setShowReminderModal(false);
+                        setReminderText('Your rent payment is due. Please make the payment at your earliest convenience.');
+                    }
+                }
+            ]
+        );
+    };
+
     const handleInviteTenantPress = async () => {
         if (__DEV__) {
             console.log('[TenantsScreen] Invite Tenant button pressed');
@@ -255,21 +279,17 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+            <TopAppBar
+                onNotificationsPress={() => { }}
+                onProfilePress={() => navigation.navigate('Profile')}
+                profileImage={user?.profileImage}
+                propertyCount={properties.length}
+            />
             <ScrollView
                 style={{ flex: 1 }}
                 contentContainerStyle={{ padding: spacing.base, paddingBottom: spacing.xl }}
                 showsVerticalScrollIndicator={false}
             >
-                {/* Header */}
-                <View style={{ marginBottom: spacing.lg }}>
-                    <Text style={[typography.h2, { color: colors.text }]}>
-                        Tenants
-                    </Text>
-                    <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm }]}>
-                        Manage your tenants and invitations
-                    </Text>
-                </View>
-
                 {/* Tab Toggle */}
                 <View
                     style={{
@@ -614,25 +634,24 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
                                 borderRadius: borderRadius.md,
                                 padding: spacing.md,
                                 color: colors.text,
+                                fontSize: 14,
                                 minHeight: 100,
-                                textAlignVertical: 'top',
-                                marginBottom: spacing.lg,
                             }}
-                            placeholder="Enter reminder message..."
-                            placeholderTextColor={colors.textTertiary}
+                            multiline
+                            numberOfLines={4}
+                            textAlignVertical="top"
+                            placeholder="Type your reminder message here..."
+                            placeholderTextColor={colors.textSecondary}
                             value={reminderText}
                             onChangeText={setReminderText}
-                            multiline
                         />
 
                         <Button
                             title="Send Reminder"
-                            onPress={() => {
-                                Alert.alert('Reminder Sent', `Payment reminder has been sent to ${selectedTenant.name}`);
-                                setShowReminderModal(false);
-                            }}
+                            onPress={handleSendTenantReminder}
                             variant="primary"
                             size="large"
+                            style={{ marginTop: spacing.lg }}
                             icon={<Ionicons name="send" size={18} color="#FFFFFF" />}
                         />
                     </View>

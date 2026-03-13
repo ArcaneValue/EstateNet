@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, ScrollView, RefreshControl, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, RefreshControl, Alert } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { apiGet, apiPost } from '../../utils/apiClient';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { Input } from '../../components/Input';
+import { Modal } from '../../components/Modal';
+import { PageHeader } from '../../components/PageHeader';
+import { FilterChips } from '../../components/FilterChips';
 import { Ionicons } from '@expo/vector-icons';
 import { formatFullCurrency } from '../../utils/currencyFormatter';
 
@@ -62,8 +65,8 @@ export const ManagerPaymentClaimsScreen: React.FC<ManagerPaymentClaimsScreenProp
     }>({ visible: false, claim: null, decision: null, note: '' });
 
     const statusOptions = [
-        { value: 'ALL', label: 'All Claims' },
-        { value: 'PENDING', label: 'Pending Review' },
+        { value: 'ALL', label: 'All' },
+        { value: 'PENDING', label: 'Pending' },
         { value: 'VERIFIED', label: 'Verified' },
         { value: 'REJECTED', label: 'Rejected' }
     ];
@@ -185,7 +188,7 @@ export const ManagerPaymentClaimsScreen: React.FC<ManagerPaymentClaimsScreenProp
         const isProcessing = processingClaimId === item.id;
 
         return (
-            <Card style={{ marginBottom: spacing.md }}>
+            <Card style={{ marginHorizontal: spacing.lg, marginBottom: spacing.md }}>
                 <View style={{ padding: spacing.md }}>
                     {/* Header with amount and status */}
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.sm }}>
@@ -285,170 +288,137 @@ export const ManagerPaymentClaimsScreen: React.FC<ManagerPaymentClaimsScreenProp
         );
     };
 
+    const renderHeader = () => (
+        <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md }}>
+            {/* Error Display */}
+            {error && (
+                <Card style={{
+                    backgroundColor: colors.error + '10',
+                    borderColor: colors.error,
+                    borderWidth: 1,
+                    marginBottom: spacing.lg
+                }}>
+                    <View style={{ padding: spacing.md }}>
+                        <Text style={[typography.bodySmall, { color: colors.error }]}>
+                            {error}
+                        </Text>
+                    </View>
+                </Card>
+            )}
+
+            {/* Status Filter */}
+            <View style={{ marginBottom: spacing.lg }}>
+                <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.sm }]}>
+                    Filter by Status
+                </Text>
+                <FilterChips
+                    options={statusOptions}
+                    selectedValue={statusFilter}
+                    onSelect={(value) => setStatusFilter(value as any || 'ALL')}
+                    allowClear={false}
+                />
+            </View>
+        </View>
+    );
+
+    const renderEmpty = () => (
+        <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl }}>
+            <Card>
+                <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+                    <Ionicons name="document-text-outline" size={64} color={colors.textSecondary} />
+                    <Text style={[typography.h3, { color: colors.textSecondary, marginTop: spacing.md, textAlign: 'center' }]}>
+                        No {statusFilter.toLowerCase() === 'all' ? '' : statusFilter.toLowerCase() + ' '}claims
+                    </Text>
+                    <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}>
+                        {statusFilter === 'PENDING'
+                            ? 'No payment claims are waiting for your review.'
+                            : 'Try adjusting your filter or pull to refresh.'
+                        }
+                    </Text>
+                </View>
+            </Card>
+        </View>
+    );
+
     if (loading && !refreshing) {
         return (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-                <Text style={[typography.body, { color: colors.text }]}>Loading payment claims...</Text>
+            <View style={{ flex: 1, backgroundColor: colors.background }}>
+                <PageHeader title="Payment claims" onBack={() => navigation.goBack()} />
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <Text style={[typography.body, { color: colors.text }]}>Loading payment claims...</Text>
+                </View>
             </View>
         );
     }
 
     return (
         <View style={{ flex: 1, backgroundColor: colors.background }}>
-            <ScrollView
-                style={{ flex: 1 }}
+            <PageHeader title="Payment claims" onBack={() => navigation.goBack()} />
+
+            <FlatList
+                data={claims}
+                renderItem={renderClaimItem}
+                keyExtractor={(item) => item.id}
+                ListHeaderComponent={renderHeader}
+                ListEmptyComponent={renderEmpty}
+                contentContainerStyle={{ paddingBottom: spacing.lg }}
+                ItemSeparatorComponent={() => <View style={{ height: 0 }} />}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
                         onRefresh={() => loadClaims(true)}
                     />
                 }
-            >
-                <View style={{ padding: spacing.lg }}>
-                    {/* Header with Back Button */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg }}>
-                        <TouchableOpacity
-                            onPress={() => navigation.goBack()}
-                            style={{ marginRight: spacing.md }}
-                        >
-                            <Ionicons name="arrow-back" size={24} color={colors.text} />
-                        </TouchableOpacity>
-                        <Text style={[typography.h2, { color: colors.text }]}>
-                            Payment Claims
-                        </Text>
-                    </View>
+            />
 
-                    {/* Error Display */}
-                    {error && (
-                        <Card style={{
-                            backgroundColor: colors.error + '10',
-                            borderColor: colors.error,
-                            borderWidth: 1,
-                            marginBottom: spacing.lg
-                        }}>
-                            <View style={{ padding: spacing.md }}>
-                                <Text style={[typography.bodySmall, { color: colors.error }]}>
-                                    {error}
-                                </Text>
-                            </View>
-                        </Card>
-                    )}
-
-                    {/* Status Filter */}
-                    <View style={{ marginBottom: spacing.lg }}>
-                        <Text style={[typography.body, { color: colors.text, marginBottom: spacing.sm }]}>
-                            Filter by Status:
-                        </Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                                {statusOptions.map((option) => (
-                                    <Button
-                                        key={option.value}
-                                        title={option.label}
-                                        onPress={() => setStatusFilter(option.value as any)}
-                                        variant={statusFilter === option.value ? 'primary' : 'outline'}
-                                        style={{ minWidth: 100 }}
-                                    />
-                                ))}
-                            </View>
-                        </ScrollView>
-                    </View>
-
-                    {/* Claims List */}
-                    {claims.length > 0 ? (
-                        <FlatList
-                            data={claims}
-                            renderItem={renderClaimItem}
-                            keyExtractor={(item) => item.id}
-                            showsVerticalScrollIndicator={false}
-                            scrollEnabled={false} // Disable inner scroll since we have outer ScrollView
-                        />
-                    ) : (
-                        <Card>
-                            <View style={{ padding: spacing.xl, alignItems: 'center' }}>
-                                <Ionicons name="document-text-outline" size={64} color={colors.textSecondary} />
-                                <Text style={[typography.h3, { color: colors.textSecondary, marginTop: spacing.md, textAlign: 'center' }]}>
-                                    No {statusFilter.toLowerCase() === 'all' ? '' : statusFilter.toLowerCase() + ' '}payment claims
-                                </Text>
-                                <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}>
-                                    {statusFilter === 'PENDING'
-                                        ? 'No payment claims are waiting for your review.'
-                                        : 'Try adjusting your filter or pull to refresh.'
-                                    }
-                                </Text>
-                            </View>
-                        </Card>
-                    )}
-                </View>
-            </ScrollView>
-
-            {/* Custom Decision Dialog */}
+            {/* Decision Dialog using Modal component */}
             {decisionDialog.visible && decisionDialog.claim && (
-                <View style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    padding: spacing.lg,
-                }}>
-                    <View style={{
-                        backgroundColor: colors.surface,
-                        borderRadius: borderRadius.lg,
-                        padding: spacing.lg,
-                        width: '100%',
-                        maxWidth: 400,
-                        maxHeight: '80%',
-                    }}>
-                        <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md }]}>
-                            {decisionDialog.decision === 'VERIFY' ? 'Verify Payment Claim' : 'Reject Payment Claim'}
-                        </Text>
+                <Modal
+                    visible={decisionDialog.visible}
+                    title={decisionDialog.decision === 'VERIFY' ? 'Verify Payment Claim' : 'Reject Payment Claim'}
+                    onClose={() => setDecisionDialog({ visible: false, claim: null, decision: null, note: '' })}
+                >
+                    <Text style={[typography.body, { color: colors.textSecondary, marginBottom: spacing.md }]}>
+                        {decisionDialog.decision === 'VERIFY'
+                            ? `Confirm verification of this payment claim for ${formatFullCurrency(decisionDialog.claim.amount)}?`
+                            : `Reason for rejecting this payment claim for ${formatFullCurrency(decisionDialog.claim.amount)}?`
+                        }
+                    </Text>
 
-                        <Text style={[typography.body, { color: colors.textSecondary, marginBottom: spacing.md }]}>
-                            {decisionDialog.decision === 'VERIFY'
-                                ? `Confirm verification of this payment claim for ${formatFullCurrency(decisionDialog.claim.amount)}?`
-                                : `Reason for rejecting this payment claim for ${formatFullCurrency(decisionDialog.claim.amount)}?`
-                            }
-                        </Text>
+                    <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.lg }]}>
+                        Tenant: {decisionDialog.claim.tenantIdentity?.name || 'Unknown Tenant'}
+                        {'\n'}
+                        Property: {decisionDialog.claim.lease?.property?.name || 'Unknown'} - Unit {decisionDialog.claim.lease?.unit?.unitNumber || 'Unknown'}
+                    </Text>
 
-                        <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.lg }]}>
-                            Tenant: {decisionDialog.claim.tenantIdentity?.name || 'Unknown Tenant'}
-                            {'\n'}
-                            Property: {decisionDialog.claim.lease?.property?.name || 'Unknown'} - Unit {decisionDialog.claim.lease?.unit?.unitNumber || 'Unknown'}
-                        </Text>
+                    {decisionDialog.decision === 'REJECT' && (
+                        <Input
+                            placeholder="Enter reason for rejection (optional)"
+                            value={decisionDialog.note}
+                            onChangeText={(text) => setDecisionDialog(prev => ({ ...prev, note: text }))}
+                            multiline
+                            numberOfLines={3}
+                            style={{ marginBottom: spacing.lg }}
+                        />
+                    )}
 
-                        {decisionDialog.decision === 'REJECT' && (
-                            <Input
-                                placeholder="Enter reason for rejection (optional)"
-                                value={decisionDialog.note}
-                                onChangeText={(text) => setDecisionDialog(prev => ({ ...prev, note: text }))}
-                                multiline
-                                numberOfLines={3}
-                                style={{ marginBottom: spacing.lg }}
-                            />
-                        )}
-
-                        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                            <Button
-                                title="Cancel"
-                                onPress={() => setDecisionDialog({ visible: false, claim: null, decision: null, note: '' })}
-                                variant="outline"
-                                style={{ flex: 1 }}
-                            />
-                            <Button
-                                title={decisionDialog.decision === 'VERIFY' ? 'Verify' : 'Reject'}
-                                onPress={handleDecisionConfirm}
-                                style={{
-                                    flex: 1,
-                                    backgroundColor: decisionDialog.decision === 'VERIFY' ? colors.success : colors.error
-                                }}
-                            />
-                        </View>
+                    <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                        <Button
+                            title="Cancel"
+                            onPress={() => setDecisionDialog({ visible: false, claim: null, decision: null, note: '' })}
+                            variant="outline"
+                            style={{ flex: 1 }}
+                        />
+                        <Button
+                            title={decisionDialog.decision === 'VERIFY' ? 'Verify' : 'Reject'}
+                            onPress={handleDecisionConfirm}
+                            style={{
+                                flex: 1,
+                                backgroundColor: decisionDialog.decision === 'VERIFY' ? colors.success : colors.error
+                            }}
+                        />
                     </View>
-                </View>
+                </Modal>
             )}
         </View>
     );

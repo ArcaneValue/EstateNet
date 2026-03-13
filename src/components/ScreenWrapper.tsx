@@ -16,7 +16,6 @@ export const ScreenWrapper: React.FC<ScreenWrapperProps> = ({ children, style })
                 styles.container,
                 {
                     backgroundColor: colors.background,
-                    paddingBottom: Platform.OS === 'android' ? 115 : 64
                 },
                 style
             ]}

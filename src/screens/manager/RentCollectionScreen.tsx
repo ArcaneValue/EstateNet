@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, FlatList, ActivityIndicator, Alert } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useRentCollection } from '../../hooks/useManagerFinance';
 import { useProperties } from '../../context/PropertyContext';
+import { formatCompactCurrencyUGX } from '../../utils/formatters';
 import { Card } from '../../components/Card';
+import { PageHeader } from '../../components/PageHeader';
+import { FilterChips } from '../../components/FilterChips';
 import { PdfExportPreviewModal } from '../../components/PdfExportPreviewModal';
 import { buildRentCollectionHtml } from '../../utils/pdfReports';
 import { useManagerEnforcement } from '../../hooks/useManagerEnforcement';
@@ -104,9 +105,6 @@ export const RentCollectionScreen: React.FC<any> = ({ navigation }) => {
         }
     };
 
-    const formatCurrency = (amount: number) => {
-        return `UGX ${(amount / 1000000).toFixed(1)}M`;
-    };
 
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('en-UG', {
@@ -124,10 +122,10 @@ export const RentCollectionScreen: React.FC<any> = ({ navigation }) => {
                         {item.propertyName}
                     </Text>
                     <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.xs }]}>
-                        Expected: {formatCurrency(item.expectedRent)}
+                        Expected: {formatCompactCurrencyUGX(item.expectedRent)}
                     </Text>
                     <Text style={[typography.bodySmall, { color: colors.success, marginTop: spacing.xs }]}>
-                        Collected: {formatCurrency(item.collectedRent)}
+                        Collected: {formatCompactCurrencyUGX(item.collectedRent)}
                     </Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
@@ -158,7 +156,7 @@ export const RentCollectionScreen: React.FC<any> = ({ navigation }) => {
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                     <Text style={[typography.body, { color: colors.success, fontWeight: '600' }]}>
-                        {formatCurrency(item.amount)}
+                        {formatCompactCurrencyUGX(item.amount)}
                     </Text>
                     <View style={{
                         backgroundColor: colors.success + '20',
@@ -178,163 +176,93 @@ export const RentCollectionScreen: React.FC<any> = ({ navigation }) => {
 
     if (loading) {
         return (
-            <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+            <View style={{ flex: 1, backgroundColor: colors.background }}>
+                <PageHeader
+                    title="Rent collection"
+                    onBack={() => navigation.goBack()}
+                    rightAction={{
+                        iconName: 'download-outline',
+                        onPress: handleExportPDF,
+                        loading: exportLoading
+                    }}
+                />
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                     <ActivityIndicator size="large" color={colors.primary} />
                     <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.md }]}>
                         Loading rent collection data...
                     </Text>
                 </View>
-            </SafeAreaView>
-        );
-    }
-
-    if (error) {
-        return (
-            <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.lg }}>
-                    <Ionicons name="alert-circle" size={48} color={colors.error} />
-                    <Text style={[typography.h3, { color: colors.error, marginTop: spacing.md, textAlign: 'center' }]}>
-                        Error Loading Data
-                    </Text>
-                    <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}>
-                        {error}
-                    </Text>
-                    <TouchableOpacity
-                        onPress={() => refetch(selectedPeriod, selectedPropertyId)}
-                        style={{
-                            backgroundColor: colors.primary,
-                            paddingHorizontal: spacing.lg,
-                            paddingVertical: spacing.md,
-                            borderRadius: 8,
-                            marginTop: spacing.lg
-                        }}
-                    >
-                        <Text style={[typography.body, { color: colors.background, fontWeight: '600' }]}>Retry</Text>
-                    </TouchableOpacity>
-                </View>
-            </SafeAreaView>
+            </View>
         );
     }
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
+            <PageHeader
+                title="Rent collection"
+                onBack={() => navigation.goBack()}
+                rightAction={{
+                    iconName: 'download-outline',
+                    onPress: handleExportPDF,
+                    loading: exportLoading
+                }}
+            />
+
             <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-                <View style={{ padding: spacing.base }}>
-                    {/* Header with Back Button */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg }}>
-                        <TouchableOpacity
-                            onPress={() => navigation.goBack()}
-                            style={{ marginRight: spacing.md }}
-                        >
-                            <Ionicons name="arrow-back" size={24} color={colors.text} />
-                        </TouchableOpacity>
-                        <View style={{ flex: 1 }}>
-                            <Text style={[typography.h2, { color: colors.text }]}>
-                                Rent Collection
-                            </Text>
-                            <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm }]}>
-                                Period: {data?.period || getCurrentPeriod()}
-                            </Text>
-                        </View>
-                        <TouchableOpacity
-                            onPress={handleExportPDF}
-                            disabled={exportLoading || !data}
-                            style={{
-                                backgroundColor: exportLoading || !data ? colors.border : colors.primary,
-                                paddingHorizontal: spacing.md,
-                                paddingVertical: spacing.sm,
-                                borderRadius: 8,
-                                flexDirection: 'row',
-                                alignItems: 'center'
-                            }}
-                        >
-                            {exportLoading ? (
-                                <ActivityIndicator size="small" color={colors.background} style={{ marginRight: spacing.xs }} />
-                            ) : (
-                                <Ionicons name="download-outline" size={16} color={colors.background} style={{ marginRight: spacing.xs }} />
-                            )}
-                            <Text style={[typography.bodySmall, { color: colors.background }]}>
-                                {exportLoading ? 'Exporting...' : 'Export PDF'}
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
+                <View style={{ padding: spacing.lg }}>
+                    {/* Error Display */}
+                    {error && (
+                        <Card style={{
+                            backgroundColor: colors.error + '10',
+                            borderColor: colors.error,
+                            borderWidth: 1,
+                            marginBottom: spacing.lg
+                        }}>
+                            <View style={{ padding: spacing.md }}>
+                                <Text style={[typography.bodySmall, { color: colors.error }]}>
+                                    {error}
+                                </Text>
+                            </View>
+                        </Card>
+                    )}
 
-                    {/* Filter Controls */}
+                    {/* Filters Section */}
                     <Card style={{ marginBottom: spacing.lg, padding: spacing.md }}>
-                        <Text style={[typography.body, { color: colors.text, fontWeight: '600', marginBottom: spacing.md }]}>Filters</Text>
+                        <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md }]}>Filters</Text>
 
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                            <View style={{ flex: 1, marginRight: spacing.sm }}>
-                                <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.xs }]}>Period</Text>
-                                <View style={{
-                                    borderWidth: 1,
-                                    borderColor: colors.border,
-                                    borderRadius: 8,
-                                    backgroundColor: colors.surface
-                                }}>
-                                    <Picker
-                                        selectedValue={selectedPeriod || currentPeriod}
-                                        onValueChange={handlePeriodChange}
-                                        style={{ color: colors.text }}
-                                    >
-                                        {periodOptions.map((option) => (
-                                            <Picker.Item
-                                                key={option.value}
-                                                label={option.label}
-                                                value={option.value}
-                                            />
-                                        ))}
-                                    </Picker>
-                                </View>
-                            </View>
+                        <View style={{ marginBottom: spacing.md }}>
+                            <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.sm }]}>Period</Text>
+                            <FilterChips
+                                options={periodOptions}
+                                selectedValue={selectedPeriod || currentPeriod}
+                                onSelect={(value) => handlePeriodChange(value || currentPeriod)}
+                                allowClear={false}
+                            />
+                        </View>
 
-                            <View style={{ flex: 1, marginLeft: spacing.sm }}>
-                                <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.xs }]}>Property</Text>
-                                <View style={{
-                                    borderWidth: 1,
-                                    borderColor: colors.border,
-                                    borderRadius: 8,
-                                    backgroundColor: colors.surface
-                                }}>
-                                    <Picker
-                                        selectedValue={selectedPropertyId || 'all'}
-                                        onValueChange={handlePropertyChange}
-                                        style={{ color: colors.text }}
-                                    >
-                                        <Picker.Item label="All Properties" value="all" />
-                                        {properties.map((property) => (
-                                            <Picker.Item
-                                                key={property.id}
-                                                label={property.name}
-                                                value={property.id}
-                                            />
-                                        ))}
-                                    </Picker>
-                                </View>
-                            </View>
+                        <View>
+                            <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.sm }]}>Property</Text>
+                            <FilterChips
+                                options={[
+                                    { label: 'All Properties', value: 'all' },
+                                    ...properties.map(p => ({ label: p.name, value: p.id }))
+                                ]}
+                                selectedValue={selectedPropertyId || 'all'}
+                                onSelect={(value) => handlePropertyChange(value || 'all')}
+                                allowClear={false}
+                            />
                         </View>
                     </Card>
 
-                    {/* Total Collected Summary */}
-                    <Card style={{ marginBottom: spacing.lg, padding: spacing.lg }}>
+                    {/* Hero Card - Total Collected */}
+                    <Card style={{ marginBottom: spacing.lg, padding: spacing.xl }}>
                         <View style={{ alignItems: 'center' }}>
-                            <View style={{
-                                backgroundColor: colors.success + '20',
-                                width: 80,
-                                height: 80,
-                                borderRadius: 40,
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                marginBottom: spacing.md
-                            }}>
-                                <Ionicons name="cash" size={40} color={colors.success} />
-                            </View>
-                            <Text style={[typography.h1, { color: colors.success, textAlign: 'center' }]}>
-                                {formatCurrency(data?.totalCollected || 0)}
+                            <Ionicons name="cash" size={48} color={colors.success} style={{ marginBottom: spacing.md }} />
+                            <Text style={[typography.h1, { color: colors.success, textAlign: 'center', marginBottom: spacing.xs }]}>
+                                {formatCompactCurrencyUGX(data?.totalCollected || 0)}
                             </Text>
                             <Text style={[typography.body, { color: colors.textSecondary, textAlign: 'center' }]}>
-                                Total Rent Collected
+                                Total Collected
                             </Text>
                         </View>
                     </Card>
@@ -345,12 +273,13 @@ export const RentCollectionScreen: React.FC<any> = ({ navigation }) => {
                             By Property
                         </Text>
                         {data?.byProperty && data.byProperty.length > 0 ? (
-                            <FlatList
-                                data={data.byProperty}
-                                renderItem={renderPropertyItem}
-                                keyExtractor={(item) => item.propertyId}
-                                scrollEnabled={false}
-                            />
+                            <>
+                                {data.byProperty.map((item) => (
+                                    <View key={item.propertyId}>
+                                        {renderPropertyItem({ item })}
+                                    </View>
+                                ))}
+                            </>
                         ) : (
                             <Card style={{ padding: spacing.lg }}>
                                 <Text style={[typography.body, { color: colors.textSecondary, textAlign: 'center' }]}>
@@ -366,12 +295,13 @@ export const RentCollectionScreen: React.FC<any> = ({ navigation }) => {
                             Recent Payments
                         </Text>
                         {data?.recentPayments && data.recentPayments.length > 0 ? (
-                            <FlatList
-                                data={data.recentPayments}
-                                renderItem={renderPaymentItem}
-                                keyExtractor={(item) => item.id}
-                                scrollEnabled={false}
-                            />
+                            <>
+                                {data.recentPayments.map((item) => (
+                                    <View key={item.id}>
+                                        {renderPaymentItem({ item })}
+                                    </View>
+                                ))}
+                            </>
                         ) : (
                             <Card style={{ padding: spacing.lg }}>
                                 <Text style={[typography.body, { color: colors.textSecondary, textAlign: 'center' }]}>
@@ -387,65 +317,50 @@ export const RentCollectionScreen: React.FC<any> = ({ navigation }) => {
                             Financial Reports
                         </Text>
 
-                        <TouchableOpacity
-                            onPress={() => navigation.navigate('IncomeStatement')}
-                            style={{
-                                backgroundColor: colors.surface,
-                                padding: spacing.md,
-                                borderRadius: 12,
-                                marginBottom: spacing.sm,
-                                borderWidth: 1,
-                                borderColor: colors.border,
-                            }}
-                        >
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <Ionicons name="document-text-outline" size={20} color={colors.primary} style={{ marginRight: spacing.md }} />
-                                    <Text style={[typography.body, { color: colors.text }]}>Income Statement</Text>
+                        <Card style={{ marginBottom: spacing.sm }}>
+                            <TouchableOpacity
+                                onPress={() => navigation.navigate('IncomeStatement')}
+                                style={{ padding: spacing.md }}
+                            >
+                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <Ionicons name="document-text-outline" size={20} color={colors.primary} style={{ marginRight: spacing.md }} />
+                                        <Text style={[typography.body, { color: colors.text }]}>Income Statement</Text>
+                                    </View>
+                                    <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
                                 </View>
-                                <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-                            </View>
-                        </TouchableOpacity>
+                            </TouchableOpacity>
+                        </Card>
 
-                        <TouchableOpacity
-                            onPress={() => navigation.navigate('FinancialPosition')}
-                            style={{
-                                backgroundColor: colors.surface,
-                                padding: spacing.md,
-                                borderRadius: 12,
-                                marginBottom: spacing.sm,
-                                borderWidth: 1,
-                                borderColor: colors.border,
-                            }}
-                        >
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <Ionicons name="analytics-outline" size={20} color={colors.primary} style={{ marginRight: spacing.md }} />
-                                    <Text style={[typography.body, { color: colors.text }]}>Financial Position</Text>
+                        <Card style={{ marginBottom: spacing.sm }}>
+                            <TouchableOpacity
+                                onPress={() => navigation.navigate('FinancialPosition')}
+                                style={{ padding: spacing.md }}
+                            >
+                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <Ionicons name="analytics-outline" size={20} color={colors.primary} style={{ marginRight: spacing.md }} />
+                                        <Text style={[typography.body, { color: colors.text }]}>Financial Position</Text>
+                                    </View>
+                                    <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
                                 </View>
-                                <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-                            </View>
-                        </TouchableOpacity>
+                            </TouchableOpacity>
+                        </Card>
 
-                        <TouchableOpacity
-                            onPress={() => navigation.navigate('CashflowStatement')}
-                            style={{
-                                backgroundColor: colors.surface,
-                                padding: spacing.md,
-                                borderRadius: 12,
-                                marginBottom: spacing.sm,
-                                borderWidth: 1,
-                                borderColor: colors.border,
-                            }}
-                        >
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <Ionicons name="cash-outline" size={20} color={colors.primary} style={{ marginRight: spacing.md }} />
-                                    <Text style={[typography.body, { color: colors.text }]}>Cashflow Statement</Text>
+                        <Card>
+                            <TouchableOpacity
+                                onPress={() => navigation.navigate('CashflowStatement')}
+                                style={{ padding: spacing.md }}
+                            >
+                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <Ionicons name="cash-outline" size={20} color={colors.primary} style={{ marginRight: spacing.md }} />
+                                        <Text style={[typography.body, { color: colors.text }]}>Cashflow Statement</Text>
+                                    </View>
+                                    <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
                                 </View>
-                                <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-                            </View>
-                        </TouchableOpacity>
+                            </TouchableOpacity>
+                        </Card>
                     </View>
                 </View>
             </ScrollView>
@@ -457,6 +372,6 @@ export const RentCollectionScreen: React.FC<any> = ({ navigation }) => {
                 fileName={previewFileName}
                 onClose={() => setShowPreviewModal(false)}
             />
-        </SafeAreaView>
+        </View>
     );
 };

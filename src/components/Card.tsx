@@ -6,9 +6,10 @@ import { useTheme } from '../theme/ThemeContext';
 interface CardProps {
     children: React.ReactNode;
     style?: ViewStyle;
-    variant?: 'default' | 'glass' | 'outlined' | 'elevated';
+    variant?: 'default' | 'glass' | 'outlined' | 'elevated' | 'surface2';
     noPadding?: boolean;
     accentTop?: boolean;
+    padding?: number;
 }
 
 export const Card: React.FC<CardProps> = ({
@@ -17,13 +18,14 @@ export const Card: React.FC<CardProps> = ({
     variant = 'default',
     noPadding = false,
     accentTop = false,
+    padding,
 }) => {
     const { colors, borderRadius, shadows, spacing, isDark } = useTheme();
 
     const getCardStyle = (): ViewStyle => {
         const baseStyle: ViewStyle = {
             borderRadius: borderRadius.lg,
-            padding: noPadding ? 0 : spacing.base,
+            padding: noPadding ? 0 : (padding !== undefined ? padding : spacing.base),
             overflow: 'hidden',
         };
 
@@ -51,13 +53,19 @@ export const Card: React.FC<CardProps> = ({
                     borderColor: colors.borderLight,
                     ...shadows.lg,
                 };
+            case 'surface2':
+                return {
+                    ...baseStyle,
+                    backgroundColor: colors.surface2,
+                    borderWidth: 0,
+                    ...shadows.sm,
+                };
             default:
                 return {
                     ...baseStyle,
                     backgroundColor: colors.surface,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    ...shadows.md,
+                    borderWidth: 0,
+                    ...shadows.sm,
                 };
         }
     };

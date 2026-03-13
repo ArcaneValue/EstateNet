@@ -70,11 +70,12 @@ const ManagerTabs = () => {
                 headerShown: false,
                 tabBarStyle: {
                     backgroundColor: colors.surface,
-                    borderTopColor: colors.border,
-                    borderTopWidth: 1,
                     paddingBottom: Platform.OS === 'android' ? 55 : 8,
                     paddingTop: 8,
                     height: Platform.OS === 'android' ? 115 : 64,
+                    borderTopWidth: 0,
+                    elevation: 0,
+                    shadowOpacity: 0,
                 },
                 tabBarActiveTintColor: colors.primary,
                 tabBarInactiveTintColor: colors.textSecondary,
@@ -151,8 +152,6 @@ const OwnerTabs = () => {
                 headerShown: false,
                 tabBarStyle: {
                     backgroundColor: colors.surface,
-                    borderTopColor: colors.border,
-                    borderTopWidth: 1,
                     paddingBottom: Platform.OS === 'android' ? 55 : 8,
                     paddingTop: 8,
                     height: Platform.OS === 'android' ? 115 : 64,
@@ -227,7 +226,7 @@ const OwnerStack = () => {
 
 // Tenant Tab Navigator
 const TenantTabs = () => {
-    const { colors } = useTheme();
+    const { colors, typography } = useTheme();
 
     return (
         <Tab.Navigator
@@ -235,16 +234,17 @@ const TenantTabs = () => {
                 headerShown: false,
                 tabBarStyle: {
                     backgroundColor: colors.surface,
-                    borderTopColor: colors.border,
-                    borderTopWidth: 1,
                     paddingBottom: Platform.OS === 'android' ? 55 : 8,
                     paddingTop: 8,
                     height: Platform.OS === 'android' ? 115 : 64,
+                    borderTopWidth: 0,
+                    elevation: 0,
+                    shadowOpacity: 0,
                 },
-                tabBarActiveTintColor: colors.primary,
-                tabBarInactiveTintColor: colors.textSecondary,
+                tabBarActiveTintColor: colors.accent,
+                tabBarInactiveTintColor: colors.textMuted,
                 tabBarLabelStyle: {
-                    fontSize: 12,
+                    ...typography.caption,
                     fontWeight: '600',
                 },
             }}
@@ -260,6 +260,7 @@ const TenantTabs = () => {
                 name="Invitations"
                 component={TenantInvitationsScreen}
                 options={{
+                    tabBarLabel: 'Invites',
                     tabBarIcon: ({ color, size }) => <Ionicons name="mail" size={size} color={color} />,
                 }}
             />
@@ -274,6 +275,7 @@ const TenantTabs = () => {
                 name="Messages"
                 component={MessagesScreen}
                 options={{
+                    tabBarLabel: 'Inbox',
                     tabBarIcon: ({ color, size }) => <Ionicons name="mail" size={size} color={color} />,
                 }}
             />

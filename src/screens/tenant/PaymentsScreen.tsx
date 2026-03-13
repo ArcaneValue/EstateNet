@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, FlatList, Alert, Modal } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useLease } from '../../context/LeaseContext';
 import { apiGet, apiPost } from '../../utils/apiClient';
 import { Input } from '../../components/Input';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
+import { TopAppBar } from '../../components/TopAppBar';
 import { Ionicons } from '@expo/vector-icons';
 import { RecordPaymentClaimModal } from '../../components/RecordPaymentClaimModal';
 
@@ -43,6 +45,7 @@ interface PaymentsScreenProps {
 export const PaymentsScreen: React.FC<PaymentsScreenProps> = ({ navigation }) => {
     const { colors, spacing, typography, borderRadius } = useTheme();
     const { user } = useAuth();
+    const { activeLease } = useLease();
 
     // State
     const [payments, setPayments] = useState<Payment[]>([]);
@@ -154,121 +157,171 @@ export const PaymentsScreen: React.FC<PaymentsScreenProps> = ({ navigation }) =>
         );
     }
 
-    return (
-        <ScrollView style={{ flex: 1, backgroundColor: colors.background }}>
-            <View style={{ padding: spacing.lg }}>
-                {/* Header */}
-                <Text style={[typography.h2, { color: colors.text, marginBottom: spacing.lg }]}>
-                    Record Payment
-                </Text>
+    const renderHeader = () => (
+        <View style={{ padding: spacing.lg }}>
+            {/* Header */}
+            <Text style={[typography.h2, { color: colors.text, marginBottom: spacing.lg }]}>
+                Record Payment
+            </Text>
 
-                {/* Error Display */}
-                {error && (
-                    <Card style={{
-                        backgroundColor: colors.error + '10',
-                        borderColor: colors.error,
-                        borderWidth: 1,
-                        marginBottom: spacing.lg
-                    }}>
-                        <View style={{ padding: spacing.md }}>
-                            <Text style={[typography.bodySmall, { color: colors.error }]}>
-                                {error}
-                            </Text>
-                        </View>
-                    </Card>
-                )}
-
-                {/* Record Payment Claim Button */}
-                <Button
-                    title="Record Payment Claim"
-                    onPress={() => setShowClaimModal(true)}
-                    variant="primary"
-                    icon={<Ionicons name="document-text-outline" size={20} color="white" />}
-                    iconPosition="left"
-                    style={{ marginBottom: spacing.lg }}
-                />
-
-                {/* Payment History */}
-                <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md }]}>
-                    Payment History
-                </Text>
-                {payments.length > 0 ? (
-                    <FlatList
-                        data={payments}
-                        renderItem={renderPaymentItem}
-                        keyExtractor={(item) => item.id}
-                        showsVerticalScrollIndicator={false}
-                    />
-                ) : (
-                    <Card>
-                        <View style={{ padding: spacing.lg, alignItems: 'center' }}>
-                            <Ionicons name="receipt-outline" size={48} color={colors.textSecondary} />
-                            <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm }]}>
-                                No payments recorded yet
-                            </Text>
-                        </View>
-                    </Card>
-                )}
-
-                {/* Payment Claims Section */}
-                {paymentClaims.length > 0 && (
-                    <>
-                        <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md }]}>
-                            Payment Claims
+            {/* Error Display */}
+            {error && (
+                <Card style={{
+                    backgroundColor: colors.error + '10',
+                    borderColor: colors.error,
+                    borderWidth: 1,
+                    marginBottom: spacing.lg
+                }}>
+                    <View style={{ padding: spacing.md }}>
+                        <Text style={[typography.bodySmall, { color: colors.error }]}>
+                            {error}
                         </Text>
-                        {paymentClaims.map((claim) => (
-                            <Card key={claim.id} style={{ marginBottom: spacing.sm }}>
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={[typography.h4, { color: colors.text }]}>
-                                            UGX {formatNumber(claim.amount)}
-                                        </Text>
-                                        <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
-                                            {claim.lease?.property?.name} - Unit {claim.lease?.unit?.unitNumber}
-                                        </Text>
-                                        <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
-                                            Claimed: {new Date(claim.claimedPaidAt).toLocaleDateString()}
-                                        </Text>
-                                        <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
-                                            Method: {claim.method?.replace('_', ' ')}
-                                        </Text>
-                                    </View>
-                                    <View style={{ alignItems: 'flex-end' }}>
-                                        <Text style={[
-                                            typography.bodySmall,
-                                            {
-                                                color: claim.status === 'VERIFIED' ? colors.success :
-                                                    claim.status === 'PENDING' ? colors.warning :
-                                                        colors.error
-                                            }
-                                        ]}>
-                                            {claim.status}
-                                        </Text>
-                                        {claim.verification?.note && (
-                                            <Text style={[typography.bodySmall, { color: colors.textSecondary, fontSize: 12, marginTop: 2 }]}>
-                                                Note: {claim.verification.note}
-                                            </Text>
-                                        )}
-                                    </View>
-                                </View>
-                            </Card>
-                        ))}
-                    </>
-                )}
+                    </View>
+                </Card>
+            )}
 
-                {/* Record Payment Claim Modal */}
-                {selectedLease && (
-                    <RecordPaymentClaimModal
-                        visible={showClaimModal}
-                        onClose={() => setShowClaimModal(false)}
-                        leaseId={selectedLease.id}
-                        monthlyRent={selectedLease.rentAmount}
-                        propertyName={selectedLease.property?.name}
-                        unitNumber={selectedLease.unit?.unitNumber}
-                        onClaimRecorded={handleClaimRecorded}
-                    />
-                )}
-            </View>
-        </ScrollView>
+            {/* Record Payment Claim Button */}
+            <Button
+                title="Record Payment Claim"
+                onPress={() => {
+                    if (!selectedLease) {
+                        Alert.alert('No Active Lease', 'You need an active lease to record a payment claim.');
+                        return;
+                    }
+                    setShowClaimModal(true);
+                }}
+                variant="primary"
+                icon={<Ionicons name="document-text-outline" size={20} color="white" />}
+                iconPosition="left"
+                style={{ marginBottom: !selectedLease ? spacing.xs : spacing.lg }}
+                disabled={!selectedLease}
+            />
+
+            {/* Warning message when no lease */}
+            {!selectedLease && (
+                <View style={{
+                    backgroundColor: colors.warning + '15',
+                    borderLeftWidth: 3,
+                    borderLeftColor: colors.warning,
+                    padding: spacing.md,
+                    borderRadius: borderRadius.md,
+                    marginBottom: spacing.lg,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                }}>
+                    <Ionicons name="warning-outline" size={20} color={colors.warning} style={{ marginRight: spacing.sm }} />
+                    <Text style={[typography.bodySmall, { color: colors.warning, flex: 1 }]}>
+                        Will not open unless lease is active. Accept a property invitation to activate your lease.
+                    </Text>
+                </View>
+            )}
+
+            {/* Payment History Header */}
+            <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md }]}>
+                Payment History
+            </Text>
+        </View>
+    );
+
+    const renderFooter = () => (
+        <View style={{ padding: spacing.lg, paddingTop: 0 }}>
+
+            {/* Payment Claims Section */}
+            {paymentClaims.length > 0 && (
+                <>
+                    <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md, marginTop: spacing.lg }]}>
+                        Payment Claims
+                    </Text>
+                    {paymentClaims.map((claim) => (
+                        <Card key={claim.id} style={{ marginBottom: spacing.sm }}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[typography.h4, { color: colors.text }]}>
+                                        UGX {formatNumber(claim.amount)}
+                                    </Text>
+                                    <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                                        {claim.lease?.property?.name} - Unit {claim.lease?.unit?.unitNumber}
+                                    </Text>
+                                    <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                                        Claimed: {new Date(claim.claimedPaidAt).toLocaleDateString()}
+                                    </Text>
+                                    <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                                        Method: {claim.method?.replace('_', ' ')}
+                                    </Text>
+                                </View>
+                                <View style={{ alignItems: 'flex-end' }}>
+                                    <Text style={[
+                                        typography.bodySmall,
+                                        {
+                                            color: claim.status === 'VERIFIED' ? colors.success :
+                                                claim.status === 'PENDING' ? colors.warning :
+                                                    colors.error
+                                        }
+                                    ]}>
+                                        {claim.status}
+                                    </Text>
+                                    {claim.verification?.note && (
+                                        <Text style={[typography.bodySmall, { color: colors.textSecondary, fontSize: 12, marginTop: 2 }]}>
+                                            Note: {claim.verification.note}
+                                        </Text>
+                                    )}
+                                </View>
+                            </View>
+                        </Card>
+                    ))}
+                </>
+            )}
+        </View>
+    );
+
+    const renderEmptyComponent = () => (
+        <View style={{ padding: spacing.lg, paddingTop: 0 }}>
+            <Card>
+                <View style={{ padding: spacing.lg, alignItems: 'center' }}>
+                    <Ionicons name="receipt-outline" size={48} color={colors.textSecondary} />
+                    <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm }]}>
+                        No payments recorded yet
+                    </Text>
+                </View>
+            </Card>
+        </View>
+    );
+
+    const propertyName = activeLease?.property?.name;
+    const unitNumber = activeLease?.unit?.unitNumber;
+
+    return (
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
+            <TopAppBar
+                onNotificationsPress={() => { }}
+                onProfilePress={() => navigation.navigate('Profile')}
+                profileImage={user?.profileImage}
+                propertyName={propertyName}
+                unitNumber={unitNumber}
+            />
+            <FlatList
+                data={payments}
+                renderItem={renderPaymentItem}
+                keyExtractor={(item) => item.id}
+                ListHeaderComponent={renderHeader}
+                ListFooterComponent={renderFooter}
+                ListEmptyComponent={renderEmptyComponent}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: spacing.xl }}
+            />
+
+            {/* Record Payment Claim Modal */}
+            {selectedLease && (
+                <RecordPaymentClaimModal
+                    visible={showClaimModal}
+                    onClose={() => setShowClaimModal(false)}
+                    leaseId={selectedLease.id}
+                    monthlyRent={selectedLease.rentAmount}
+                    propertyName={selectedLease.property?.name}
+                    unitNumber={selectedLease.unit?.unitNumber}
+                    onClaimRecorded={handleClaimRecorded}
+                />
+            )}
+        </View>
     );
 };

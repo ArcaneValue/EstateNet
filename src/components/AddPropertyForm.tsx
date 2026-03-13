@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Modal, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, Platform } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Input } from './Input';
 import { Button } from './Button';
+import { KeyboardSafeContainer } from './KeyboardSafeContainer';
 import { Ionicons } from '@expo/vector-icons';
 import { Property, PropertyType, OwnershipType, MaintenanceCondition, Unit } from '../types/types';
 
@@ -466,7 +467,7 @@ export const AddPropertyForm: React.FC<AddPropertyFormProps> = ({ onSubmit, onCa
             </View>
 
             {/* Content */}
-            <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
+            <KeyboardSafeContainer contentContainerStyle={{ padding: spacing.lg }}>
                 {currentStep === 0 && (
                     <>
                         <SectionHeader title="Basic Information" step={0} />
@@ -497,7 +498,7 @@ export const AddPropertyForm: React.FC<AddPropertyFormProps> = ({ onSubmit, onCa
                         {renderOperational()}
                     </>
                 )}
-            </ScrollView>
+            </KeyboardSafeContainer>
 
             {/* Footer */}
             <View style={{

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { Input } from '../../components/Input';
 import { Button } from '../../components/Button';
 import { Modal } from '../../components/Modal';
+import { KeyboardSafeContainer } from '../../components/KeyboardSafeContainer';
 import { Ionicons } from '@expo/vector-icons';
 
 interface SignUpScreenProps {
@@ -230,31 +231,11 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
     );
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-            {Platform.OS === 'ios' ? (
-                <KeyboardAvoidingView
-                    behavior="padding"
-                    style={{ flex: 1 }}
-                >
-                    <ScrollView
-                        style={[styles.container, { backgroundColor: colors.background }]}
-                        contentContainerStyle={{ padding: spacing['2xl'] }}
-                        keyboardShouldPersistTaps="handled"
-                    >
-                        {renderFormContent()}
-                    </ScrollView>
-                </KeyboardAvoidingView>
-            ) : (
-                <View style={{ flex: 1 }}>
-                    <ScrollView
-                        style={[styles.container, { backgroundColor: colors.background }]}
-                        contentContainerStyle={{ padding: spacing['2xl'] }}
-                        keyboardShouldPersistTaps="handled"
-                    >
-                        {renderFormContent()}
-                    </ScrollView>
-                </View>
-            )}
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+            <KeyboardSafeContainer contentContainerStyle={{ padding: spacing['2xl'] }}>
+                {renderFormContent()}
+            </KeyboardSafeContainer>
+
             {/* Welcome Modal with Tenant ID */}
             {user && user.role === 'TENANT' && user.tenantId && (
                 <Modal

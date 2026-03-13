@@ -72,9 +72,9 @@ export const Modal: React.FC<ModalProps> = ({
     }, [visible, scaleAnim, fadeAnim]);
 
     const sizeStyles = {
-        small: { height: SCREEN_HEIGHT * 0.6, width: SCREEN_WIDTH * 0.95 },
-        medium: { height: SCREEN_HEIGHT * 0.85, width: SCREEN_WIDTH * 0.95 },
-        large: { height: SCREEN_HEIGHT * 0.9, width: SCREEN_WIDTH * 0.98 },
+        small: { height: SCREEN_HEIGHT * 0.5, width: SCREEN_WIDTH },
+        medium: { height: SCREEN_HEIGHT * 0.65, width: SCREEN_WIDTH },
+        large: { height: SCREEN_HEIGHT * 0.9, width: SCREEN_WIDTH },
         full: { height: SCREEN_HEIGHT, width: SCREEN_WIDTH },
     };
 
@@ -86,22 +86,22 @@ export const Modal: React.FC<ModalProps> = ({
             onRequestClose={onClose}
             statusBarTranslucent
         >
+            <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+                <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+            </View>
+
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.keyboardView}
-                keyboardVerticalOffset={Platform.OS === 'android' ? 0 : 0}
             >
-                <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
-                    <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-                </View>
-
                 <View style={[styles.modalShadow, sizeStyles[size]]}>
                     <Animated.View
                         style={[
                             styles.modalContainer,
                             {
                                 backgroundColor: colors.surface,
-                                borderRadius: borderRadius['2xl'],
+                                borderTopLeftRadius: borderRadius['2xl'],
+                                borderTopRightRadius: borderRadius['2xl'],
                                 borderWidth: 1,
                                 borderColor: colors.border,
                                 transform: [{ scale: scaleAnim }],
@@ -115,8 +115,8 @@ export const Modal: React.FC<ModalProps> = ({
                                 styles.accentBar,
                                 {
                                     backgroundColor: colors.accent,
-                                    borderTopLeftRadius: size === 'full' ? 0 : borderRadius['2xl'],
-                                    borderTopRightRadius: size === 'full' ? 0 : borderRadius['2xl'],
+                                    borderTopLeftRadius: borderRadius['2xl'],
+                                    borderTopRightRadius: borderRadius['2xl'],
                                 },
                             ]}
                         />
@@ -171,9 +171,10 @@ export const Modal: React.FC<ModalProps> = ({
                         {/* Content */}
                         <ScrollView
                             style={styles.content}
-                            contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl }}
+                            contentContainerStyle={{ padding: spacing.lg, paddingBottom: 120 }}
                             showsVerticalScrollIndicator={false}
                             bounces={false}
+                            keyboardShouldPersistTaps="handled"
                         >
                             {children}
                         </ScrollView>
@@ -187,21 +188,21 @@ export const Modal: React.FC<ModalProps> = ({
 const styles = StyleSheet.create({
     keyboardView: {
         flex: 1,
-        justifyContent: 'center',
+        justifyContent: 'flex-end',
         alignItems: 'center',
-        paddingHorizontal: 10,
     },
     overlay: {
         ...StyleSheet.absoluteFillObject,
     },
     modalContainer: {
+        flex: 1,
         overflow: 'hidden',
     },
     modalShadow: {
         shadowColor: '#000',
         shadowOffset: {
             width: 0,
-            height: 2,
+            height: -2,
         },
         shadowOpacity: 0.25,
         shadowRadius: 3.84,

@@ -6,10 +6,14 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { useOwnerApi } from '../../hooks/useOwnerApi';
+import { TopAppBar } from '../../components/TopAppBar';
+import { ScreenWrapper } from '../../components/ScreenWrapper';
 import { Ionicons } from '@expo/vector-icons';
 
 interface Manager {
@@ -27,7 +31,13 @@ interface Property {
 
 export const OwnerManagersScreen: React.FC<any> = ({ navigation }) => {
   const { colors, spacing, typography, shadows } = useTheme();
+  const { user } = useAuth();
   const { properties, loading, removeManager } = useOwnerApi();
+
+  // Calculate total units
+  const totalUnits = properties.reduce((sum: number, property: any) => {
+    return sum + (property.units?.length || 0);
+  }, 0);
 
   // Get properties that have managers assigned
   const propertiesWithManagers = (properties || []).filter((p: any) => p.manager !== null && p.manager !== undefined);
@@ -119,45 +129,45 @@ export const OwnerManagersScreen: React.FC<any> = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View style={[styles.header, { padding: spacing.lg }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8 }}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <View style={{ flex: 1, marginLeft: spacing.md }}>
-          <Text style={[typography.h2, { color: colors.text }]}>Property Managers</Text>
-          <Text style={[typography.body, { color: colors.textSecondary }]}>
-            {propertiesWithManagers.length} {propertiesWithManagers.length === 1 ? 'manager' : 'managers'} active
-          </Text>
-        </View>
-      </View>
+    <ScreenWrapper>
+      <TopAppBar
+        onNotificationsPress={() => navigation.navigate('Notifications')}
+        onProfilePress={() => navigation.navigate('Profile')}
+        profileImage={user?.profileImage}
+        propertyCount={properties.length}
+        unitCount={totalUnits}
+      />
 
-      {/* Content */}
       <ScrollView
-        contentContainerStyle={{ padding: spacing.lg, paddingTop: 0 }}
+        contentContainerStyle={{ padding: spacing.lg }}
         showsVerticalScrollIndicator={false}
       >
         {loading ? (
-          <View style={styles.centered}>
-            <Text style={[typography.body, { color: colors.textSecondary }]}>
+          <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.md }]}>
               Loading managers...
             </Text>
           </View>
         ) : propertiesWithManagers.length === 0 ? (
           <View
-            style={[
-              styles.emptyState,
-              {
-                backgroundColor: colors.surface,
-                padding: spacing.xl,
-                borderRadius: 12,
-                ...shadows.sm,
-              },
-            ]}
+            style={{
+              backgroundColor: colors.surface,
+              padding: spacing.xl,
+              borderRadius: 12,
+              alignItems: 'center',
+              ...shadows.sm,
+            }}
           >
-            <View style={[styles.emptyIconContainer, { backgroundColor: colors.primary + '15' }]}>
-              <Ionicons name="people-outline" size={48} color={colors.primary} />
+            <View style={{
+              width: 80,
+              height: 80,
+              borderRadius: 40,
+              backgroundColor: colors.primary + '15',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}>
+              <Ionicons name="people-outline" size={40} color={colors.primary} />
             </View>
             <Text style={[typography.h3, { color: colors.text, marginTop: spacing.lg }]}>
               No Managers Yet
@@ -169,7 +179,6 @@ export const OwnerManagersScreen: React.FC<any> = ({ navigation }) => {
                   color: colors.textSecondary,
                   textAlign: 'center',
                   marginTop: spacing.sm,
-                  lineHeight: 22,
                 },
               ]}
             >
@@ -181,34 +190,13 @@ export const OwnerManagersScreen: React.FC<any> = ({ navigation }) => {
           propertiesWithManagers.map(renderManagerCard)
         )}
       </ScrollView>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  centered: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-  },
-  emptyState: {
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  emptyIconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   card: {},
   cardHeader: {

@@ -13,8 +13,8 @@ import { useTheme } from '../theme/ThemeContext';
 interface ButtonProps {
     title: string;
     onPress: () => void;
-    variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'accent';
-    size?: 'small' | 'medium' | 'large';
+    variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'accent' | 'pill' | 'soft';
+    size?: 'small' | 'medium' | 'large' | 'compact';
     disabled?: boolean;
     loading?: boolean;
     fullWidth?: boolean;
@@ -70,6 +70,11 @@ export const Button: React.FC<ButtonProps> = ({
                 paddingHorizontal: spacing.xl,
                 borderRadius: borderRadius.md,
             },
+            compact: {
+                paddingVertical: spacing.xs,
+                paddingHorizontal: spacing.base,
+                borderRadius: borderRadius.full,
+            },
         };
 
         // Variant variations - Option C: Outlined style with filled states
@@ -100,6 +105,17 @@ export const Button: React.FC<ButtonProps> = ({
                 borderColor: colors.accent,
                 ...shadows.sm,
             },
+            pill: {
+                backgroundColor: isPressed ? colors.surface2 : colors.surface,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: borderRadius.full,
+            },
+            soft: {
+                backgroundColor: colors.primary + '12',
+                borderWidth: 0,
+                borderRadius: borderRadius.full,
+            },
         };
 
         return {
@@ -115,6 +131,7 @@ export const Button: React.FC<ButtonProps> = ({
             small: typography.buttonSmall,
             medium: typography.button,
             large: { ...typography.button, fontSize: 16 },
+            compact: { ...typography.bodySmall, fontWeight: '600' },
         };
 
         const variantTextStyles: Record<string, TextStyle> = {
@@ -123,12 +140,14 @@ export const Button: React.FC<ButtonProps> = ({
             outline: { color: colors.text, fontWeight: '600' },
             ghost: { color: colors.primary, fontWeight: '600' },
             accent: { color: colors.textOnAccent, fontWeight: '600' },
+            pill: { color: colors.text, fontWeight: '600' },
+            soft: { color: colors.primary, fontWeight: '600' },
         };
 
         return {
             ...sizeTextStyles[size],
             ...variantTextStyles[variant],
-        };
+        } as TextStyle;
     };
 
     const getIconColor = (): string => {
@@ -143,6 +162,10 @@ export const Button: React.FC<ButtonProps> = ({
                 return colors.primary;
             case 'accent':
                 return colors.textOnAccent;
+            case 'pill':
+                return colors.text;
+            case 'soft':
+                return colors.primary;
             default:
                 return colors.textOnPrimary;
         }

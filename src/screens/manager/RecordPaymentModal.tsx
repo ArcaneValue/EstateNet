@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Modal } from '../../components';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
@@ -12,9 +12,10 @@ import { Ionicons } from '@expo/vector-icons';
 interface RecordPaymentModalProps {
     visible: boolean;
     onClose: () => void;
+    onSuccess?: () => void;
 }
 
-export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ visible, onClose }) => {
+export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ visible, onClose, onSuccess }) => {
     const { colors, spacing, typography } = useTheme();
     const { properties } = useProperties();
     const { getTenantsByProperty } = useTenants();
@@ -42,6 +43,12 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ visible,
         });
 
         setSuccess(true);
+
+        // Trigger dashboard refresh
+        if (onSuccess) {
+            onSuccess();
+        }
+
         setTimeout(() => {
             onClose();
             setSuccess(false);
@@ -53,126 +60,124 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ visible,
 
     return (
         <Modal visible={visible} onClose={onClose} title="Record Payment" size="medium">
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing.lg }}>
-                {!success ? (
-                    <View>
-                        <Text style={[typography.body, { color: colors.textSecondary, marginBottom: spacing.lg }]}>
-                            Record a rent payment from a tenant
-                        </Text>
+            {!success ? (
+                <View>
+                    <Text style={[typography.body, { color: colors.textSecondary, marginBottom: spacing.lg }]}>
+                        Record a rent payment from a tenant
+                    </Text>
 
-                        {/* Property Selection */}
+                    {/* Property Selection */}
+                    <View style={{ marginBottom: spacing.base }}>
+                        <Text style={[typography.h4, { color: colors.text, marginBottom: spacing.sm }]}>
+                            Select Property
+                        </Text>
+                        {properties.map(property => (
+                            <Button
+                                key={property.id}
+                                title={property.name}
+                                onPress={() => {
+                                    setSelectedPropertyId(property.id);
+                                    setSelectedTenantId('');
+                                }}
+                                variant={selectedPropertyId === property.id ? 'primary' : 'outline'}
+                                size="medium"
+                                style={{ marginBottom: spacing.sm }}
+                            />
+                        ))}
+                    </View>
+
+                    {/* Tenant Selection */}
+                    {tenants.length > 0 && (
                         <View style={{ marginBottom: spacing.base }}>
                             <Text style={[typography.h4, { color: colors.text, marginBottom: spacing.sm }]}>
-                                Select Property
+                                Select Tenant
                             </Text>
-                            {properties.map(property => (
+                            {tenants.map(tenant => (
                                 <Button
-                                    key={property.id}
-                                    title={property.name}
-                                    onPress={() => {
-                                        setSelectedPropertyId(property.id);
-                                        setSelectedTenantId('');
-                                    }}
-                                    variant={selectedPropertyId === property.id ? 'primary' : 'outline'}
+                                    key={tenant.id}
+                                    title={`${tenant.name} - ID: ${tenant.tenantId}`}
+                                    onPress={() => setSelectedTenantId(tenant.id)}
+                                    variant={selectedTenantId === tenant.id ? 'primary' : 'outline'}
                                     size="medium"
                                     style={{ marginBottom: spacing.sm }}
                                 />
                             ))}
                         </View>
+                    )}
 
-                        {/* Tenant Selection */}
-                        {tenants.length > 0 && (
-                            <View style={{ marginBottom: spacing.base }}>
-                                <Text style={[typography.h4, { color: colors.text, marginBottom: spacing.sm }]}>
-                                    Select Tenant
+                    {/* Payment Details */}
+                    {selectedTenant && (
+                        <View>
+                            <View style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: 8, marginBottom: spacing.base }}>
+                                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                                    Monthly Rent
                                 </Text>
-                                {tenants.map(tenant => (
-                                    <Button
-                                        key={tenant.id}
-                                        title={`${tenant.name} - ID: ${tenant.tenantId}`}
-                                        onPress={() => setSelectedTenantId(tenant.id)}
-                                        variant={selectedTenantId === tenant.id ? 'primary' : 'outline'}
-                                        size="medium"
-                                        style={{ marginBottom: spacing.sm }}
-                                    />
-                                ))}
+                                <Text style={[typography.h3, { color: colors.text, marginTop: spacing.xs }]}>
+                                    UGX {selectedTenant.rentAmount.toLocaleString()}
+                                </Text>
                             </View>
-                        )}
 
-                        {/* Payment Details */}
-                        {selectedTenant && (
-                            <View>
-                                <View style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: 8, marginBottom: spacing.base }}>
-                                    <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
-                                        Monthly Rent
-                                    </Text>
-                                    <Text style={[typography.h3, { color: colors.text, marginTop: spacing.xs }]}>
-                                        UGX {selectedTenant.rentAmount.toLocaleString()}
-                                    </Text>
-                                </View>
+                            <Input
+                                label="Payment Amount (UGX)"
+                                placeholder="Enter amount"
+                                value={amount ? Number(amount.replace(/,/g, '')).toLocaleString() : ''}
+                                onChangeText={(text) => setAmount(text.replace(/,/g, ''))}
+                                keyboardType="numeric"
+                                icon={<Ionicons name="cash-outline" size={20} color={colors.textSecondary} />}
+                            />
 
-                                <Input
-                                    label="Payment Amount (UGX)"
-                                    placeholder="Enter amount"
-                                    value={amount ? Number(amount.replace(/,/g, '')).toLocaleString() : ''}
-                                    onChangeText={(text) => setAmount(text.replace(/,/g, ''))}
-                                    keyboardType="numeric"
-                                    icon={<Ionicons name="cash-outline" size={20} color={colors.textSecondary} />}
-                                />
-
-                                {/* Payment Method */}
-                                <Text style={[typography.h4, { color: colors.text, marginTop: spacing.base, marginBottom: spacing.sm }]}>
-                                    Payment Method
-                                </Text>
-                                <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.base }}>
-                                    <Button
-                                        title="EstateNet"
-                                        onPress={() => setPaymentMethod('estatenet')}
-                                        variant={paymentMethod === 'estatenet' ? 'primary' : 'outline'}
-                                        size="small"
-                                        style={{ flex: 1 }}
-                                    />
-                                    <Button
-                                        title="Bank"
-                                        onPress={() => setPaymentMethod('bank_transfer')}
-                                        variant={paymentMethod === 'bank_transfer' ? 'primary' : 'outline'}
-                                        size="small"
-                                        style={{ flex: 1 }}
-                                    />
-                                    <Button
-                                        title="Cash"
-                                        onPress={() => setPaymentMethod('cash')}
-                                        variant={paymentMethod === 'cash' ? 'primary' : 'outline'}
-                                        size="small"
-                                        style={{ flex: 1 }}
-                                    />
-                                </View>
-
+                            {/* Payment Method */}
+                            <Text style={[typography.h4, { color: colors.text, marginTop: spacing.base, marginBottom: spacing.sm }]}>
+                                Payment Method
+                            </Text>
+                            <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.base }}>
                                 <Button
-                                    title="Record Payment"
-                                    onPress={handleRecordPayment}
-                                    variant="primary"
-                                    size="large"
-                                    disabled={!amount}
-                                    style={{ marginTop: spacing.base }}
+                                    title="EstateNet"
+                                    onPress={() => setPaymentMethod('estatenet')}
+                                    variant={paymentMethod === 'estatenet' ? 'primary' : 'outline'}
+                                    size="small"
+                                    style={{ flex: 1 }}
+                                />
+                                <Button
+                                    title="Bank"
+                                    onPress={() => setPaymentMethod('bank_transfer')}
+                                    variant={paymentMethod === 'bank_transfer' ? 'primary' : 'outline'}
+                                    size="small"
+                                    style={{ flex: 1 }}
+                                />
+                                <Button
+                                    title="Cash"
+                                    onPress={() => setPaymentMethod('cash')}
+                                    variant={paymentMethod === 'cash' ? 'primary' : 'outline'}
+                                    size="small"
+                                    style={{ flex: 1 }}
                                 />
                             </View>
-                        )}
-                    </View>
-                ) : (
-                    <View style={{ alignItems: 'center', padding: spacing.xl }}>
-                        <View style={{ backgroundColor: colors.success + '20', width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center' }}>
-                            <Ionicons name="checkmark-circle" size={48} color={colors.success} />
+
+                            <Button
+                                title="Record Payment"
+                                onPress={handleRecordPayment}
+                                variant="primary"
+                                size="large"
+                                disabled={!amount}
+                                style={{ marginTop: spacing.base }}
+                            />
                         </View>
-                        <Text style={[typography.h3, { color: colors.text, marginTop: spacing.lg, textAlign: 'center' }]}>
-                            Payment Recorded!
-                        </Text>
-                        <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}>
-                            UGX {parseFloat(amount).toLocaleString()} from {selectedTenant?.name}
-                        </Text>
+                    )}
+                </View>
+            ) : (
+                <View style={{ alignItems: 'center', padding: spacing.xl }}>
+                    <View style={{ backgroundColor: colors.success + '20', width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="checkmark-circle" size={48} color={colors.success} />
                     </View>
-                )}
-            </ScrollView>
+                    <Text style={[typography.h3, { color: colors.text, marginTop: spacing.lg, textAlign: 'center' }]}>
+                        Payment Recorded!
+                    </Text>
+                    <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}>
+                        UGX {parseFloat(amount).toLocaleString()} from {selectedTenant?.name}
+                    </Text>
+                </View>
+            )}
         </Modal>
     );
 };

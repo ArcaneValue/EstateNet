@@ -67,14 +67,17 @@ const limiter = rateLimit({
 
 // Middleware
 app.use(helmet());
+// CORS - Allow all origins in development for mobile device testing
 app.use(cors({
-    origin: [
-        process.env.FRONTEND_URL || 'http://localhost:19006',
-        'http://localhost:8081',
-        'http://localhost:19006',
-        'http://127.0.0.1:8081',
-        'http://127.0.0.1:19006'
-    ],
+    origin: process.env.NODE_ENV === 'production'
+        ? [
+            process.env.FRONTEND_URL || 'http://localhost:19006',
+            'http://localhost:8081',
+            'http://localhost:19006',
+            'http://127.0.0.1:8081',
+            'http://127.0.0.1:19006'
+        ]
+        : true, // Allow all origins in development for Expo Go and physical devices
     credentials: true
 }));
 app.use(limiter);

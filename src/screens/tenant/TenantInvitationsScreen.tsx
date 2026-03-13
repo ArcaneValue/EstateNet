@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import { useLease } from '../../context/LeaseContext';
 import { Button } from '../../components/Button';
+import { TopAppBar } from '../../components/TopAppBar';
 import { Ionicons } from '@expo/vector-icons';
 import { apiGet, apiPost } from '../../utils/apiClient';
 
@@ -23,8 +26,14 @@ interface TenantInvitation {
     };
 }
 
-export const TenantInvitationsScreen: React.FC = () => {
+interface TenantInvitationsScreenProps {
+    navigation: any;
+}
+
+export const TenantInvitationsScreen: React.FC<TenantInvitationsScreenProps> = ({ navigation }) => {
     const { colors, spacing, typography, borderRadius } = useTheme();
+    const { user } = useAuth();
+    const { activeLease } = useLease();
 
     const [invitations, setInvitations] = useState<TenantInvitation[]>([]);
     const [loading, setLoading] = useState(false);
@@ -222,8 +231,18 @@ export const TenantInvitationsScreen: React.FC = () => {
         );
     };
 
+    const propertyName = activeLease?.property?.name;
+    const unitNumber = activeLease?.unit?.unitNumber;
+
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+            <TopAppBar
+                onNotificationsPress={() => { }}
+                onProfilePress={() => navigation.navigate('Profile')}
+                profileImage={user?.profileImage}
+                propertyName={propertyName}
+                unitNumber={unitNumber}
+            />
             <ScrollView
                 style={{ flex: 1 }}
                 contentContainerStyle={{ padding: spacing.base }}

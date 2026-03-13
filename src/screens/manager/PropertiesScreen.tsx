@@ -7,8 +7,11 @@ import { Modal } from '../../components/Modal';
 import { Button } from '../../components/Button';
 import { TenantListItem } from '../../components/TenantListItem';
 import { AddPropertyForm } from '../../components/AddPropertyForm';
+import { TopAppBar } from '../../components/TopAppBar';
 import { useManagerProperties, Property } from '../../hooks/useManagerProperties';
 import { useManagerEnforcement } from '../../hooks/useManagerEnforcement';
+import { useAuth } from '../../context/AuthContext';
+import { formatCompactCurrencyUGX } from '../../utils/formatters';
 import { apiGet } from '../../utils/apiClient';
 import { Ionicons } from '@expo/vector-icons';
 import { handleEnforcement } from '../../utils/enforcementNavigation';
@@ -27,6 +30,7 @@ interface PropertyTenant {
 
 export const PropertiesScreen: React.FC<any> = ({ navigation }) => {
     const { colors, spacing, typography } = useTheme();
+    const { user } = useAuth();
     const { data: properties, loading, error, refetch, createProperty, deleteProperty } = useManagerProperties();
     const { checkEnforcement, checking: checkingEnforcement } = useManagerEnforcement();
     const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
@@ -169,30 +173,18 @@ export const PropertiesScreen: React.FC<any> = ({ navigation }) => {
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+            <TopAppBar
+                onNotificationsPress={() => { }}
+                onProfilePress={() => navigation.navigate('Profile')}
+                profileImage={user?.profileImage}
+                propertyCount={properties.length}
+            />
             <FlatList
                 data={properties}
                 refreshing={loading}
                 onRefresh={refetch}
                 ListHeaderComponent={
-                    <View>
-                        {/* Header */}
-                        <View style={{ marginBottom: spacing.lg }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <TouchableOpacity
-                                    onPress={() => navigation.goBack()}
-                                    style={{ marginRight: spacing.sm, padding: spacing.xs }}
-                                >
-                                    <Ionicons name="arrow-back" size={24} color={colors.text} />
-                                </TouchableOpacity>
-                                <Text style={[typography.h2, { color: colors.text }]}>
-                                    My Properties
-                                </Text>
-                            </View>
-                            <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, marginLeft: spacing.xl + spacing.xs }]}>
-                                Manage your property portfolio
-                            </Text>
-                        </View>
-
+                    <View style={{ padding: spacing.base }}>
                         {/* Add Property Button */}
                         <Button
                             title={checkingEnforcement ? 'Checking...' : '+ Add Property'}
@@ -207,18 +199,20 @@ export const PropertiesScreen: React.FC<any> = ({ navigation }) => {
                     </View>
                 }
                 renderItem={({ item }) => (
-                    <PropertyListItem
-                        propertyId={item.id}
-                        name={item.name}
-                        location={item.location}
-                        occupiedUnits={getOccupiedCount(item)}
-                        totalUnits={item.units.length}
-                        monthlyRent={getMonthlyRent(item)}
-                        onPress={() => setSelectedProperty(item)}
-                    />
+                    <View style={{ paddingHorizontal: spacing.base, marginBottom: spacing.sm }}>
+                        <PropertyListItem
+                            propertyId={item.id}
+                            name={item.name}
+                            location={item.location}
+                            occupiedUnits={getOccupiedCount(item)}
+                            totalUnits={item.units.length}
+                            monthlyRent={getMonthlyRent(item)}
+                            onPress={() => setSelectedProperty(item)}
+                        />
+                    </View>
                 )}
                 keyExtractor={item => item.id}
-                contentContainerStyle={{ padding: spacing.base, paddingBottom: spacing.xl }}
+                contentContainerStyle={{ paddingBottom: spacing.xl }}
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
                     <View style={{ alignItems: 'center', marginTop: spacing['3xl'] }}>
@@ -265,7 +259,7 @@ export const PropertiesScreen: React.FC<any> = ({ navigation }) => {
                                 <InfoRow label="Total Units" value={selectedProperty.units.length.toString()} colors={colors} typography={typography} />
                                 <InfoRow label="Occupied" value={`${getOccupiedCount(selectedProperty)} units`} colors={colors} typography={typography} />
                                 <InfoRow label="Vacant" value={`${selectedProperty.units.length - getOccupiedCount(selectedProperty)} units`} colors={colors} typography={typography} />
-                                <InfoRow label="Monthly Revenue" value={`UGX ${(getMonthlyRent(selectedProperty) / 1000000).toFixed(1)}M`} colors={colors} typography={typography} />
+                                <InfoRow label="Monthly Revenue" value={formatCompactCurrencyUGX(getMonthlyRent(selectedProperty))} colors={colors} typography={typography} />
                             </View>
                         </View>
 

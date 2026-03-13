@@ -3,6 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet, ScrollView } from '
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { formatCompactCurrencyUGX } from '../../utils/formatters';
 import { useProperties } from '../../context/PropertyContext';
 import { usePayments } from '../../context/PaymentContext';
 import { Card } from '../../components/Card';
@@ -26,7 +27,7 @@ export const OwnerOutstandingScreen: React.FC<OwnerOutstandingScreenProps> = ({ 
     const ownedProperties = user ? getOwnedProperties(user.id) : [];
 
     // Calculate outstanding rent across all owned properties
-    const outstandingData = ownedProperties.reduce((data: any[], property) => {
+    const outstandingData = ownedProperties.reduce((data: any[], property: any) => {
         const occupiedUnits = property.units.filter((unit: any) => unit.isOccupied);
 
         occupiedUnits.forEach((unit: any) => {
@@ -56,7 +57,7 @@ export const OwnerOutstandingScreen: React.FC<OwnerOutstandingScreenProps> = ({ 
 
     // Filter and sort data
     const filteredData = selectedProperty
-        ? outstandingData.filter(item => item.propertyId === selectedProperty)
+        ? outstandingData.filter((item: any) => item.propertyId === selectedProperty)
         : outstandingData;
 
     const sortedData = [...filteredData].sort((a, b) => {
@@ -73,10 +74,10 @@ export const OwnerOutstandingScreen: React.FC<OwnerOutstandingScreenProps> = ({ 
     });
 
     // Calculate totals
-    const totalOutstanding = filteredData.reduce((sum, item) => sum + item.outstandingAmount, 0);
+    const totalOutstanding = filteredData.reduce((sum: number, item: any) => sum + item.outstandingAmount, 0);
     const totalTenants = filteredData.length;
     const averageDaysOverdue = totalTenants > 0
-        ? Math.round(filteredData.reduce((sum, item) => sum + item.daysOverdue, 0) / totalTenants)
+        ? Math.round(filteredData.reduce((sum: number, item: any) => sum + item.daysOverdue, 0) / totalTenants)
         : 0;
 
     const handleSendReminder = (item: any) => {
@@ -100,9 +101,6 @@ export const OwnerOutstandingScreen: React.FC<OwnerOutstandingScreenProps> = ({ 
         return { type: 'error' as const, label: '30+ days' };
     };
 
-    const formatCurrency = (amount: number) => {
-        return `UGX ${(amount / 1000000).toFixed(1)}M`;
-    };
 
     const renderOutstandingItem = ({ item }: { item: any }) => {
         const status = getOverdueStatus(item.daysOverdue);
@@ -133,7 +131,7 @@ export const OwnerOutstandingScreen: React.FC<OwnerOutstandingScreenProps> = ({ 
                                     Monthly Rent
                                 </Text>
                                 <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>
-                                    {formatCurrency(item.rentAmount)}
+                                    {formatCompactCurrencyUGX(item.rentAmount)}
                                 </Text>
                             </View>
                             <View style={styles.financialItem}>
@@ -141,7 +139,7 @@ export const OwnerOutstandingScreen: React.FC<OwnerOutstandingScreenProps> = ({ 
                                     Outstanding
                                 </Text>
                                 <Text style={[typography.body, { color: colors.error, fontWeight: '600' }]}>
-                                    {formatCurrency(item.outstandingAmount)}
+                                    {formatCompactCurrencyUGX(item.outstandingAmount)}
                                 </Text>
                             </View>
                         </View>
@@ -220,7 +218,7 @@ export const OwnerOutstandingScreen: React.FC<OwnerOutstandingScreenProps> = ({ 
                         <View style={styles.summaryContent}>
                             <Ionicons name="alert-circle" size={24} color={colors.error} />
                             <Text style={[typography.h2, { color: colors.error, marginTop: spacing.sm }]}>
-                                {formatCurrency(totalOutstanding)}
+                                {formatCompactCurrencyUGX(totalOutstanding)}
                             </Text>
                             <Text style={[typography.bodySmall, { color: colors.error, marginTop: spacing.xs }]}>
                                 Total Outstanding
@@ -282,7 +280,7 @@ export const OwnerOutstandingScreen: React.FC<OwnerOutstandingScreenProps> = ({ 
                                     All Properties
                                 </Text>
                             </TouchableOpacity>
-                            {ownedProperties.map((property) => (
+                            {ownedProperties.map((property: any) => (
                                 <TouchableOpacity
                                     key={property.id}
                                     style={[
@@ -373,7 +371,7 @@ export const OwnerOutstandingScreen: React.FC<OwnerOutstandingScreenProps> = ({ 
                                                 Monthly Rent
                                             </Text>
                                             <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>
-                                                {formatCurrency(item.rentAmount)}
+                                                {formatCompactCurrencyUGX(item.rentAmount)}
                                             </Text>
                                         </View>
                                         <View style={styles.financialItem}>
@@ -381,7 +379,7 @@ export const OwnerOutstandingScreen: React.FC<OwnerOutstandingScreenProps> = ({ 
                                                 Outstanding
                                             </Text>
                                             <Text style={[typography.body, { color: colors.error, fontWeight: '600' }]}>
-                                                {formatCurrency(item.outstandingAmount)}
+                                                {formatCompactCurrencyUGX(item.outstandingAmount)}
                                             </Text>
                                         </View>
                                     </View>

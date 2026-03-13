@@ -1,24 +1,40 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   Modal as RNModal,
+  ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useOwnerApi } from '../../hooks/useOwnerApi';
+import { TopAppBar } from '../../components/TopAppBar';
+import { ScreenWrapper } from '../../components/ScreenWrapper';
 import { Button } from '../../components/Button';
 import { AddPropertyForm } from '../../components/AddPropertyForm';
+import { Card } from '../../components/Card';
+import { StatusBadge } from '../../components/StatusBadge';
+import { formatCompactNumber } from '../../utils/formatters';
 
 export const OwnerPropertiesScreen: React.FC<any> = ({ navigation, route }) => {
-  const { colors, spacing, typography, shadows } = useTheme();
-  const { properties, loading, refetch, createProperty } = useOwnerApi();
+  const { colors, spacing, typography, borderRadius } = useTheme();
   const { user } = useAuth();
+  const { properties, loading, refetch, createProperty } = useOwnerApi();
+
+  // Calculate total units
+  const totalUnits = useMemo(() => (
+    properties.reduce((sum: number, property: any) => sum + (property.units?.length || 0), 0)
+  ), [properties]);
+
+  const totalActiveLeases = useMemo(() => (
+    properties.reduce((sum: number, property: any) => (
+      sum + (property.leases?.filter((l: any) => l.status === 'ACTIVE').length || 0)
+    ), 0)
+  ), [properties]);
 
   // Create Property Modal State
   const [showModal, setShowModal] = useState(route?.params?.openModal || false);
@@ -27,130 +43,132 @@ export const OwnerPropertiesScreen: React.FC<any> = ({ navigation, route }) => {
     const result = await createProperty({
       name: newProperty.name,
       location: newProperty.location,
-      units: newProperty.units?.map((u: any) => ({
-        unitNumber: u.unitNumber,
-        rentAmount: u.rentAmount
-      }))
     });
     if (result.success) {
       setShowModal(false);
     }
   };
 
-  const renderProperty = (property: any) => (
-    <TouchableOpacity
-      key={property.id}
-      style={[
-        styles.propertyCard,
-        {
-          backgroundColor: colors.surface,
-          padding: spacing.lg,
-          marginBottom: spacing.md,
-          borderRadius: 12,
-          ...shadows.sm,
-        },
-      ]}
-      onPress={() => {
-        navigation.navigate('OwnerPropertyDetail', { property });
-      }}
-    >
-      <View style={styles.propertyHeader}>
-        <View style={[styles.propertyIcon, { backgroundColor: colors.primary + '20' }]}>
-          <Ionicons name="home" size={24} color={colors.primary} />
-        </View>
-        <View style={styles.propertyInfo}>
-          <Text style={[typography.h3, { color: colors.text }]}>{property.name}</Text>
-          <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
-            {property.location}
-          </Text>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-      </View>
-      <View style={[styles.propertyStats, { marginTop: spacing.md }]}>
-        <View style={styles.stat}>
-          <Text style={[typography.h3, { color: colors.primary }]}>
-            {property.units?.length || 0}
-          </Text>
-          <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Units</Text>
-        </View>
-        <View style={styles.stat}>
-          <Text style={[typography.h3, { color: colors.success }]}>
-            {property.manager ? 'Assigned' : 'No Manager'}
-          </Text>
-          <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Manager</Text>
-        </View>
-        <View style={styles.stat}>
-          <Text style={[typography.h3, { color: colors.warning }]}>
-            {property.leases?.filter((l: any) => l.status === 'ACTIVE').length || 0}
-          </Text>
-          <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Active Leases</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+  const renderProperty = ({ item: property }: { item: any }) => {
+    const unitsCount = property.units?.length || 0;
+    const activeLeases = property.leases?.filter((l: any) => l.status === 'ACTIVE').length || 0;
+    const hasManager = Boolean(property.manager);
+
+    return (
+      <TouchableOpacity
+        onPress={() => navigation.navigate('OwnerPropertyDetail', { property })}
+        activeOpacity={0.85}
+        style={{ marginBottom: spacing.md }}
+      >
+        <Card style={{ padding: spacing.lg }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{
+              width: 52,
+              height: 52,
+              borderRadius: borderRadius.md,
+              backgroundColor: colors.primary + '15',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: spacing.md,
+            }}>
+              <Ionicons name="home" size={22} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[typography.h3, { color: colors.text }]} numberOfLines={1}>{property.name}</Text>
+              <Text style={[typography.bodySmall, { color: colors.textSecondary }]} numberOfLines={1}>
+                {property.location || 'No location provided'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+          </View>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.lg }}>
+            <View style={{ flex: 1 }}>
+              <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Units</Text>
+              <Text style={[typography.h3, { color: colors.text }]}>{formatCompactNumber(unitsCount)}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Active leases</Text>
+              <Text style={[typography.h3, { color: colors.text }]}>{formatCompactNumber(activeLeases)}</Text>
+            </View>
+            <View style={{ flex: 1, alignItems: 'flex-end' }}>
+              <StatusBadge
+                status={hasManager ? 'ACCEPTED' : 'INVITED'}
+                label={hasManager ? 'Manager assigned' : 'No manager'}
+                variant="subtle"
+                size="small"
+              />
+            </View>
+          </View>
+        </Card>
+      </TouchableOpacity>
+    );
+  };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={[styles.header, { padding: spacing.lg }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8 }}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <View style={{ flex: 1, marginLeft: spacing.md }}>
-          <Text style={[typography.h2, { color: colors.text }]}>My Properties</Text>
-          <Text style={[typography.body, { color: colors.textSecondary }]}>
-            {properties.length} {properties.length === 1 ? 'property' : 'properties'}
-          </Text>
-        </View>
-        <TouchableOpacity
-          onPress={() => setShowModal(true)}
-          style={[styles.addButton, { backgroundColor: colors.primary }]}
-        >
-          <Ionicons name="add" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
+    <ScreenWrapper>
+      <TopAppBar
+        onNotificationsPress={() => navigation.navigate('Notifications')}
+        onProfilePress={() => navigation.navigate('Profile')}
+        profileImage={user?.profileImage}
+        propertyCount={properties.length}
+        unitCount={totalUnits}
+      />
 
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingTop: 0 }}>
-        {loading ? (
-          <Text style={[typography.body, { color: colors.textSecondary, textAlign: 'center' }]}>
-            Loading properties...
-          </Text>
-        ) : properties.length === 0 ? (
-          <View
-            style={[
-              styles.emptyState,
-              {
-                backgroundColor: colors.surface,
-                padding: spacing.xl,
-                borderRadius: 12,
-                alignItems: 'center',
-              },
-            ]}
-          >
-            <Ionicons name="home-outline" size={64} color={colors.textSecondary} />
-            <Text style={[typography.h3, { color: colors.text, marginTop: spacing.md }]}>
-              No Properties Yet
-            </Text>
-            <Text
-              style={[
-                typography.body,
-                { color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm },
-              ]}
-            >
-              Tap the + button to add your first property
-            </Text>
+      <FlatList
+        data={properties}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing['2xl'] }}
+        renderItem={renderProperty}
+        ListHeaderComponent={(
+          <Card style={{ marginBottom: spacing.lg }}>
+            <Text style={[typography.caption, { color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.6 }]}>Portfolio</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.md }}>
+              <View>
+                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Properties</Text>
+                <Text style={[typography.h2, { color: colors.text }]}>{properties.length}</Text>
+              </View>
+              <View>
+                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Units</Text>
+                <Text style={[typography.h2, { color: colors.text }]}>{totalUnits}</Text>
+              </View>
+              <View>
+                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Active leases</Text>
+                <Text style={[typography.h2, { color: colors.text }]}>{totalActiveLeases}</Text>
+              </View>
+            </View>
             <Button
-              title="Add Property"
+              title="Add property"
               onPress={() => setShowModal(true)}
-              variant="primary"
-              size="large"
-              style={{ marginTop: spacing.lg }}
-              icon={<Ionicons name="add-circle" size={20} color="#FFFFFF" />}
+              variant="pill"
+              size="compact"
+              style={{ marginTop: spacing.lg, alignSelf: 'flex-start' }}
+              icon={<Ionicons name="add" size={16} color={colors.text} />}
             />
-          </View>
-        ) : (
-          properties.map(renderProperty)
+          </Card>
         )}
-      </ScrollView>
+        ListEmptyComponent={
+          loading ? (
+            <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.md }]}>Loading properties...</Text>
+            </View>
+          ) : (
+            <Card style={{ alignItems: 'center', padding: spacing.xl }}>
+              <Ionicons name="home-outline" size={40} color={colors.textSecondary} />
+              <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}>No properties yet. Add your first property to get started.</Text>
+              <Button
+                title="Add property"
+                onPress={() => setShowModal(true)}
+                variant="primary"
+                size="medium"
+                style={{ marginTop: spacing.md }}
+                icon={<Ionicons name="add-circle" size={18} color={colors.textOnPrimary} />}
+              />
+            </Card>
+          )
+        }
+      />
 
       {/* Add Property Modal - Using AddPropertyForm like Manager */}
       <RNModal
@@ -164,22 +182,11 @@ export const OwnerPropertiesScreen: React.FC<any> = ({ navigation, route }) => {
           onCancel={() => setShowModal(false)}
         />
       </RNModal>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   propertyCard: {},
   propertyHeader: {
     flexDirection: 'row',

@@ -8,6 +8,7 @@ import { Card } from '../../components/Card';
 import { Modal } from '../../components/Modal';
 import { Input } from '../../components/Input';
 import { Button } from '../../components/Button';
+import { TopAppBar } from '../../components/TopAppBar';
 import { Ionicons } from '@expo/vector-icons';
 import { apiPatch } from '../../utils/apiClient';
 import * as ImagePicker from 'expo-image-picker';
@@ -309,7 +310,7 @@ export const TenantProfileScreen: React.FC<TenantProfileScreenProps> = ({ naviga
                 visible={showSettings}
                 onClose={() => setShowSettings(false)}
                 title="Settings"
-                size="large"
+                size="medium"
             >
                 <View>
                     <SettingItem

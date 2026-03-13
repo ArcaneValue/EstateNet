@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { Input } from '../../components/Input';
 import { Button } from '../../components/Button';
+import { KeyboardSafeContainer } from '../../components/KeyboardSafeContainer';
 
 interface SignInScreenProps {
     navigation: any;
@@ -50,71 +51,69 @@ export const SignInScreen: React.FC<SignInScreenProps> = ({ navigation }) => {
     };
 
     return (
-        <ScrollView
-            style={[styles.container, { backgroundColor: colors.background }]}
-            contentContainerStyle={{ padding: spacing['2xl'] }}
-            keyboardShouldPersistTaps="handled"
-        >
-            <Text style={[typography.h1, { color: colors.text, marginTop: 40 }]}>
-                Welcome Back
-            </Text>
-            <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm }]}>
-                Sign in to continue to EstateNet
-            </Text>
-
-            <View style={{ marginTop: spacing['3xl'] }}>
-                <Input
-                    label="Email"
-                    placeholder="Enter your email"
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    {...(Platform.OS === 'ios' && {
-                        textContentType: 'emailAddress',
-                        autoComplete: 'email',
-                    })}
-                />
-
-                <Input
-                    label="Password"
-                    placeholder="Enter your password"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry
-                    {...(Platform.OS === 'ios' && {
-                        textContentType: 'password',
-                        autoComplete: 'password',
-                    })}
-                />
-
-                {error ? (
-                    <Text style={{ color: colors.error, marginTop: spacing.sm }}>
-                        {error}
-                    </Text>
-                ) : null}
-
-                <Button
-                    title="Sign In"
-                    onPress={handleSignIn}
-                    loading={loading}
-                    style={{ marginTop: spacing.xl }}
-                />
-            </View>
-
-            <View style={{ marginTop: spacing['2xl'] }}>
-                <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
-                    Don't have an account?{' '}
-                    <Text
-                        style={{ color: colors.primary, fontWeight: '600' }}
-                        onPress={() => navigation.navigate('RoleSelection')}
-                    >
-                        Sign Up
-                    </Text>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <KeyboardSafeContainer contentContainerStyle={{ padding: spacing['2xl'] }}>
+                <Text style={[typography.h1, { color: colors.text, marginTop: 40 }]}>
+                    Welcome Back
                 </Text>
-            </View>
-        </ScrollView>
+                <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm }]}>
+                    Sign in to continue to EstateNet
+                </Text>
+
+                <View style={{ marginTop: spacing['3xl'] }}>
+                    <Input
+                        label="Email"
+                        placeholder="Enter your email"
+                        value={email}
+                        onChangeText={setEmail}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        {...(Platform.OS === 'ios' && {
+                            textContentType: 'emailAddress',
+                            autoComplete: 'email',
+                        })}
+                    />
+
+                    <Input
+                        label="Password"
+                        placeholder="Enter your password"
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry
+                        {...(Platform.OS === 'ios' && {
+                            textContentType: 'password',
+                            autoComplete: 'password',
+                        })}
+                    />
+
+                    {error ? (
+                        <Text style={{ color: colors.error, marginTop: spacing.sm }}>
+                            {error}
+                        </Text>
+                    ) : null}
+
+                    <Button
+                        title="Sign In"
+                        onPress={handleSignIn}
+                        loading={loading}
+                        style={{ marginTop: spacing.xl }}
+                    />
+                </View>
+
+                <View style={{ marginTop: spacing['2xl'] }}>
+                    <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
+                        Don't have an account?{' '}
+                        <Text
+                            style={{ color: colors.primary, fontWeight: '600' }}
+                            onPress={() => navigation.navigate('RoleSelection')}
+                        >
+                            Sign Up
+                        </Text>
+                    </Text>
+                </View>
+            </KeyboardSafeContainer>
+        </View>
     );
 };
 

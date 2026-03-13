@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, FlatList, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { MessageDetailsModal } from './MessageDetailsModal';
 import { Button } from '../../components/Button';
@@ -31,8 +32,10 @@ interface MessagesScreenProps {
 }
 
 export const MessagesScreen: React.FC<MessagesScreenProps> = ({ navigation }) => {
-    const { colors, spacing, typography, borderRadius } = useTheme();
+    const { colors, spacing, typography, borderRadius, isDark, toggleTheme } = useTheme();
+    const { user } = useAuth();
     const { activeLease, leaseLoading } = useLease();
+    const insets = useSafeAreaInsets();
     const {
         inbox,
         sent,
@@ -287,11 +290,92 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({ navigation }) =>
         );
     }
 
+    const propertyName = activeLease?.property?.name;
+    const unitNumber = activeLease?.unit?.unitNumber;
+
+    const getGreeting = (): string => {
+        const hour = new Date().getHours();
+        if (hour < 12) return 'Good Morning,';
+        if (hour < 17) return 'Good Afternoon,';
+        return 'Good Evening,';
+    };
+
+    const getFirstName = (fullName: string | undefined): string => {
+        if (!fullName) return 'User';
+        return fullName.split(' ')[0];
+    };
+
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-            <View style={{ flex: 1, padding: spacing.base }}>
+            {/* Custom Top Bar - Compose Icon Only */}
+            <View style={{
+                backgroundColor: colors.background,
+                paddingTop: insets.top + spacing.sm,
+                paddingBottom: spacing.md,
+                paddingHorizontal: spacing.base,
+                borderBottomWidth: 1,
+                borderBottomColor: colors.border,
+            }}>
+                <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                }}>
+                    {/* Left Section: Greeting & Identity */}
+                    <View style={{ flex: 1, marginRight: spacing.md }}>
+                        <Text style={{
+                            fontSize: 12,
+                            color: colors.textSecondary,
+                            fontWeight: '600',
+                            letterSpacing: 0.5,
+                            textTransform: 'uppercase',
+                        }}>
+                            {getGreeting()}
+                        </Text>
+                        <Text style={{
+                            fontSize: 22,
+                            fontWeight: '700',
+                            color: colors.text,
+                            marginTop: 4,
+                            letterSpacing: -0.5,
+                        }}>
+                            {getFirstName(user?.name)}
+                        </Text>
+
+                        {/* Subtext */}
+                        {propertyName && unitNumber && (
+                            <Text style={{
+                                fontSize: 11,
+                                color: colors.textTertiary,
+                                marginTop: 4,
+                                fontWeight: '500',
+                            }}>
+                                {unitNumber} – {propertyName}
+                            </Text>
+                        )}
+                    </View>
+
+                    {/* Right Section: Compose Icon Only */}
+                    <TouchableOpacity
+                        onPress={() => setShowComposeModal(true)}
+                        activeOpacity={0.7}
+                        style={{
+                            backgroundColor: colors.primary,
+                            width: 44,
+                            height: 44,
+                            borderRadius: 22,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}
+                    >
+                        <Ionicons name="create-outline" size={22} color="#FFFFFF" />
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            <View style={{ flex: 1 }}>
                 {/* Header */}
-                <View style={{ marginBottom: spacing.lg }}>
+                <View style={{ marginBottom: spacing.lg, paddingHorizontal: spacing.base, paddingTop: spacing.base }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <View style={{ flex: 1 }}>
                             <Text style={[typography.h2, { color: colors.text }]}>
@@ -301,20 +385,6 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({ navigation }) =>
                                 Communications & inquiries
                             </Text>
                         </View>
-                        {/* Compose Button */}
-                        <TouchableOpacity
-                            onPress={() => setShowComposeModal(true)}
-                            style={{
-                                backgroundColor: colors.primary,
-                                width: 44,
-                                height: 44,
-                                borderRadius: 22,
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}
-                        >
-                            <Ionicons name="create-outline" size={22} color="#FFFFFF" />
-                        </TouchableOpacity>
                     </View>
                     {unreadCount > 0 && activeTab === 'inbox' && (
                         <View style={{
@@ -344,6 +414,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({ navigation }) =>
                         flexDirection: 'row',
                         alignItems: 'flex-start',
                         marginBottom: spacing.lg,
+                        marginHorizontal: spacing.base,
                     }}>
                         <Ionicons
                             name="information-circle"
@@ -363,7 +434,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({ navigation }) =>
                 )}
 
                 {/* Tabs */}
-                <View style={{ flexDirection: 'row', marginBottom: spacing.lg, gap: spacing.sm }}>
+                <View style={{ flexDirection: 'row', marginBottom: spacing.lg, gap: spacing.sm, paddingHorizontal: spacing.base }}>
                     <TouchableOpacity
                         onPress={() => setActiveTab('inbox')}
                         style={{
@@ -425,7 +496,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({ navigation }) =>
                         data={currentMessages}
                         keyExtractor={(item) => item.id}
                         showsVerticalScrollIndicator={false}
-                        contentContainerStyle={{ paddingBottom: spacing.xl }}
+                        contentContainerStyle={{ paddingBottom: spacing.xl, paddingHorizontal: spacing.base }}
                         renderItem={({ item }) => {
                             const uiMessage = mapBackendMessageToUi(item, activeTab === 'inbox');
                             return (
@@ -519,6 +590,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({ navigation }) =>
                         padding: spacing.xl,
                         alignItems: 'center',
                         justifyContent: 'center',
+                        marginHorizontal: spacing.base,
                     }}>
                         <Ionicons name={activeTab === 'inbox' ? 'mail-open-outline' : 'send-outline'} size={64} color={colors.textSecondary} />
                         <Text style={[typography.h3, { color: colors.text, marginTop: spacing.lg, textAlign: 'center' }]}>
@@ -551,25 +623,6 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({ navigation }) =>
                         )}
                     </View>
                 )}
-
-                {/* Information Notice */}
-                {currentMessages.length > 0 && (
-                    <View style={{
-                        backgroundColor: activeTab === 'inbox' ? colors.infoLight : colors.primaryLight + '20',
-                        padding: spacing.md,
-                        borderRadius: borderRadius.md,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        marginTop: spacing.md,
-                    }}>
-                        <Ionicons name="information-circle" size={20} color={activeTab === 'inbox' ? colors.info : colors.primary} style={{ marginRight: spacing.sm }} />
-                        <Text style={[typography.bodySmall, { color: activeTab === 'inbox' ? colors.info : colors.primary, flex: 1, lineHeight: 18 }]}>
-                            {activeTab === 'inbox'
-                                ? 'All messages are formal communications from your property manager or system.'
-                                : 'Your sent messages will be reviewed by the property manager.'}
-                        </Text>
-                    </View>
-                )}
             </View>
 
             {/* Message Details Modal */}
@@ -589,287 +642,282 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({ navigation }) =>
                 title="New Message"
                 size="large"
             >
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={{ flex: 1 }}
-                >
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing.lg }}>
-                        {/* Category Selection */}
-                        <View style={{ marginBottom: spacing.lg }}>
-                            <Text style={[typography.body, { color: colors.text, fontWeight: '600', marginBottom: spacing.sm }]}>
-                                Category
-                            </Text>
-                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-                                {categories.map(cat => (
-                                    <TouchableOpacity
-                                        key={cat.id}
-                                        onPress={() => setMessageCategory(cat.id)}
-                                        style={{
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                            paddingVertical: spacing.sm,
-                                            paddingHorizontal: spacing.md,
-                                            borderRadius: borderRadius.md,
-                                            backgroundColor: messageCategory === cat.id ? colors.primary : colors.surface,
-                                            borderWidth: 1,
-                                            borderColor: messageCategory === cat.id ? colors.primary : colors.border,
-                                            gap: spacing.xs,
-                                        }}
-                                    >
-                                        <Ionicons
-                                            name={cat.icon as any}
-                                            size={14}
-                                            color={messageCategory === cat.id ? '#FFFFFF' : colors.text}
-                                        />
-                                        <Text style={[
-                                            typography.bodySmall,
-                                            {
-                                                color: messageCategory === cat.id ? '#FFFFFF' : colors.text,
-                                                fontWeight: '500',
-                                            }
-                                        ]}>
-                                            {cat.label}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        </View>
-
-                        {/* Priority Selection */}
-                        <View style={{ marginBottom: spacing.lg }}>
-                            <Text style={[typography.body, { color: colors.text, fontWeight: '600', marginBottom: spacing.sm }]}>
-                                Priority
-                            </Text>
-                            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                                {priorities.map(pri => (
-                                    <TouchableOpacity
-                                        key={pri.id}
-                                        onPress={() => setMessagePriority(pri.id)}
-                                        style={{
-                                            flex: 1,
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            paddingVertical: spacing.sm,
-                                            borderRadius: borderRadius.md,
-                                            backgroundColor: messagePriority === pri.id ? pri.color + '20' : colors.surface,
-                                            borderWidth: 2,
-                                            borderColor: messagePriority === pri.id ? pri.color : colors.border,
-                                            gap: spacing.xs,
-                                        }}
-                                    >
-                                        <View style={{
-                                            width: 8,
-                                            height: 8,
-                                            borderRadius: 4,
-                                            backgroundColor: pri.color,
-                                        }} />
-                                        <Text style={[
-                                            typography.bodySmall,
-                                            {
-                                                color: messagePriority === pri.id ? pri.color : colors.text,
-                                                fontWeight: '600',
-                                            }
-                                        ]}>
-                                            {pri.label}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        </View>
-
-                        {/* Subject */}
-                        <View style={{ marginBottom: spacing.lg }}>
-                            <Text style={[typography.body, { color: colors.text, fontWeight: '600', marginBottom: spacing.sm }]}>
-                                Subject *
-                            </Text>
-                            <TextInput
-                                value={messageSubject}
-                                onChangeText={setMessageSubject}
-                                placeholder="Enter message subject..."
-                                placeholderTextColor={colors.textSecondary}
-                                style={{
-                                    backgroundColor: colors.surface,
-                                    borderWidth: 1,
-                                    borderColor: colors.border,
-                                    borderRadius: borderRadius.md,
-                                    padding: spacing.md,
-                                    color: colors.text,
-                                    fontSize: 14,
-                                }}
-                            />
-                        </View>
-
-                        {/* Message Body */}
-                        <View style={{ marginBottom: spacing.lg }}>
-                            <Text style={[typography.body, { color: colors.text, fontWeight: '600', marginBottom: spacing.sm }]}>
-                                Message *
-                            </Text>
-                            <TextInput
-                                value={messageBody}
-                                onChangeText={setMessageBody}
-                                placeholder="Type your message here..."
-                                placeholderTextColor={colors.textSecondary}
-                                multiline
-                                numberOfLines={6}
-                                textAlignVertical="top"
-                                style={{
-                                    backgroundColor: colors.surface,
-                                    borderWidth: 1,
-                                    borderColor: colors.border,
-                                    borderRadius: borderRadius.md,
-                                    padding: spacing.md,
-                                    color: colors.text,
-                                    fontSize: 14,
-                                    minHeight: 120,
-                                }}
-                            />
-                            <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.xs, textAlign: 'right' }]}>
-                                {messageBody.length} characters
-                            </Text>
-                        </View>
-
-                        {/* Attachments */}
-                        <View style={{ marginBottom: spacing.lg }}>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
-                                <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>
-                                    Attachments
-                                </Text>
+                <View style={{ flex: 1 }}>
+                    {/* Category Selection */}
+                    <View style={{ marginBottom: spacing.lg }}>
+                        <Text style={[typography.body, { color: colors.text, fontWeight: '600', marginBottom: spacing.sm }]}>
+                            Category
+                        </Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+                            {categories.map(cat => (
                                 <TouchableOpacity
-                                    onPress={handleAddAttachment}
+                                    key={cat.id}
+                                    onPress={() => setMessageCategory(cat.id)}
                                     style={{
                                         flexDirection: 'row',
                                         alignItems: 'center',
+                                        paddingVertical: spacing.sm,
+                                        paddingHorizontal: spacing.md,
+                                        borderRadius: borderRadius.md,
+                                        backgroundColor: messageCategory === cat.id ? colors.primary : colors.surface,
+                                        borderWidth: 1,
+                                        borderColor: messageCategory === cat.id ? colors.primary : colors.border,
                                         gap: spacing.xs,
                                     }}
                                 >
-                                    <Ionicons name="attach" size={16} color={colors.primary} />
-                                    <Text style={[typography.bodySmall, { color: colors.primary, fontWeight: '600' }]}>
-                                        Add
+                                    <Ionicons
+                                        name={cat.icon as any}
+                                        size={14}
+                                        color={messageCategory === cat.id ? '#FFFFFF' : colors.text}
+                                    />
+                                    <Text style={[
+                                        typography.bodySmall,
+                                        {
+                                            color: messageCategory === cat.id ? '#FFFFFF' : colors.text,
+                                            fontWeight: '500',
+                                        }
+                                    ]}>
+                                        {cat.label}
                                     </Text>
                                 </TouchableOpacity>
-                            </View>
+                            ))}
+                        </View>
+                    </View>
 
-                            {attachments.length > 0 ? (
-                                <View style={{ gap: spacing.sm }}>
-                                    {attachments.map((file, index) => (
-                                        <View
-                                            key={index}
-                                            style={{
-                                                flexDirection: 'row',
-                                                alignItems: 'center',
-                                                backgroundColor: colors.surface,
-                                                borderWidth: 1,
-                                                borderColor: colors.border,
-                                                borderRadius: borderRadius.md,
-                                                padding: spacing.sm,
-                                            }}
-                                        >
-                                            <Ionicons
-                                                name={file.endsWith('.pdf') ? 'document' : 'image'}
-                                                size={20}
-                                                color={colors.primary}
-                                                style={{ marginRight: spacing.sm }}
-                                            />
-                                            <Text style={[typography.bodySmall, { color: colors.text, flex: 1 }]} numberOfLines={1}>
-                                                {file}
-                                            </Text>
-                                            <TouchableOpacity onPress={() => handleRemoveAttachment(index)}>
-                                                <Ionicons name="close-circle" size={20} color={colors.error} />
-                                            </TouchableOpacity>
-                                        </View>
-                                    ))}
-                                </View>
-                            ) : (
-                                <View style={{
-                                    backgroundColor: colors.surface,
-                                    borderWidth: 1,
-                                    borderColor: colors.border,
-                                    borderRadius: borderRadius.md,
-                                    borderStyle: 'dashed',
-                                    padding: spacing.lg,
-                                    alignItems: 'center',
-                                }}>
-                                    <Ionicons name="cloud-upload-outline" size={32} color={colors.textSecondary} />
-                                    <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.sm }]}>
-                                        No attachments added
+                    {/* Priority Selection */}
+                    <View style={{ marginBottom: spacing.lg }}>
+                        <Text style={[typography.body, { color: colors.text, fontWeight: '600', marginBottom: spacing.sm }]}>
+                            Priority
+                        </Text>
+                        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                            {priorities.map(pri => (
+                                <TouchableOpacity
+                                    key={pri.id}
+                                    onPress={() => setMessagePriority(pri.id)}
+                                    style={{
+                                        flex: 1,
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        paddingVertical: spacing.sm,
+                                        borderRadius: borderRadius.md,
+                                        backgroundColor: messagePriority === pri.id ? pri.color + '20' : colors.surface,
+                                        borderWidth: 2,
+                                        borderColor: messagePriority === pri.id ? pri.color : colors.border,
+                                        gap: spacing.xs,
+                                    }}
+                                >
+                                    <View style={{
+                                        width: 8,
+                                        height: 8,
+                                        borderRadius: 4,
+                                        backgroundColor: pri.color,
+                                    }} />
+                                    <Text style={[
+                                        typography.bodySmall,
+                                        {
+                                            color: messagePriority === pri.id ? pri.color : colors.text,
+                                            fontWeight: '600',
+                                        }
+                                    ]}>
+                                        {pri.label}
                                     </Text>
-                                </View>
-                            )}
+                                </TouchableOpacity>
+                            ))}
                         </View>
+                    </View>
 
-                        {/* Quick Templates */}
-                        <View style={{ marginBottom: spacing.lg }}>
-                            <Text style={[typography.body, { color: colors.text, fontWeight: '600', marginBottom: spacing.sm }]}>
-                                Quick Templates
-                            </Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                                    <TouchableOpacity
-                                        onPress={() => {
-                                            setMessageCategory('maintenance');
-                                            setMessageSubject('Maintenance Request');
-                                            setMessageBody('Dear Property Manager,\n\nI would like to report a maintenance issue in my unit.\n\nIssue: \nLocation: \nUrgency: \n\nPlease arrange for inspection at your earliest convenience.\n\nThank you.');
-                                        }}
-                                        style={{
-                                            backgroundColor: colors.surface,
-                                            borderWidth: 1,
-                                            borderColor: colors.border,
-                                            borderRadius: borderRadius.md,
-                                            padding: spacing.sm,
-                                            paddingHorizontal: spacing.md,
-                                        }}
-                                    >
-                                        <Text style={[typography.bodySmall, { color: colors.text }]}>Maintenance Request</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        onPress={() => {
-                                            setMessageCategory('billing');
-                                            setMessageSubject('Payment Inquiry');
-                                            setMessageBody('Dear Property Manager,\n\nI have a question regarding my recent payment/billing.\n\nDetails: \n\nPlease clarify at your earliest convenience.\n\nThank you.');
-                                        }}
-                                        style={{
-                                            backgroundColor: colors.surface,
-                                            borderWidth: 1,
-                                            borderColor: colors.border,
-                                            borderRadius: borderRadius.md,
-                                            padding: spacing.sm,
-                                            paddingHorizontal: spacing.md,
-                                        }}
-                                    >
-                                        <Text style={[typography.bodySmall, { color: colors.text }]}>Payment Inquiry</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        onPress={() => {
-                                            setMessageCategory('request');
-                                            setMessageSubject('General Request');
-                                            setMessageBody('Dear Property Manager,\n\nI would like to make the following request:\n\n\n\nThank you for your consideration.');
-                                        }}
-                                        style={{
-                                            backgroundColor: colors.surface,
-                                            borderWidth: 1,
-                                            borderColor: colors.border,
-                                            borderRadius: borderRadius.md,
-                                            padding: spacing.sm,
-                                            paddingHorizontal: spacing.md,
-                                        }}
-                                    >
-                                        <Text style={[typography.bodySmall, { color: colors.text }]}>General Request</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </ScrollView>
-                        </View>
-
-                        {/* Send Button */}
-                        <Button
-                            title={isSending ? "Sending..." : "Send Message"}
-                            onPress={handleSendMessage}
-                            variant="primary"
-                            disabled={isSending}
-                            icon={<Ionicons name="send" size={16} color="#FFFFFF" />}
+                    {/* Subject */}
+                    <View style={{ marginBottom: spacing.lg }}>
+                        <Text style={[typography.body, { color: colors.text, fontWeight: '600', marginBottom: spacing.sm }]}>
+                            Subject *
+                        </Text>
+                        <TextInput
+                            value={messageSubject}
+                            onChangeText={setMessageSubject}
+                            placeholder="Enter message subject..."
+                            placeholderTextColor={colors.textSecondary}
+                            style={{
+                                backgroundColor: colors.surface,
+                                borderWidth: 1,
+                                borderColor: colors.border,
+                                borderRadius: borderRadius.md,
+                                padding: spacing.md,
+                                color: colors.text,
+                                fontSize: 14,
+                            }}
                         />
-                    </ScrollView>
-                </KeyboardAvoidingView>
+                    </View>
+
+                    {/* Message Body */}
+                    <View style={{ marginBottom: spacing.lg }}>
+                        <Text style={[typography.body, { color: colors.text, fontWeight: '600', marginBottom: spacing.sm }]}>
+                            Message *
+                        </Text>
+                        <TextInput
+                            value={messageBody}
+                            onChangeText={setMessageBody}
+                            placeholder="Type your message here..."
+                            placeholderTextColor={colors.textTertiary}
+                            multiline
+                            numberOfLines={8}
+                            textAlignVertical="top"
+                            style={{
+                                backgroundColor: colors.surface,
+                                borderWidth: 1,
+                                borderColor: colors.border,
+                                borderRadius: borderRadius.md,
+                                padding: spacing.md,
+                                color: colors.text,
+                                fontSize: 15,
+                                minHeight: 150,
+                            }}
+                        />
+                        <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.xs, textAlign: 'right' }]}>
+                            {messageBody.length} characters
+                        </Text>
+                    </View>
+
+                    {/* Attachments */}
+                    <View style={{ marginBottom: spacing.lg }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
+                            <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>
+                                Attachments
+                            </Text>
+                            <TouchableOpacity
+                                onPress={handleAddAttachment}
+                                style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: spacing.xs,
+                                }}
+                            >
+                                <Ionicons name="attach" size={16} color={colors.primary} />
+                                <Text style={[typography.bodySmall, { color: colors.primary, fontWeight: '600' }]}>
+                                    Add
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {attachments.length > 0 ? (
+                            <View style={{ gap: spacing.sm }}>
+                                {attachments.map((file, index) => (
+                                    <View
+                                        key={index}
+                                        style={{
+                                            flexDirection: 'row',
+                                            alignItems: 'center',
+                                            backgroundColor: colors.surface,
+                                            borderWidth: 1,
+                                            borderColor: colors.border,
+                                            borderRadius: borderRadius.md,
+                                            padding: spacing.sm,
+                                        }}
+                                    >
+                                        <Ionicons
+                                            name={file.endsWith('.pdf') ? 'document' : 'image'}
+                                            size={20}
+                                            color={colors.primary}
+                                            style={{ marginRight: spacing.sm }}
+                                        />
+                                        <Text style={[typography.bodySmall, { color: colors.text, flex: 1 }]} numberOfLines={1}>
+                                            {file}
+                                        </Text>
+                                        <TouchableOpacity onPress={() => handleRemoveAttachment(index)}>
+                                            <Ionicons name="close-circle" size={20} color={colors.error} />
+                                        </TouchableOpacity>
+                                    </View>
+                                ))}
+                            </View>
+                        ) : (
+                            <View style={{
+                                backgroundColor: colors.surface,
+                                borderWidth: 1,
+                                borderColor: colors.border,
+                                borderRadius: borderRadius.md,
+                                borderStyle: 'dashed',
+                                padding: spacing.lg,
+                                alignItems: 'center',
+                            }}>
+                                <Ionicons name="cloud-upload-outline" size={32} color={colors.textSecondary} />
+                                <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.sm }]}>
+                                    No attachments added
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+
+                    {/* Quick Templates */}
+                    <View style={{ marginBottom: spacing.lg }}>
+                        <Text style={[typography.body, { color: colors.text, fontWeight: '600', marginBottom: spacing.sm }]}>
+                            Quick Templates
+                        </Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        setMessageCategory('maintenance');
+                                        setMessageSubject('Maintenance Request');
+                                        setMessageBody('Dear Property Manager,\n\nI would like to report a maintenance issue in my unit.\n\nIssue: \nLocation: \nUrgency: \n\nPlease arrange for inspection at your earliest convenience.\n\nThank you.');
+                                    }}
+                                    style={{
+                                        backgroundColor: colors.surface,
+                                        borderWidth: 1,
+                                        borderColor: colors.border,
+                                        borderRadius: borderRadius.md,
+                                        padding: spacing.sm,
+                                        paddingHorizontal: spacing.md,
+                                    }}
+                                >
+                                    <Text style={[typography.bodySmall, { color: colors.text }]}>Maintenance Request</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        setMessageCategory('billing');
+                                        setMessageSubject('Payment Inquiry');
+                                        setMessageBody('Dear Property Manager,\n\nI have a question regarding my recent payment/billing.\n\nDetails: \n\nPlease clarify at your earliest convenience.\n\nThank you.');
+                                    }}
+                                    style={{
+                                        backgroundColor: colors.surface,
+                                        borderWidth: 1,
+                                        borderColor: colors.border,
+                                        borderRadius: borderRadius.md,
+                                        padding: spacing.sm,
+                                        paddingHorizontal: spacing.md,
+                                    }}
+                                >
+                                    <Text style={[typography.bodySmall, { color: colors.text }]}>Payment Inquiry</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        setMessageCategory('request');
+                                        setMessageSubject('General Request');
+                                        setMessageBody('Dear Property Manager,\n\nI would like to make the following request:\n\n\n\nThank you for your consideration.');
+                                    }}
+                                    style={{
+                                        backgroundColor: colors.surface,
+                                        borderWidth: 1,
+                                        borderColor: colors.border,
+                                        borderRadius: borderRadius.md,
+                                        padding: spacing.sm,
+                                        paddingHorizontal: spacing.md,
+                                    }}
+                                >
+                                    <Text style={[typography.bodySmall, { color: colors.text }]}>General Request</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </ScrollView>
+                    </View>
+
+                    {/* Send Button */}
+                    <Button
+                        title={isSending ? "Sending..." : "Send Message"}
+                        onPress={handleSendMessage}
+                        variant="primary"
+                        disabled={isSending}
+                        icon={<Ionicons name="send" size={16} color="#FFFFFF" />}
+                    />
+                </View>
             </Modal>
         </SafeAreaView>
     );

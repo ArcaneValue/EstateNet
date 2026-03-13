@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, FlatList, Alert } from 'react-native';
+import { View, Text, FlatList, RefreshControl } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { apiGet } from '../../utils/apiClient';
 import { Card } from '../../components/Card';
-import { Button } from '../../components/Button';
+import { PageHeader } from '../../components/PageHeader';
 import { Ionicons } from '@expo/vector-icons';
+import { formatCompactCurrencyUGX } from '../../utils/formatters';
 
 interface Payment {
     id: string;
@@ -44,15 +45,20 @@ export const ManagerPaymentsScreen: React.FC<ManagerPaymentsScreenProps> = ({ na
     const { colors, spacing, typography, borderRadius } = useTheme();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [summary, setSummary] = useState<PaymentSummary | null>(null);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         loadData();
     }, []);
 
-    const loadData = async () => {
-        setLoading(true);
+    const loadData = async (isRefresh = false) => {
+        if (isRefresh) {
+            setRefreshing(true);
+        } else {
+            setLoading(true);
+        }
         setError(null);
 
         try {
@@ -94,16 +100,17 @@ export const ManagerPaymentsScreen: React.FC<ManagerPaymentsScreenProps> = ({ na
             setError('Failed to load payments data');
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
     };
 
     const renderPaymentItem = ({ item }: { item: Payment }) => (
-        <Card style={{ marginBottom: spacing.sm }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Card style={{ marginHorizontal: spacing.lg, marginBottom: spacing.md }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: spacing.md }}>
                 <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
-                        <Text style={[typography.h4, { color: colors.text }]}>
-                            UGX {item.amount.toLocaleString()}
+                        <Text style={[typography.h3, { color: colors.text }]}>
+                            {formatCompactCurrencyUGX(item.amount)}
                         </Text>
                         {item.isClaim && (
                             <View style={{
@@ -128,7 +135,7 @@ export const ManagerPaymentsScreen: React.FC<ManagerPaymentsScreenProps> = ({ na
                         </Text>
                     )}
                     <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
-                        {new Date(item.paymentDate).toLocaleDateString()}
+                        {new Date(item.paymentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </Text>
                     {item.paymentMethod && (
                         <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
@@ -153,115 +160,107 @@ export const ManagerPaymentsScreen: React.FC<ManagerPaymentsScreenProps> = ({ na
         </Card>
     );
 
-    const renderSummaryCard = (title: string, value: string | number, icon: any, color: string) => (
-        <Card style={{ flex: 1, marginHorizontal: spacing.xs }}>
-            <View style={{ alignItems: 'center', padding: spacing.md }}>
-                <Ionicons name={icon} size={24} color={color} />
-                <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.xs }]}>
-                    {title}
-                </Text>
-                <Text style={[typography.h3, { color: colors.text, marginTop: spacing.xs }]}>
-                    {typeof value === 'number' ? `UGX ${value.toLocaleString()}` : value}
-                </Text>
-            </View>
-        </Card>
+    const renderSummaryCard = (title: string, value: string, icon: any, color: string) => (
+        <View style={{ flex: 1 }}>
+            <Card>
+                <View style={{ alignItems: 'center', padding: spacing.lg }}>
+                    <Ionicons name={icon} size={32} color={color} style={{ marginBottom: spacing.sm }} />
+                    <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.xs, textAlign: 'center' }]}>
+                        {title}
+                    </Text>
+                    <Text style={[typography.h3, { color: colors.text, textAlign: 'center' }]}>
+                        {value}
+                    </Text>
+                </View>
+            </Card>
+        </View>
     );
 
-    if (loading) {
-        return (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-                <Text style={[typography.body, { color: colors.textSecondary }]}>
-                    Loading payments data...
-                </Text>
-            </View>
-        );
-    }
-
-    if (error) {
-        return (
-            <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg }}>
-                    <Button
-                        title=""
-                        onPress={() => navigation.goBack()}
-                        variant="outline"
-                        size="small"
-                        style={{ marginRight: spacing.sm, paddingHorizontal: spacing.sm }}
-                        icon={<Ionicons name="arrow-back" size={20} color={colors.primary} />}
-                    />
-                    <Text style={[typography.h2, { color: colors.text }]}>Payments</Text>
-                </View>
-
-                <Card style={{ alignItems: 'center', padding: spacing.xl }}>
-                    <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
-                    <Text style={[typography.body, { color: colors.error, marginTop: spacing.sm, textAlign: 'center' }]}>
-                        {error}
-                    </Text>
-                    <Button
-                        title="Retry"
-                        onPress={loadData}
-                        variant="outline"
-                        size="small"
-                        style={{ marginTop: spacing.sm }}
-                    />
+    const renderHeader = () => (
+        <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md }}>
+            {/* Error Display */}
+            {error && (
+                <Card style={{
+                    backgroundColor: colors.error + '10',
+                    borderColor: colors.error,
+                    borderWidth: 1,
+                    marginBottom: spacing.lg
+                }}>
+                    <View style={{ padding: spacing.md }}>
+                        <Text style={[typography.bodySmall, { color: colors.error }]}>
+                            {error}
+                        </Text>
+                    </View>
                 </Card>
-            </ScrollView>
-        );
-    }
+            )}
 
-    return (
-        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg }}>
-                <Button
-                    title=""
-                    onPress={() => navigation.goBack()}
-                    variant="outline"
-                    size="small"
-                    style={{ marginRight: spacing.sm, paddingHorizontal: spacing.sm }}
-                    icon={<Ionicons name="arrow-back" size={20} color={colors.primary} />}
-                />
-                <Text style={[typography.h2, { color: colors.text }]}>Payments</Text>
-            </View>
-
-            {/* Summary Cards */}
+            {/* Summary Section */}
             {summary && (
                 <View style={{ marginBottom: spacing.lg }}>
                     <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md }]}>Summary</Text>
-                    <View style={{ flexDirection: 'row', marginBottom: spacing.md }}>
-                        {renderSummaryCard('Total Rent', summary.totalRent, 'home-outline' as any, colors.primary)}
-                        {renderSummaryCard('Total Paid', summary.totalPaid, 'checkmark-circle-outline' as any, colors.success)}
+                    <View style={{ flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md }}>
+                        {renderSummaryCard('Total Rent', formatCompactCurrencyUGX(summary.totalRent), 'home-outline' as any, colors.primary)}
+                        {renderSummaryCard('Total Paid', formatCompactCurrencyUGX(summary.totalPaid), 'checkmark-circle-outline' as any, colors.success)}
                     </View>
-                    <View style={{ flexDirection: 'row' }}>
-                        {renderSummaryCard('Outstanding', summary.totalOutstanding, 'alert-circle-outline' as any, colors.error)}
+                    <View style={{ flexDirection: 'row', gap: spacing.md }}>
+                        {renderSummaryCard('Outstanding', formatCompactCurrencyUGX(Math.max(0, summary.totalOutstanding)), 'alert-circle-outline' as any, colors.error)}
                         {renderSummaryCard('Occupancy', `${summary.occupancyRate}%`, 'bar-chart-outline' as any, colors.info)}
                     </View>
                 </View>
             )}
 
-            {/* Recent Payments */}
-            <View>
-                <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md }]}>
-                    Recent Payments
-                </Text>
-                {payments.length === 0 ? (
-                    <Card style={{ alignItems: 'center', padding: spacing.xl }}>
-                        <Ionicons name="receipt-outline" size={64} color={colors.textSecondary} />
-                        <Text style={[typography.h3, { color: colors.text, marginTop: spacing.lg }]}>
-                            No Payments Yet
-                        </Text>
-                        <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}>
-                            Payment records will appear here once tenants start recording payments.
-                        </Text>
-                    </Card>
-                ) : (
-                    <FlatList
-                        data={payments}
-                        renderItem={renderPaymentItem}
-                        keyExtractor={(item) => item.id}
-                        showsVerticalScrollIndicator={false}
-                    />
-                )}
+            {/* Section Title */}
+            <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md }]}>
+                Recent Payments
+            </Text>
+        </View>
+    );
+
+    const renderEmpty = () => (
+        <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl }}>
+            <Card>
+                <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+                    <Ionicons name="receipt-outline" size={64} color={colors.textSecondary} />
+                    <Text style={[typography.h3, { color: colors.textSecondary, marginTop: spacing.md, textAlign: 'center' }]}>
+                        No Payments Yet
+                    </Text>
+                    <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}>
+                        Payment records will appear here once tenants start recording payments.
+                    </Text>
+                </View>
+            </Card>
+        </View>
+    );
+
+    if (loading && !refreshing) {
+        return (
+            <View style={{ flex: 1, backgroundColor: colors.background }}>
+                <PageHeader title="Payments" onBack={() => navigation.goBack()} />
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <Text style={[typography.body, { color: colors.text }]}>Loading payments...</Text>
+                </View>
             </View>
-        </ScrollView>
+        );
+    }
+
+    return (
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
+            <PageHeader title="Payments" onBack={() => navigation.goBack()} />
+
+            <FlatList
+                data={payments}
+                renderItem={renderPaymentItem}
+                keyExtractor={(item) => item.id}
+                ListHeaderComponent={renderHeader}
+                ListEmptyComponent={renderEmpty}
+                contentContainerStyle={{ paddingBottom: spacing.lg }}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={() => loadData(true)}
+                    />
+                }
+            />
+        </View>
     );
 };

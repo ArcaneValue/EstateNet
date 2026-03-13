@@ -20,15 +20,22 @@ import { Modal } from '../../components/Modal';
 import { Input } from '../../components/Input';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { TopAppBar } from '../../components/TopAppBar';
+import { ScreenWrapper } from '../../components/ScreenWrapper';
 
 interface OwnerProfileScreenProps {
   navigation: any;
 }
 
 export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigation }) => {
-  const { colors, spacing, typography, borderRadius, isDark, setTheme } = useTheme();
+  const { colors, spacing, typography, borderRadius, shadows, isDark, setTheme } = useTheme();
   const { user, signOut, refreshMe } = useAuth();
   const { properties, managers, invitations } = useOwnerApi();
+
+  // Calculate total units
+  const totalUnits = properties.reduce((sum: number, property: any) => {
+    return sum + (property.units?.length || 0);
+  }, 0);
 
   const [showSettings, setShowSettings] = useState(false);
   const [showAccountInfo, setShowAccountInfo] = useState(false);
@@ -166,35 +173,25 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+    <ScreenWrapper>
+      <TopAppBar
+        onNotificationsPress={() => navigation.navigate('Notifications')}
+        onProfilePress={() => navigation.navigate('Profile')}
+        profileImage={user?.profileImage}
+        propertyCount={properties.length}
+        unitCount={totalUnits}
+      />
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header with Settings Icon */}
-        <View style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingHorizontal: spacing.lg,
-          paddingTop: spacing.md,
-        }}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={[typography.h3, { color: colors.text }]}>Profile</Text>
-          <TouchableOpacity onPress={() => setShowSettings(true)}>
-            <Ionicons name="settings-outline" size={24} color={colors.text} />
-          </TouchableOpacity>
-        </View>
 
-        {/* Profile Header - Social Media Style */}
-        <View style={{ alignItems: 'center', paddingVertical: spacing.xl }}>
-          {/* Profile Picture */}
+        {/* Profile Hero */}
+        <View style={{ alignItems: 'center', paddingVertical: spacing.lg, paddingHorizontal: spacing.lg }}>
           <TouchableOpacity onPress={pickImage} activeOpacity={0.8}>
             <View style={{
-              width: 120,
-              height: 120,
-              borderRadius: 60,
-              borderWidth: 4,
-              borderColor: colors.accent,
+              width: 100,
+              height: 100,
+              borderRadius: 50,
+              borderWidth: 3,
+              borderColor: colors.primary,
               overflow: 'hidden',
               backgroundColor: colors.surface,
             }}>
@@ -210,7 +207,7 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
                   justifyContent: 'center',
                   backgroundColor: colors.primary + '20',
                 }}>
-                  <Ionicons name="person" size={60} color={colors.primary} />
+                  <Ionicons name="person" size={50} color={colors.primary} />
                 </View>
               )}
             </View>
@@ -218,28 +215,30 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
               position: 'absolute',
               bottom: 0,
               right: 0,
-              backgroundColor: colors.accent,
-              width: 36,
-              height: 36,
-              borderRadius: 18,
+              backgroundColor: colors.primary,
+              width: 32,
+              height: 32,
+              borderRadius: 16,
               alignItems: 'center',
               justifyContent: 'center',
               borderWidth: 3,
               borderColor: colors.background,
             }}>
-              <Ionicons name="camera" size={18} color="#FFFFFF" />
+              <Ionicons name="camera" size={16} color="#FFFFFF" />
             </View>
           </TouchableOpacity>
 
-          {/* Name and Role */}
-          <Text style={[typography.h1, { color: colors.text, marginTop: spacing.lg }]}>
+          <Text style={[typography.h2, { color: colors.text, marginTop: spacing.md }]}>
             {user?.name}
+          </Text>
+          <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.xs }]}>
+            {user?.email}
           </Text>
           <View style={{
             flexDirection: 'row',
             alignItems: 'center',
-            marginTop: spacing.xs,
-            backgroundColor: colors.primary + '20',
+            marginTop: spacing.sm,
+            backgroundColor: colors.primary + '15',
             paddingHorizontal: spacing.md,
             paddingVertical: spacing.xs,
             borderRadius: borderRadius.full,
@@ -249,100 +248,162 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
               Property Owner
             </Text>
           </View>
-
-          {/* Bio/Email */}
-          <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm }]}>
-            {user?.email}
-          </Text>
         </View>
 
         {/* Stats Row */}
         <View style={{
           flexDirection: 'row',
           justifyContent: 'space-around',
-          paddingVertical: spacing.lg,
+          paddingVertical: spacing.md,
           marginHorizontal: spacing.lg,
-          borderTopWidth: 1,
-          borderBottomWidth: 1,
-          borderColor: colors.border,
+          marginBottom: spacing.md,
+          backgroundColor: colors.surface,
+          borderRadius: borderRadius.lg,
+          ...shadows.sm,
         }}>
           {stats.map((stat, index) => (
             <View key={index} style={{ alignItems: 'center' }}>
-              <Text style={[typography.h2, { color: colors.text }]}>{stat.value}</Text>
-              <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.xs }]}>
+              <Text style={[typography.h2, { color: colors.primary }]}>{stat.value}</Text>
+              <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 4 }]}>
                 {stat.label}
               </Text>
             </View>
           ))}
         </View>
 
-        {/* Quick Info Cards */}
-        <View style={{ padding: spacing.lg }}>
-          <Card style={{ marginBottom: spacing.md }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{
-                width: 48,
-                height: 48,
-                borderRadius: 24,
-                backgroundColor: colors.success + '20',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: spacing.md,
-              }}>
-                <Ionicons name="call" size={24} color={colors.success} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Phone</Text>
-                <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>
-                  {user?.phoneNumber || 'Not set'}
-                </Text>
-              </View>
-            </View>
-          </Card>
+        {/* Settings List */}
+        <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.lg }}>
+          <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md }]}>Settings</Text>
 
-          <Card style={{ marginBottom: spacing.md }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{
-                width: 48,
-                height: 48,
-                borderRadius: 24,
-                backgroundColor: colors.info + '20',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: spacing.md,
-              }}>
-                <Ionicons name="mail" size={24} color={colors.info} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Email</Text>
-                <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>
-                  {user?.email || 'Not set'}
-                </Text>
-              </View>
+          <TouchableOpacity
+            onPress={() => setShowAccountInfo(true)}
+            style={{
+              backgroundColor: colors.surface,
+              padding: spacing.md,
+              borderRadius: borderRadius.md,
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: spacing.sm,
+              ...shadows.sm,
+            }}
+          >
+            <View style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: colors.primary + '15',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: spacing.md,
+            }}>
+              <Ionicons name="person-circle-outline" size={22} color={colors.primary} />
             </View>
-          </Card>
+            <View style={{ flex: 1 }}>
+              <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>Account Info</Text>
+              <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Update your profile details</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
 
-          <Card>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{
-                width: 48,
-                height: 48,
-                borderRadius: 24,
-                backgroundColor: colors.accent + '20',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: spacing.md,
-              }}>
-                <Ionicons name="calendar" size={24} color={colors.accent} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Member Since</Text>
-                <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>
-                  {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'N/A'}
-                </Text>
-              </View>
+          <TouchableOpacity
+            onPress={() => setShowNotifications(true)}
+            style={{
+              backgroundColor: colors.surface,
+              padding: spacing.md,
+              borderRadius: borderRadius.md,
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: spacing.sm,
+              ...shadows.sm,
+            }}
+          >
+            <View style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: colors.success + '15',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: spacing.md,
+            }}>
+              <Ionicons name="notifications-outline" size={22} color={colors.success} />
             </View>
-          </Card>
+            <View style={{ flex: 1 }}>
+              <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>Notifications</Text>
+              <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Manage notification preferences</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setShowAppearance(true)}
+            style={{
+              backgroundColor: colors.surface,
+              padding: spacing.md,
+              borderRadius: borderRadius.md,
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: spacing.sm,
+              ...shadows.sm,
+            }}
+          >
+            <View style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: colors.accent + '15',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: spacing.md,
+            }}>
+              <Ionicons name="color-palette-outline" size={22} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>Appearance</Text>
+              <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Choose your theme</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setShowAboutModal(true)}
+            style={{
+              backgroundColor: colors.surface,
+              padding: spacing.md,
+              borderRadius: borderRadius.md,
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: spacing.lg,
+              ...shadows.sm,
+            }}
+          >
+            <View style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: colors.info + '15',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: spacing.md,
+            }}>
+              <Ionicons name="information-circle-outline" size={22} color={colors.info} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>About EstateNet</Text>
+              <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>App information</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <Button
+            title="Sign Out"
+            onPress={handleSignOut}
+            variant="outline"
+            size="large"
+            style={{ borderColor: colors.error }}
+            textStyle={{ color: colors.error }}
+            icon={<Ionicons name="log-out-outline" size={20} color={colors.error} />}
+          />
         </View>
       </ScrollView>
 
@@ -627,7 +688,7 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
           </Text>
         </View>
       </Modal>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 };
 
