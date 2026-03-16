@@ -39,11 +39,18 @@ export const createProperty = async (req: AuthenticatedRequest, res: Response): 
       return;
     }
 
+    // Determine ownerId based on role and org linkage
+    let ownerId = req.user.id;
+    if (req.user.role === 'MANAGER' && req.user.createdByOwnerId) {
+      // Manager belongs to an org - property owned by the org owner
+      ownerId = req.user.createdByOwnerId;
+    }
+
     const property = await prisma.property.create({
       data: {
         name,
         location,
-        ownerId: req.user.id,  // Creator is the owner
+        ownerId,
         managerId: req.user.role === 'MANAGER' ? req.user.id : undefined,
         units: units ? {
           create: units.map(unit => ({
@@ -171,10 +178,15 @@ export const getAllProperties = async (req: AuthenticatedRequest, res: Response)
       return;
     }
 
-    // OWNER: Own properties only
+    // OWNER: Own properties + properties managed by org managers
     if (req.user.role === 'OWNER') {
       const properties = await prisma.property.findMany({
-        where: { ownerId: req.user.id },
+        where: {
+          OR: [
+            { ownerId: req.user.id },
+            { manager: { createdByOwnerId: req.user.id } }
+          ]
+        },
         include: {
           units: {
             include: {

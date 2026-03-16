@@ -9,7 +9,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0D7C7C"
+      "backgroundColor": "#1F3A5F"
     },
     "ios": {
       "supportsTablet": true,
@@ -18,7 +18,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0D7C7C"
+        "backgroundColor": "#1F3A5F"
       },
       "package": "com.estatenet.app",
       "buildToolsVersion": "34.0.0",

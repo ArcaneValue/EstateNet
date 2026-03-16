@@ -1,17 +1,17 @@
 // EstateNet Color System
-// Elegant Charcoal & Gold palette for premium property management
+// Navy & Orange palette from official brand logo
 
 export const Colors = {
   light: {
-    // Primary - Charcoal (Sophistication, Trust, Professionalism)
-    primary: '#374151',
-    primaryLight: '#4B5563',
-    primaryDark: '#1F2937',
+    // Primary - Navy Blue (from brand logo)
+    primary: '#1F3A5F',
+    primaryLight: '#2D4A7C',
+    primaryDark: '#152840',
 
-    // Accent - Warm Gold (Luxury, Value, Premium)
-    accent: '#D97706',
-    accentLight: '#F59E0B',
-    accentDark: '#B45309',
+    // Accent - Orange (from brand logo)
+    accent: '#F59E0B',
+    accentLight: '#FBBF24',
+    accentDark: '#D97706',
 
     // Backgrounds
     background: '#F3F4F6',
@@ -62,15 +62,15 @@ export const Colors = {
   },
 
   dark: {
-    // Primary - Lighter Charcoal for dark mode
-    primary: '#9CA3AF',
-    primaryLight: '#D1D5DB',
-    primaryDark: '#6B7280',
+    // Primary - Lighter Navy for dark mode
+    primary: '#4A6FA5',
+    primaryLight: '#6B8FC7',
+    primaryDark: '#2D4A7C',
 
-    // Accent - Brighter Gold for dark mode
-    accent: '#F59E0B',
-    accentLight: '#FBBF24',
-    accentDark: '#D97706',
+    // Accent - Brighter Orange for dark mode
+    accent: '#FBBF24',
+    accentLight: '#FCD34D',
+    accentDark: '#F59E0B',
 
     // Backgrounds
     background: '#0F1419',

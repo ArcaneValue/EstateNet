@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth, UserRole } from '../../context/AuthContext';
 import { Button } from '../../components/Button';
+import { BrandColors } from '../../theme/brandColors';
 import { Ionicons } from '@expo/vector-icons';
 
 export const TermsScreen: React.FC<any> = ({ navigation, route }) => {
-    const { colors, spacing, typography } = useTheme();
+    const { spacing, typography } = useTheme();
     const [accepted, setAccepted] = useState(false);
     const role = route.params?.role || 'manager';
 
@@ -128,38 +129,45 @@ These terms are governed by the laws of Uganda and applicable East African regul
     const terms = role === 'owner' ? ownerTerms : role === 'manager' ? managerTerms : tenantTerms;
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <SafeAreaView style={styles.safeArea}>
             <View style={[styles.container, { padding: spacing.base }]}>
+                {/* Logo */}
+                <View style={styles.logoContainer}>
+                    <View style={styles.logoMark}>
+                        <View style={styles.letterE}>
+                            <View style={[styles.eLine, styles.eTop]} />
+                            <View style={[styles.eLine, styles.eMiddle]} />
+                            <View style={[styles.eLine, styles.eBottom]} />
+                            <View style={styles.eVertical} />
+                        </View>
+                        <View style={styles.letterN}>
+                            <View style={styles.nLeft} />
+                            <View style={styles.nDiagonal} />
+                            <View style={styles.nRight} />
+                        </View>
+                        <View style={styles.orangeAccent} />
+                    </View>
+                </View>
+
                 {/* Header */}
                 <View style={[styles.header, { marginBottom: spacing.lg }]}>
-                    <Ionicons name="document-text" size={48} color={colors.primary} />
-                    <Text style={[typography.h2, { color: colors.text, marginTop: spacing.md }]}>
+                    <Text style={[typography.h2, styles.title]}>
                         Terms & Conditions
                     </Text>
-                    <Text
-                        style={[
-                            typography.body,
-                            { color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm },
-                        ]}
-                    >
-                        {role === 'owner' ? 'For Property Owners' : role === 'manager' ? 'For Property Managers' : 'For Tenants'}
-                    </Text>
+                    <View style={styles.roleBadge}>
+                        <Text style={styles.roleBadgeText}>
+                            {role === 'owner' ? 'Property Owner' : role === 'manager' ? 'Property Manager' : 'Tenant'}
+                        </Text>
+                    </View>
                 </View>
 
                 {/* Terms Content */}
                 <ScrollView
-                    style={[
-                        styles.termsContainer,
-                        {
-                            backgroundColor: colors.surface,
-                            borderRadius: 12,
-                            padding: spacing.base,
-                            marginBottom: spacing.lg,
-                        },
-                    ]}
+                    style={styles.termsContainer}
+                    contentContainerStyle={styles.termsContent}
                     showsVerticalScrollIndicator={true}
                 >
-                    <Text style={[typography.bodySmall, { color: colors.text, lineHeight: 20 }]}>
+                    <Text style={styles.termsText}>
                         {terms}
                     </Text>
                 </ScrollView>
@@ -197,15 +205,138 @@ These terms are governed by the laws of Uganda and applicable East African regul
 };
 
 const styles = StyleSheet.create({
+    safeArea: {
+        flex: 1,
+        backgroundColor: BrandColors.premiumBg,
+    },
     container: {
         flex: 1,
+    },
+    logoContainer: {
+        alignItems: 'center',
+        marginTop: 16,
+        marginBottom: 16,
+    },
+    logoMark: {
+        width: 50,
+        height: 50,
+        position: 'relative',
+    },
+    // Letter E
+    letterE: {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        width: 22,
+        height: 50,
+    },
+    eVertical: {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        width: 6,
+        height: 50,
+        backgroundColor: BrandColors.navy,
+    },
+    eLine: {
+        position: 'absolute',
+        left: 0,
+        height: 6,
+        backgroundColor: BrandColors.navy,
+    },
+    eTop: {
+        top: 0,
+        width: 22,
+    },
+    eMiddle: {
+        top: 22,
+        width: 18,
+    },
+    eBottom: {
+        bottom: 0,
+        width: 22,
+    },
+    // Letter N
+    letterN: {
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        width: 22,
+        height: 50,
+    },
+    nLeft: {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        width: 6,
+        height: 50,
+        backgroundColor: BrandColors.navy,
+    },
+    nRight: {
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        width: 6,
+        height: 50,
+        backgroundColor: BrandColors.navy,
+    },
+    nDiagonal: {
+        position: 'absolute',
+        left: 4,
+        top: 0,
+        width: 7,
+        height: 50,
+        backgroundColor: BrandColors.navy,
+        transform: [{ skewX: '-20deg' }],
+    },
+    // Orange accent
+    orangeAccent: {
+        position: 'absolute',
+        right: 4,
+        top: 10,
+        width: 4,
+        height: 18,
+        backgroundColor: BrandColors.orange,
+        transform: [{ rotate: '-25deg' }],
+        borderRadius: 1,
     },
     header: {
         alignItems: 'center',
     },
+    title: {
+        color: BrandColors.navy,
+        fontSize: 28,
+        fontWeight: '700',
+    },
+    roleBadge: {
+        backgroundColor: BrandColors.white,
+        paddingHorizontal: 16,
+        paddingVertical: 6,
+        borderRadius: 20,
+        marginTop: 8,
+        borderWidth: 1,
+        borderColor: BrandColors.orange,
+    },
+    roleBadgeText: {
+        color: BrandColors.orange,
+        fontSize: 14,
+        fontWeight: '600',
+    },
     termsContainer: {
         flex: 1,
         maxHeight: '60%',
+        backgroundColor: BrandColors.white,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: BrandColors.lightGray,
+    },
+    termsContent: {
+        padding: 16,
+    },
+    termsText: {
+        color: BrandColors.darkGray,
+        fontSize: 14,
+        lineHeight: 22,
     },
     acceptanceContainer: {
         paddingVertical: 8,

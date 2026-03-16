@@ -9,6 +9,7 @@ export interface JWTPayload {
     managerTermsAcceptedAt?: string | null | undefined;
     billingStatus?: string | null | undefined;
     billingGraceUntil?: string | null | undefined;
+    createdByOwnerId?: string | undefined;
 }
 
 export const generateToken = (user: JWTPayload): string => {

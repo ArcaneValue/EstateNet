@@ -1,12 +1,13 @@
 import express from 'express';
-import { authenticateToken } from '../middlewares/auth';
+import { authenticateToken, requireRole } from '../middlewares/auth';
 import { getDashboardData, getManagerLeases, getManagerInvitations, getManagerTenants } from '../controllers/managerController';
 import { requireManagerTermsAccepted, requireCurrentBilling } from '../middlewares/billingEnforcement';
 
 const router = express.Router();
 
-// All manager routes require authentication
+// All manager routes require authentication AND manager role
 router.use(authenticateToken);
+router.use(requireRole(['MANAGER']));
 
 // GET /api/manager/enforcement-check - Check if manager can perform gated actions
 // This endpoint applies enforcement middleware and returns 402 if enforcement is needed

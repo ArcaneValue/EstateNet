@@ -153,23 +153,31 @@ export class OwnerInvitationService {
             throw new Error('Invitation not found or already processed');
         }
 
-        // Update invitation status
-        await prisma.ownerManagerInvitation.update({
-            where: { id: invitationId },
-            data: {
-                status: 'ACCEPTED',
-                respondedAt: new Date(),
-                managerId
-            }
-        });
-
-        // Assign manager to property
-        await prisma.property.update({
-            where: { id: invitation.propertyId },
-            data: {
-                managerId
-            }
-        });
+        // Update invitation status and set org linkage
+        await prisma.$transaction([
+            prisma.ownerManagerInvitation.update({
+                where: { id: invitationId },
+                data: {
+                    status: 'ACCEPTED',
+                    respondedAt: new Date(),
+                    managerId
+                }
+            }),
+            // Set createdByOwnerId to establish org linkage
+            prisma.user.update({
+                where: { id: managerId },
+                data: {
+                    createdByOwnerId: invitation.ownerId
+                }
+            }),
+            // Assign manager to property
+            prisma.property.update({
+                where: { id: invitation.propertyId },
+                data: {
+                    managerId
+                }
+            })
+        ]);
 
         return { success: true };
     }

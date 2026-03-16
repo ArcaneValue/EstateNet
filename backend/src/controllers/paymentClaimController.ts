@@ -100,12 +100,16 @@ export const createPaymentClaim = async (req: AuthenticatedRequest, res: Respons
       return;
     }
 
+    // Compute billing period from claimedPaidAt (YYYY-MM format)
+    const billingPeriod = new Date(claimedPaidAt).toISOString().slice(0, 7);
+
     // Check for duplicate claims (idempotency protection)
-    // Prevent duplicate claims for same tenant, lease, and active status
+    // Prevent duplicate claims for same tenant, lease, billing period, and active status
     const existingClaim = await (prisma as any).paymentClaim.findFirst({
       where: {
         tenantId: req.user.tenantId,
         leaseId,
+        billingPeriod,
         status: {
           in: ['PENDING', 'VERIFIED']
         }
@@ -116,10 +120,11 @@ export const createPaymentClaim = async (req: AuthenticatedRequest, res: Respons
       res.status(409).json({
         success: false,
         code: 'DUPLICATE_CLAIM',
-        message: 'A claim for this lease already exists and is pending or verified.',
+        message: `A claim for this lease and billing period (${billingPeriod}) already exists and is pending or verified.`,
         data: {
           existingClaimId: existingClaim.id,
           existingStatus: existingClaim.status,
+          billingPeriod: existingClaim.billingPeriod,
           createdAt: existingClaim.createdAt
         }
       });
@@ -137,6 +142,7 @@ export const createPaymentClaim = async (req: AuthenticatedRequest, res: Respons
         managerId: lease.property.managerId,
         amount,
         claimedPaidAt: new Date(claimedPaidAt),
+        billingPeriod,
         method,
         referenceText,
         status: 'PENDING',
@@ -409,59 +415,75 @@ export const verifyPaymentClaim = async (req: AuthenticatedRequest, res: Respons
       return;
     }
 
+    console.log('[verifyPaymentClaim] Starting verification', {
+      claimId,
+      decision,
+      managerId: req.user.id
+    });
+
     // Process verification in transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Create verification record
-      const verification = await (tx as any).paymentClaimVerification.create({
-        data: {
-          claimId,
-          managerId: req.user!.id,
-          decision,
-          note
-        }
-      });
-
-      // Update claim status
-      const updatedClaim = await (tx as any).paymentClaim.update({
-        where: { id: claimId },
-        data: { status: decision }
-      });
-
-      // If verified, allocate payment to rent periods
-      if (decision === 'VERIFIED') {
-        // Check if payment already exists for this claim (idempotency)
-        const existingPayment = await (tx as any).payment.findUnique({
-          where: { paymentClaimId: claimId }
+    let result;
+    try {
+      result = await prisma.$transaction(async (tx) => {
+        // Create verification record
+        const verification = await (tx as any).paymentClaimVerification.create({
+          data: {
+            claimId,
+            managerId: req.user!.id,
+            decision,
+            note
+          }
         });
 
-        if (!existingPayment) {
-          // Create a payment record from the verified claim
-          const payment = await (tx as any).payment.create({
-            data: {
-              tenantId: claim.tenantId,
-              propertyId: claim.lease.propertyId,
-              unitId: claim.lease.unitId,
-              leaseId: claim.leaseId,
-              amount: claim.amount,
-              currency: claim.currency,
-              paymentDate: verification.decidedAt,
-              dueDate: claim.claimedPaidAt,
-              paymentMethod: claim.method,
-              transactionId: claim.referenceText,
-              status: 'PAID',
-              billingPeriod: new Date(claim.claimedPaidAt).toISOString().slice(0, 7), // YYYY-MM format
-              paymentClaimId: claim.id // Reference to the original claim
-            }
+        // Update claim status
+        const updatedClaim = await (tx as any).paymentClaim.update({
+          where: { id: claimId },
+          data: { status: decision }
+        });
+
+        // If verified, allocate payment to rent periods
+        if (decision === 'VERIFIED') {
+          // Check if payment already exists for this claim (idempotency)
+          const existingPayment = await (tx as any).payment.findUnique({
+            where: { paymentClaimId: claimId }
           });
 
-          console.log(`Payment record created from claim ${claimId}:`, payment.id);
-        } else {
-          console.log(`Payment already exists for claim ${claimId}:`, existingPayment.id);
-        }
-      }
+          if (!existingPayment) {
+            // Create a payment record from the verified claim
+            const payment = await (tx as any).payment.create({
+              data: {
+                tenantId: claim.tenantId,
+                propertyId: claim.lease.propertyId,
+                unitId: claim.lease.unitId,
+                leaseId: claim.leaseId,
+                amount: claim.amount,
+                paymentDate: verification.decidedAt,
+                dueDate: claim.claimedPaidAt,
+                paymentMethod: claim.method,
+                transactionId: claim.referenceText,
+                status: 'PAID',
+                billingPeriod: new Date(claim.claimedPaidAt).toISOString().slice(0, 7), // YYYY-MM format
+                paymentClaimId: claim.id // Reference to the original claim
+              }
+            });
 
-      return { verification, updatedClaim };
-    });
+            console.log(`Payment record created from claim ${claimId}:`, payment.id);
+          } else {
+            console.log(`Payment already exists for claim ${claimId}:`, existingPayment.id);
+          }
+        }
+
+        return { verification, updatedClaim };
+      });
+    } catch (transactionError) {
+      console.error('[verifyPaymentClaim] Transaction error', {
+        claimId,
+        decision,
+        managerId: req.user.id,
+        error: transactionError instanceof Error ? transactionError.message : transactionError
+      });
+      throw transactionError;
+    }
 
     // Create notification for tenant
     try {
@@ -526,7 +548,8 @@ export const verifyPaymentClaim = async (req: AuthenticatedRequest, res: Respons
     console.error('Payment claim verification error:', error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: error instanceof Error ? error.message : 'Internal server error',
+      error: process.env.NODE_ENV !== 'production' ? error : undefined
     });
   }
 };

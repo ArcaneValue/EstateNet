@@ -12,6 +12,8 @@ export interface AuthenticatedRequest extends Request {
         managerTermsAcceptedAt?: Date | null;
         billingStatus?: string | null;
         billingGraceUntil?: Date | null;
+        // Manager org linkage
+        createdByOwnerId?: string | null;
     };
 }
 

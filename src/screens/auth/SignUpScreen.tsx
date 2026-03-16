@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -7,6 +7,7 @@ import { Input } from '../../components/Input';
 import { Button } from '../../components/Button';
 import { Modal } from '../../components/Modal';
 import { KeyboardSafeContainer } from '../../components/KeyboardSafeContainer';
+import { BrandColors } from '../../theme/brandColors';
 import { Ionicons } from '@expo/vector-icons';
 
 interface SignUpScreenProps {
@@ -15,7 +16,7 @@ interface SignUpScreenProps {
 }
 
 export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route }) => {
-    const { colors, spacing, typography } = useTheme();
+    const { spacing, typography } = useTheme();
     const { signUp, user } = useAuth();
 
     // Get role from navigation params (passed from Terms screen)
@@ -91,29 +92,34 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
     // Render form content - shared between iOS and Android
     const renderFormContent = () => (
         <>
+            {/* Logo */}
+            <View style={styles.logoContainer}>
+                <View style={styles.logoMark}>
+                    <View style={styles.letterE}>
+                        <View style={[styles.eLine, styles.eTop]} />
+                        <View style={[styles.eLine, styles.eMiddle]} />
+                        <View style={[styles.eLine, styles.eBottom]} />
+                        <View style={styles.eVertical} />
+                    </View>
+                    <View style={styles.letterN}>
+                        <View style={styles.nLeft} />
+                        <View style={styles.nDiagonal} />
+                        <View style={styles.nRight} />
+                    </View>
+                    <View style={styles.orangeAccent} />
+                </View>
+            </View>
+
             {/* Header */}
             <View style={styles.header}>
-                <Text
-                    style={[
-                        typography.h1,
-                        {
-                            color: colors.text,
-                        },
-                    ]}
-                >
+                <Text style={[typography.h1, styles.title]}>
                     Create Account
                 </Text>
-                <Text
-                    style={[
-                        typography.body,
-                        {
-                            color: colors.textSecondary,
-                            marginTop: spacing.sm,
-                        },
-                    ]}
-                >
-                    Register as {roleNames[role] || 'User'}
-                </Text>
+                <View style={styles.roleBadge}>
+                    <Text style={styles.roleBadgeText}>
+                        {roleNames[role] || 'User'}
+                    </Text>
+                </View>
             </View>
 
             {/* Form */}
@@ -186,52 +192,35 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
                 />
 
                 {errors.general && (
-                    <Text
-                        style={[
-                            typography.bodySmall,
-                            {
-                                color: colors.error,
-                                marginTop: spacing.sm,
-                            },
-                        ]}
-                    >
-                        {errors.general}
-                    </Text>
+                    <View style={styles.errorContainer}>
+                        <Text style={styles.errorText}>
+                            {errors.general}
+                        </Text>
+                    </View>
                 )}
 
                 <Button
                     title="Create Account"
                     onPress={handleSignUp}
                     loading={loading}
-                    style={{ marginTop: spacing.xl }}
+                    style={styles.createButton}
                 />
             </View>
 
             {/* Footer */}
-            <View style={[styles.footer, { marginTop: spacing.lg }]}>
-                <Text
-                    style={[
-                        typography.body,
-                        {
-                            color: colors.textSecondary,
-                            textAlign: 'center',
-                        },
-                    ]}
-                >
+            <View style={styles.footer}>
+                <Text style={styles.footerText}>
                     Already have an account?{' '}
-                    <Text
-                        style={{ color: colors.primary, fontWeight: '600' }}
-                        onPress={() => navigation.navigate('SignIn')}
-                    >
-                        Sign In
-                    </Text>
                 </Text>
+                <TouchableOpacity onPress={() => navigation.navigate('SignIn')}>
+                    <Text style={styles.footerLink}>Sign In</Text>
+                </TouchableOpacity>
             </View>
         </>
     );
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <SafeAreaView style={styles.container}>
             <KeyboardSafeContainer contentContainerStyle={{ padding: spacing['2xl'] }}>
                 {renderFormContent()}
             </KeyboardSafeContainer>
@@ -247,7 +236,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
                     <View style={{ alignItems: 'center', paddingVertical: spacing.lg }}>
                         <View
                             style={{
-                                backgroundColor: colors.primary + '20',
+                                backgroundColor: BrandColors.navy + '20',
                                 width: 80,
                                 height: 80,
                                 borderRadius: 40,
@@ -256,10 +245,10 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
                                 marginBottom: spacing.lg,
                             }}
                         >
-                            <Ionicons name="checkmark-circle" size={48} color={colors.primary} />
+                            <Ionicons name="checkmark-circle" size={48} color={BrandColors.navy} />
                         </View>
 
-                        <Text style={[typography.h3, { color: colors.text, textAlign: 'center' }]}>
+                        <Text style={[typography.h3, { color: BrandColors.navy, textAlign: 'center' }]}>
                             Your Account is Ready
                         </Text>
 
@@ -267,7 +256,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
                             style={[
                                 typography.body,
                                 {
-                                    color: colors.textSecondary,
+                                    color: BrandColors.mediumGray,
                                     textAlign: 'center',
                                     marginTop: spacing.md,
                                     lineHeight: 20,
@@ -279,9 +268,9 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
 
                         <View
                             style={{
-                                backgroundColor: colors.surface,
+                                backgroundColor: BrandColors.white,
                                 borderWidth: 2,
-                                borderColor: colors.primary,
+                                borderColor: BrandColors.navy,
                                 borderRadius: 12,
                                 padding: spacing.lg,
                                 marginTop: spacing.lg,
@@ -291,7 +280,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
                             <Text
                                 style={[
                                     typography.caption,
-                                    { color: colors.textSecondary, textAlign: 'center' },
+                                    { color: BrandColors.mediumGray, textAlign: 'center' },
                                 ]}
                             >
                                 Your Tenant ID
@@ -300,7 +289,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
                                 style={[
                                     typography.h1,
                                     {
-                                        color: colors.primary,
+                                        color: BrandColors.navy,
                                         textAlign: 'center',
                                         marginTop: spacing.xs,
                                         letterSpacing: 2,
@@ -315,7 +304,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
                             style={[
                                 typography.bodySmall,
                                 {
-                                    color: colors.textSecondary,
+                                    color: BrandColors.mediumGray,
                                     textAlign: 'center',
                                     marginTop: spacing.md,
                                     fontStyle: 'italic',
@@ -341,15 +330,156 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
 
 const styles = StyleSheet.create({
     container: {
-        flexGrow: 1,
+        flex: 1,
+        backgroundColor: BrandColors.premiumBg,
+    },
+    logoContainer: {
+        alignItems: 'center',
+        marginTop: 20,
+        marginBottom: 24,
+    },
+    logoMark: {
+        width: 50,
+        height: 50,
+        position: 'relative',
+    },
+    // Letter E
+    letterE: {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        width: 22,
+        height: 50,
+    },
+    eVertical: {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        width: 6,
+        height: 50,
+        backgroundColor: BrandColors.navy,
+    },
+    eLine: {
+        position: 'absolute',
+        left: 0,
+        height: 6,
+        backgroundColor: BrandColors.navy,
+    },
+    eTop: {
+        top: 0,
+        width: 22,
+    },
+    eMiddle: {
+        top: 22,
+        width: 18,
+    },
+    eBottom: {
+        bottom: 0,
+        width: 22,
+    },
+    // Letter N
+    letterN: {
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        width: 22,
+        height: 50,
+    },
+    nLeft: {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        width: 6,
+        height: 50,
+        backgroundColor: BrandColors.navy,
+    },
+    nRight: {
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        width: 6,
+        height: 50,
+        backgroundColor: BrandColors.navy,
+    },
+    nDiagonal: {
+        position: 'absolute',
+        left: 4,
+        top: 0,
+        width: 7,
+        height: 50,
+        backgroundColor: BrandColors.navy,
+        transform: [{ skewX: '-20deg' }],
+    },
+    // Orange accent
+    orangeAccent: {
+        position: 'absolute',
+        right: 4,
+        top: 10,
+        width: 4,
+        height: 18,
+        backgroundColor: BrandColors.orange,
+        transform: [{ rotate: '-25deg' }],
+        borderRadius: 1,
     },
     header: {
-        marginTop: 20,
+        marginTop: 8,
+        alignItems: 'center',
+    },
+    title: {
+        color: BrandColors.navy,
+        fontSize: 28,
+        fontWeight: '700',
+    },
+    roleBadge: {
+        backgroundColor: BrandColors.white,
+        paddingHorizontal: 16,
+        paddingVertical: 6,
+        borderRadius: 20,
+        marginTop: 12,
+        borderWidth: 1,
+        borderColor: BrandColors.orange,
+    },
+    roleBadgeText: {
+        color: BrandColors.orange,
+        fontSize: 14,
+        fontWeight: '600',
     },
     form: {
         flex: 1,
     },
+    errorContainer: {
+        backgroundColor: BrandColors.white,
+        borderLeftWidth: 3,
+        borderLeftColor: '#DC2626',
+        padding: 12,
+        borderRadius: 8,
+        marginTop: 12,
+    },
+    errorText: {
+        color: '#DC2626',
+        fontSize: 14,
+        lineHeight: 20,
+    },
+    createButton: {
+        marginTop: 24,
+        backgroundColor: BrandColors.navy,
+        borderRadius: 12,
+        height: 52,
+    },
     footer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 16,
         marginBottom: 20,
+    },
+    footerText: {
+        color: BrandColors.mediumGray,
+        fontSize: 15,
+    },
+    footerLink: {
+        color: BrandColors.navy,
+        fontSize: 15,
+        fontWeight: '600',
     },
 });

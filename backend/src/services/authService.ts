@@ -105,7 +105,8 @@ export class AuthService {
             phoneNumber: user.phoneNumber || undefined,
             managerTermsAcceptedAt: user.managerTermsAcceptedAt?.toISOString() || null,
             billingStatus: user.billingStatus || null,
-            billingGraceUntil: user.billingGraceUntil?.toISOString() || null
+            billingGraceUntil: user.billingGraceUntil?.toISOString() || null,
+            createdByOwnerId: user.createdByOwnerId || undefined
         });
 
         return {
