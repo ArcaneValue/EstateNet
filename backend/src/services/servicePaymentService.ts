@@ -15,6 +15,33 @@ function generateExternalRef(): string {
   return `SPAY-${ts}-${rand}`.toUpperCase();
 }
 
+/**
+ * Formats a Ugandan phone number to international format (256XXXXXXXXX).
+ * Handles formats: 0771234567, 771234567, 256771234567, +256771234567
+ */
+function formatPhoneNumber(phone: string): string {
+  // Remove all non-digit characters
+  let cleaned = phone.replace(/\D/g, '');
+
+  // If starts with 256, it's already in international format
+  if (cleaned.startsWith('256')) {
+    return cleaned;
+  }
+
+  // If starts with 0, remove it and add 256
+  if (cleaned.startsWith('0')) {
+    return '256' + cleaned.substring(1);
+  }
+
+  // If 9 digits (no leading 0), add 256
+  if (cleaned.length === 9) {
+    return '256' + cleaned;
+  }
+
+  // Return as-is if already correct length
+  return cleaned;
+}
+
 // ─── Initiate Payment ────────────────────────────────────────────────────────
 
 export interface InitiatePaymentParams {
@@ -79,8 +106,11 @@ export async function initiatePayment(params: InitiatePaymentParams): Promise<In
   const externalRef = generateExternalRef();
   const provider = getPaymentProvider();
 
+  // Format phone number to international format (256XXXXXXXXX)
+  const formattedPhone = formatPhoneNumber(phoneNumber);
+
   const pushResponse = await provider.initiatePush({
-    phoneNumber,
+    phoneNumber: formattedPhone,
     amount,
     currency: 'UGX',
     network: network.toUpperCase(),
@@ -96,7 +126,7 @@ export async function initiatePayment(params: InitiatePaymentParams): Promise<In
       currency: 'UGX',
       provider: provider.name,
       network: network.toUpperCase(),
-      phoneNumber,
+      phoneNumber: formattedPhone,
       externalRef,
       providerRequestId: pushResponse.providerRequestId,
       status: 'PENDING',

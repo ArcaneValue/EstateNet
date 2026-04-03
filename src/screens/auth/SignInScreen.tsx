@@ -22,7 +22,7 @@ export const SignInScreen: React.FC<SignInScreenProps> = ({ navigation }) => {
 
     const handleSignIn = async () => {
         if (!email || !password) {
-            setError('Please fill in all fields');
+            setError('Please enter both email and password to continue.');
             return;
         }
 
@@ -38,10 +38,29 @@ export const SignInScreen: React.FC<SignInScreenProps> = ({ navigation }) => {
 
             console.error(`Sign in failed. Status: ${status}. Message: ${message}. Raw: ${rawBody}`);
 
+            // Network/connection errors
             if (message.includes('fetch') || message.includes('network') || message.includes('Network')) {
-                setError('Cannot connect to server. Please check:\n1. Backend server is running on port 3001\n2. Your device is on the same network as your PC\n3. API_BASE_URL is configured correctly in src/config/api.ts');
-            } else {
-                setError(`Sign in failed (Status: ${status}): ${message}`);
+                setError('⚠️ Cannot connect to server\n\nPlease check:\n• Backend server is running on port 3001\n• Your device is on the same network\n• API configuration is correct');
+            }
+            // Invalid credentials (401 Unauthorized)
+            else if (status === 401 || message.toLowerCase().includes('invalid') || message.toLowerCase().includes('credentials') || message.toLowerCase().includes('unauthorized')) {
+                setError('❌ Invalid email or password\n\nThe credentials you entered are incorrect. Please double-check and try again.\n\nTip: Make sure Caps Lock is off.');
+            }
+            // User not found
+            else if (status === 404 || message.toLowerCase().includes('not found')) {
+                setError('❌ Account not found\n\nNo account exists with this email address. Please check your email or sign up for a new account.');
+            }
+            // Account locked or disabled
+            else if (status === 403 || message.toLowerCase().includes('forbidden') || message.toLowerCase().includes('disabled')) {
+                setError('🔒 Account access restricted\n\nYour account may be locked or disabled. Please contact support for assistance.');
+            }
+            // Generic server error
+            else if (status >= 500) {
+                setError('⚠️ Server error\n\nSomething went wrong on our end. Please try again in a moment.');
+            }
+            // Fallback for other errors
+            else {
+                setError(`❌ Sign in failed\n\n${message || 'An unexpected error occurred. Please try again.'}`);
             }
         } finally {
             setLoading(false);

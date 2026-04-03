@@ -706,9 +706,10 @@ export const buildCashflowHtml = (data: any, meta: ReportMeta): { html: string; 
 };
 
 export const buildFinancialPositionHtml = (data: any, meta: ReportMeta): { html: string; fileName: string } => {
-  const totalAssets = data.assets?.reduce((sum: number, item: any) => sum + item.amount, 0) || 0;
-  const totalLiabilities = data.liabilities?.reduce((sum: number, item: any) => sum + Math.abs(item.amount), 0) || 0;
-  const ownersEquity = totalAssets - totalLiabilities;
+  // Extract values from the actual API structure (nested object, not array)
+  const totalAssets = data.assets?.totalAssets || 0;
+  const totalLiabilities = data.liabilities?.totalLiabilities || 0;
+  const ownersEquity = data.equity?.totalEquity || 0;
 
   const reportData: ReportData = {
     title: 'Financial Position',
@@ -723,34 +724,69 @@ export const buildFinancialPositionHtml = (data: any, meta: ReportMeta): { html:
     sections: [
       {
         title: 'Assets',
-        items: (data.assets || []).map((item: any) => ({
-          label: item.label,
-          amount: item.amount,
-          subItems: item.breakdown?.map((b: any) => ({
-            label: b.description,
-            amount: b.amount,
-          })) || [],
-        })),
+        items: [
+          {
+            label: 'Current Assets',
+            amount: data.assets?.current?.totalCurrentAssets || 0,
+            subItems: [
+              {
+                label: 'Cash Received in Period',
+                amount: data.assets?.current?.cashReceivedInPeriod || 0,
+              },
+              {
+                label: 'Rent Receivable for Period',
+                amount: data.assets?.current?.rentReceivableForPeriod || 0,
+              },
+            ],
+          },
+          {
+            label: 'Non-Current Assets',
+            amount: data.assets?.nonCurrent?.totalNonCurrentAssets || 0,
+            subItems: [
+              {
+                label: 'Property, Plant & Equipment',
+                amount: data.assets?.nonCurrent?.propertyPlantEquipment || 0,
+              },
+            ],
+          },
+        ],
         total: totalAssets,
         showTotal: true,
       },
       {
         title: 'Liabilities',
-        items: (data.liabilities || []).map((item: any) => ({
-          label: item.label,
-          amount: Math.abs(item.amount),
-          subItems: item.breakdown?.map((b: any) => ({
-            label: b.description,
-            amount: Math.abs(b.amount),
-          })) || [],
-        })),
+        items: [
+          {
+            label: 'Current Liabilities',
+            amount: data.liabilities?.current?.totalCurrentLiabilities || 0,
+            subItems: [
+              {
+                label: 'Accounts Payable',
+                amount: data.liabilities?.current?.accountsPayable || 0,
+              },
+            ],
+          },
+          {
+            label: 'Non-Current Liabilities',
+            amount: data.liabilities?.nonCurrent?.totalNonCurrentLiabilities || 0,
+            subItems: [
+              {
+                label: 'Long-term Debt',
+                amount: data.liabilities?.nonCurrent?.longTermDebt || 0,
+              },
+            ],
+          },
+        ],
         total: totalLiabilities,
         showTotal: true,
       },
       {
         title: 'Equity',
         items: [
-          { label: "Owner's Equity", amount: ownersEquity },
+          {
+            label: 'Retained Earnings',
+            amount: data.equity?.retainedEarnings || 0
+          },
         ],
         total: ownersEquity,
         showTotal: true,

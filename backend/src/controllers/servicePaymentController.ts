@@ -200,3 +200,34 @@ export const handleMockWebhook = async (req: any, res: Response): Promise<void> 
     res.status(400).json({ success: false, message: error.message || 'Webhook processing failed' });
   }
 };
+
+export const handleXyleWebhook = async (req: any, res: Response): Promise<void> => {
+  try {
+    console.log('[XyleWebhook] Received webhook', {
+      headers: req.headers,
+      bodyKeys: Object.keys(req.body || {}),
+    });
+
+    const result = await processWebhook({ body: req.body });
+
+    if (!result.ok) {
+      console.error('[XyleWebhook] Processing failed', { message: result.message });
+      res.status(400).json({ success: false, message: result.message });
+      return;
+    }
+
+    console.log('[XyleWebhook] Processing successful', {
+      paymentId: result.paymentId,
+      status: result.status,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: result.message || 'Webhook processed',
+      data: { paymentId: result.paymentId, status: result.status },
+    });
+  } catch (error: any) {
+    console.error('[XyleWebhook] Error:', error);
+    res.status(400).json({ success: false, message: error.message || 'Webhook processing failed' });
+  }
+};
