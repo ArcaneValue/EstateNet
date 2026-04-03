@@ -30,7 +30,7 @@ const CURRENT_ENV: Environment = 'beta'; // Set to 'beta' for external testing
 const NGROK_URL = 'https://nonstanzaic-unlovably-collin.ngrok-free.dev'; // ← Your ngrok URL
 
 // Production URL (when deployed to cloud)
-const PRODUCTION_URL = 'https://estatenet-backend.up.railway.app';
+const PRODUCTION_URL = 'https://estatenet.onrender.com';
 
 // ============================================
 
