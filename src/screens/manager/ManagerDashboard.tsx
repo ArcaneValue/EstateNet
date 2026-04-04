@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, RefreshControl, ActivityIndicator } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -25,9 +25,10 @@ import { formatUGX, formatUGXCompact, formatPercentage } from '../../utils/forma
 
 interface ManagerDashboardProps {
     navigation: any;
+    route?: any;
 }
 
-export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }) => {
+export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation, route }) => {
     const { colors, spacing, typography, borderRadius } = useTheme();
     const { user } = useAuth();
     const { data: dashboardData, loading, error, refetch } = useManagerDashboard();
@@ -55,6 +56,23 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation }
         await refetch();
         setRefreshing(false);
     };
+
+    // Auto-refresh when screen comes into focus (silent refresh)
+    useEffect(() => {
+        const unsubscribe = navigation.addListener('focus', () => {
+            refetch();
+        });
+        return unsubscribe;
+    }, [navigation, refetch]);
+
+    // Auto-refresh when navigating back with refresh flag (silent refresh)
+    useEffect(() => {
+        if (route?.params?.refresh) {
+            refetch();
+            // Clear the refresh param to avoid re-triggering
+            navigation.setParams({ refresh: undefined });
+        }
+    }, [route?.params?.refresh, refetch, navigation]);
 
     // Dashboard data calculations
     const totalProperties = dashboardData?.propertiesCount ?? 0;

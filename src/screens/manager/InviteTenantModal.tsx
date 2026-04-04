@@ -147,6 +147,10 @@ export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, o
                     setRentAmount('');
                     setTenantData(null);
                     onSuccess?.();
+                    // Navigate to Dashboard with refresh flag to trigger silent auto-refresh
+                    if (navigation) {
+                        navigation.navigate('Dashboard', { refresh: true });
+                    }
                 }, 2000);
             } else {
                 // Handle specific tenant-not-found errors with actionable message

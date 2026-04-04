@@ -95,6 +95,8 @@ export const PropertiesScreen: React.FC<any> = ({ navigation }) => {
 
         if (result.ok) {
             setShowAddModal(false);
+            // Navigate to Dashboard with refresh flag to trigger silent auto-refresh
+            navigation.navigate('Dashboard', { refresh: true });
         }
     };
 
