@@ -24,6 +24,44 @@ export interface CreateLeaseData {
 
 export class TenantService {
   async createInvitation(data: CreateInvitationData): Promise<TenantInvitation> {
+    // Check if tenant already has an active lease for this unit
+    const existingLease = await (prisma as any).lease.findFirst({
+      where: {
+        tenantId: data.tenantId,
+        unitId: data.unitId,
+        status: 'ACTIVE'
+      }
+    });
+
+    if (existingLease) {
+      throw new Error('This tenant already has an active lease for this unit');
+    }
+
+    // Check if tenant already has a pending invitation for this unit
+    const existingInvitation = await (prisma as any).tenantInvitation.findFirst({
+      where: {
+        tenantId: data.tenantId,
+        unitId: data.unitId,
+        status: 'PENDING'
+      }
+    });
+
+    if (existingInvitation) {
+      throw new Error('This tenant already has a pending invitation for this unit');
+    }
+
+    // Check if the unit is already occupied by another tenant
+    const unitOccupied = await (prisma as any).lease.findFirst({
+      where: {
+        unitId: data.unitId,
+        status: 'ACTIVE'
+      }
+    });
+
+    if (unitOccupied) {
+      throw new Error('This unit is already occupied by another tenant');
+    }
+
     return await (prisma as any).tenantInvitation.create({
       data: {
         tenantId: data.tenantId,
