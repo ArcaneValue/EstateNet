@@ -36,6 +36,13 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [passwordFocused, setPasswordFocused] = useState(false);
+
+    // Password validation states
+    const hasMinLength = password.length >= 8;
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasLowercase = /[a-z]/.test(password);
+    const hasNumber = /\d/.test(password);
     const [showTenantIdModal, setShowTenantIdModal] = useState(false);
 
     const validate = () => {
@@ -43,9 +50,15 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
 
         if (!name) newErrors.name = 'Name is required';
         if (!email) newErrors.email = 'Email is required';
+        if (!phoneNumber) newErrors.phoneNumber = 'Phone number is required';
         if (!password) newErrors.password = 'Password is required';
         if (password !== confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
-        if (password && password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+
+        // Match backend validation requirements
+        if (password && password.length < 8) newErrors.password = 'Password must be at least 8 characters';
+        if (password && !hasUppercase) newErrors.password = 'Password must contain an uppercase letter';
+        if (password && !hasLowercase) newErrors.password = 'Password must contain a lowercase letter';
+        if (password && !hasNumber) newErrors.password = 'Password must contain a number';
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -154,11 +167,12 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
                 />
 
                 <Input
-                    label="Phone Number (Optional)"
+                    label="Phone Number"
                     placeholder="Enter your phone number"
                     value={phoneNumber}
                     onChangeText={setPhoneNumber}
                     keyboardType="phone-pad"
+                    error={errors.phoneNumber}
                     {...(Platform.OS === 'ios' && {
                         textContentType: 'telephoneNumber',
                         autoComplete: 'tel',
@@ -170,6 +184,8 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
                     placeholder="Create a password"
                     value={password}
                     onChangeText={setPassword}
+                    onFocus={() => setPasswordFocused(true)}
+                    onBlur={() => setPasswordFocused(false)}
                     secureTextEntry
                     error={errors.password}
                     {...(Platform.OS === 'ios' && {
@@ -177,6 +193,57 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
                         autoComplete: 'password',
                     })}
                 />
+
+                {/* Password Requirements */}
+                {(passwordFocused || password.length > 0) && (
+                    <View style={styles.passwordRequirements}>
+                        <Text style={styles.requirementsTitle}>Password must contain:</Text>
+
+                        <View style={styles.requirementRow}>
+                            <Ionicons
+                                name={hasMinLength ? "checkmark-circle" : "ellipse-outline"}
+                                size={20}
+                                color={hasMinLength ? BrandColors.navy : BrandColors.mediumGray}
+                            />
+                            <Text style={[styles.requirementText, hasMinLength && styles.requirementMet]}>
+                                At least 8 characters
+                            </Text>
+                        </View>
+
+                        <View style={styles.requirementRow}>
+                            <Ionicons
+                                name={hasUppercase ? "checkmark-circle" : "ellipse-outline"}
+                                size={20}
+                                color={hasUppercase ? BrandColors.navy : BrandColors.mediumGray}
+                            />
+                            <Text style={[styles.requirementText, hasUppercase && styles.requirementMet]}>
+                                One uppercase letter (A-Z)
+                            </Text>
+                        </View>
+
+                        <View style={styles.requirementRow}>
+                            <Ionicons
+                                name={hasLowercase ? "checkmark-circle" : "ellipse-outline"}
+                                size={20}
+                                color={hasLowercase ? BrandColors.navy : BrandColors.mediumGray}
+                            />
+                            <Text style={[styles.requirementText, hasLowercase && styles.requirementMet]}>
+                                One lowercase letter (a-z)
+                            </Text>
+                        </View>
+
+                        <View style={styles.requirementRow}>
+                            <Ionicons
+                                name={hasNumber ? "checkmark-circle" : "ellipse-outline"}
+                                size={20}
+                                color={hasNumber ? BrandColors.navy : BrandColors.mediumGray}
+                            />
+                            <Text style={[styles.requirementText, hasNumber && styles.requirementMet]}>
+                                One number (0-9)
+                            </Text>
+                        </View>
+                    </View>
+                )}
 
                 <Input
                     label="Confirm Password"
@@ -481,5 +548,33 @@ const styles = StyleSheet.create({
         color: BrandColors.navy,
         fontSize: 15,
         fontWeight: '600',
+    },
+    passwordRequirements: {
+        backgroundColor: BrandColors.white,
+        borderRadius: 8,
+        padding: 12,
+        marginTop: 8,
+        borderWidth: 1,
+        borderColor: BrandColors.lightGray,
+    },
+    requirementsTitle: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: BrandColors.navy,
+        marginBottom: 8,
+    },
+    requirementRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: 4,
+    },
+    requirementText: {
+        fontSize: 13,
+        color: BrandColors.mediumGray,
+        marginLeft: 8,
+    },
+    requirementMet: {
+        color: BrandColors.navy,
+        fontWeight: '500',
     },
 });
