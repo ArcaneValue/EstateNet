@@ -70,34 +70,30 @@ export const TenantHomeScreen: React.FC<TenantHomeScreenProps> = ({ navigation }
     };
 
     const handleRejectInvitation = async (invitationId: string) => {
-        Alert.alert(
-            'Confirm Rejection',
-            'Are you sure you want to decline this invitation?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Decline',
-                    style: 'destructive',
-                    onPress: async () => {
-                        setIsProcessing(true);
-                        try {
-                            const success = await rejectInvitation(invitationId);
-                            if (success) {
-                                Alert.alert('Thank you', 'Your response has been recorded.');
-                                // Move to next invitation or close modal
-                                if (currentInvitationIndex < pendingInvitations.length - 1) {
-                                    setCurrentInvitationIndex(currentInvitationIndex + 1);
-                                } else {
-                                    setPendingInvitations([]);
-                                }
-                            }
-                        } finally {
-                            setIsProcessing(false);
-                        }
-                    },
-                },
-            ]
-        );
+        setIsProcessing(true);
+        try {
+            const success = await rejectInvitation(invitationId);
+            if (success) {
+                Alert.alert('Thank you', 'Your response has been recorded.');
+                // Move to next invitation or close modal
+                if (currentInvitationIndex < pendingInvitations.length - 1) {
+                    setCurrentInvitationIndex(currentInvitationIndex + 1);
+                } else {
+                    setPendingInvitations([]);
+                }
+            }
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleCloseInvitation = () => {
+        // Move to next invitation or close modal
+        if (currentInvitationIndex < pendingInvitations.length - 1) {
+            setCurrentInvitationIndex(currentInvitationIndex + 1);
+        } else {
+            setPendingInvitations([]);
+        }
     };
 
     // Lease-derived values from backend lease only
@@ -358,6 +354,7 @@ export const TenantHomeScreen: React.FC<TenantHomeScreenProps> = ({ navigation }
                 <InvitationModal
                     invitation={pendingInvitations[currentInvitationIndex] || null}
                     visible={pendingInvitations.length > 0}
+                    onClose={handleCloseInvitation}
                     onAccept={handleAcceptInvitation}
                     onReject={handleRejectInvitation}
                     isProcessing={isProcessing}

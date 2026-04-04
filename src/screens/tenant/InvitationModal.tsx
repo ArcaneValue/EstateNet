@@ -1,14 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { Modal } from '../../components';
 import { Button } from '../../components/Button';
 import { useTheme } from '../../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { TenantInvitation } from '../../context/TenantContext';
+import { ConfirmationModal } from '../../components/ConfirmationModal';
 
 interface InvitationModalProps {
     invitation: TenantInvitation | null;
     visible: boolean;
+    onClose: () => void;
     onAccept: (invitationId: string) => void;
     onReject: (invitationId: string) => void;
     isProcessing?: boolean;
@@ -17,18 +19,33 @@ interface InvitationModalProps {
 export const InvitationModal: React.FC<InvitationModalProps> = ({
     invitation,
     visible,
+    onClose,
     onAccept,
     onReject,
     isProcessing = false,
 }) => {
     const { colors, spacing, typography, borderRadius } = useTheme();
+    const [showDeclineConfirm, setShowDeclineConfirm] = useState(false);
 
     if (!invitation) return null;
+
+    const handleDeclineClick = () => {
+        setShowDeclineConfirm(true);
+    };
+
+    const handleConfirmDecline = () => {
+        setShowDeclineConfirm(false);
+        onReject(invitation.id);
+    };
+
+    const handleCancelDecline = () => {
+        setShowDeclineConfirm(false);
+    };
 
     return (
         <Modal
             visible={visible}
-            onClose={() => { }}
+            onClose={onClose}
             title="Invitation"
             size="medium"
         >
@@ -182,13 +199,23 @@ export const InvitationModal: React.FC<InvitationModalProps> = ({
                     />
                     <Button
                         title="Decline"
-                        onPress={() => onReject(invitation.id)}
+                        onPress={handleDeclineClick}
                         variant="outline"
                         disabled={isProcessing}
                         icon={<Ionicons name="close-circle" size={16} color={colors.error} />}
                     />
                 </View>
             </ScrollView>
+
+            <ConfirmationModal
+                visible={showDeclineConfirm}
+                title="Decline Invitation"
+                message="Are you sure you want to decline this invitation? This action cannot be undone."
+                confirmText="Decline"
+                cancelText="Cancel"
+                onConfirm={handleConfirmDecline}
+                onCancel={handleCancelDecline}
+            />
         </Modal>
     );
 };

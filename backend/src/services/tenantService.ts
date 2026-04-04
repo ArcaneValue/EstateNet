@@ -195,6 +195,12 @@ export class TenantService {
         }
       });
 
+      // Update unit to mark as occupied
+      await tx.unit.update({
+        where: { id: invitation.unitId },
+        data: { isOccupied: true }
+      });
+
       // Update invitation status
       await tx.tenantInvitation.update({
         where: { id: invitationId },
