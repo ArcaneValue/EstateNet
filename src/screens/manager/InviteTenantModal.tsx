@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Modal } from '../../components';
 import { Button } from '../../components/Button';
@@ -18,7 +18,7 @@ interface InviteTenantModalProps {
 
 export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, onClose, onSuccess, navigation }) => {
     const { colors, spacing, typography } = useTheme();
-    const { properties, loadProperties } = useProperties();
+    const { properties } = useProperties();
 
     // Defensive checks for theme properties
     if (!colors || !spacing || !typography) {
@@ -40,13 +40,6 @@ export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, o
     const [tenantData, setTenantData] = useState<{ name: string; email: string } | null>(null);
     const selectedProperty = properties.find(p => p.id === selectedPropertyId);
     const vacantUnits = selectedProperty?.units.filter(u => !u.isOccupied) || [];
-
-    // Reload properties when modal becomes visible
-    useEffect(() => {
-        if (visible && loadProperties) {
-            loadProperties();
-        }
-    }, [visible, loadProperties]);
 
     // Lookup tenant when ID changes
     const handleTenantIdChange = async (text: string) => {
