@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Response } from 'express';
 import {
   getBillingStatus,
   getBillingOverview,
@@ -10,7 +10,7 @@ import {
   clearManagerBillingOverdue,
   runScheduler
 } from '../controllers/billingController';
-import { authenticateToken } from '../middlewares/auth';
+import { authenticateToken, AuthenticatedRequest } from '../middlewares/auth';
 import { requireUserRole } from '../middlewares/requireUserRole';
 import { UserRole } from '../types/prisma';
 import { initiateInvoicePayment, getPaymentStatusHandler, listManagerPaymentsHandler, getManagerPaymentHandler } from '../controllers/servicePaymentController';
@@ -106,6 +106,112 @@ router.post('/billing/scheduler/run',
   authenticateToken,
   requireUserRole(UserRole.OWNER),
   runScheduler
+);
+
+// GET /api/billing/my-invoices - Get invoices for current user (OWNER/MANAGER)
+router.get('/billing/my-invoices',
+  authenticateToken,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { prisma } = await import('../utils/database');
+
+      const invoices = await (prisma.invoice as any).findMany({
+        where: { billedUserId: req.user!.id },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          lines: {
+            include: {
+              property: true,
+              unit: true
+            }
+          }
+        }
+      });
+
+      return res.json({ success: true, invoices });
+    } catch (error) {
+      console.error('Get my invoices error:', error);
+      return res.status(500).json({ success: false, message: 'Failed to fetch invoices' });
+    }
+  }
+);
+
+// GET /api/billing/summary - Get billing summary for current user (OWNER/MANAGER)
+router.get('/billing/summary',
+  authenticateToken,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { prisma } = await import('../utils/database');
+
+      const invoices = await (prisma.invoice as any).findMany({
+        where: { billedUserId: req.user!.id }
+      });
+
+      const outstanding = invoices
+        .filter((inv: any) => inv.status !== 'PAID')
+        .reduce((sum: number, inv: any) => sum + inv.feeAmount, 0);
+
+      const unpaidCount = invoices.filter((inv: any) => inv.status !== 'PAID').length;
+      const overdue = invoices.filter((inv: any) => inv.status === 'OVERDUE').length;
+
+      return res.json({ success: true, outstanding, unpaidCount, overdue });
+    } catch (error) {
+      console.error('Get billing summary error:', error);
+      return res.status(500).json({ success: false, message: 'Failed to fetch billing summary' });
+    }
+  }
+);
+
+// GET /api/billing/managed-invoices - Get invoices for properties managed by current user
+router.get('/billing/managed-invoices',
+  authenticateToken,
+  requireUserRole(UserRole.MANAGER),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { prisma } = await import('../utils/database');
+
+      // Get properties managed by this user
+      const managedProperties = await prisma.property.findMany({
+        where: { managerId: req.user!.id },
+        select: { id: true }
+      });
+
+      const propertyIds = managedProperties.map(p => p.id);
+
+      // Get invoices for these properties (where user is NOT the billed user)
+      const invoices = await (prisma.invoice as any).findMany({
+        where: {
+          billedUserId: { not: req.user!.id },
+          lines: {
+            some: {
+              propertyId: { in: propertyIds }
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          billedUser: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          },
+          lines: {
+            include: {
+              property: true,
+              unit: true
+            }
+          }
+        }
+      });
+
+      return res.json({ success: true, invoices });
+    } catch (error) {
+      console.error('Get managed invoices error:', error);
+      return res.status(500).json({ success: false, message: 'Failed to fetch managed invoices' });
+    }
+  }
 );
 
 export { router as billingRoutes };

@@ -1,4 +1,5 @@
 import { prisma } from '../utils/database';
+import { syncManagerInvoiceForCurrentPeriod } from './billingScheduler';
 
 // Type assertions for the new models
 type Lease = any;
@@ -123,7 +124,7 @@ export class TenantService {
   }
 
   async acceptInvitation(invitationId: string): Promise<Lease> {
-    return await (prisma as any).$transaction(async (tx: any) => {
+    const lease = await (prisma as any).$transaction(async (tx: any) => {
       // Get invitation with related data
       const invitation = await tx.tenantInvitation.findUnique({
         where: { id: invitationId },
@@ -184,7 +185,8 @@ export class TenantService {
           property: {
             select: {
               name: true,
-              location: true
+              location: true,
+              managerId: true
             }
           },
           unit: {
@@ -212,6 +214,20 @@ export class TenantService {
 
       return lease;
     });
+
+    // Sync manager's invoice for current period (non-blocking)
+    try {
+      const result = await syncManagerInvoiceForCurrentPeriod(
+        lease.property.managerId,
+        { action: 'LEASE_CREATED', leaseId: lease.id }
+      );
+      console.log(`[TenantService] Invoice sync result:`, result);
+    } catch (error) {
+      console.error('[TenantService] Failed to sync invoice:', error);
+      // Non-critical - don't fail the acceptance
+    }
+
+    return lease;
   }
 
   async declineInvitation(invitationId: string): Promise<TenantInvitation> {
@@ -359,40 +375,71 @@ export class TenantService {
     // Get lease to check if it's active
     const lease = await (prisma as any).lease.findUnique({
       where: { id: leaseId },
-      include: { unit: true }
+      include: {
+        unit: true,
+        property: {
+          select: {
+            managerId: true
+          }
+        }
+      }
     });
 
     if (!lease) {
       throw new Error('Lease not found');
     }
 
-    // Update lease
-    const updatedLease = await (prisma as any).lease.update({
-      where: { id: leaseId },
-      data: {
-        status: reason,
-        endDate: new Date()
-      },
-      include: {
-        tenantIdentity: {
-          select: {
-            name: true,
-            email: true
-          }
+    // Update lease and mark unit as unoccupied in transaction
+    const updatedLease = await (prisma as any).$transaction(async (tx: any) => {
+      // Update lease status
+      const lease = await tx.lease.update({
+        where: { id: leaseId },
+        data: {
+          status: reason,
+          endDate: new Date()
         },
-        property: {
-          select: {
-            name: true,
-            location: true
-          }
-        },
-        unit: {
-          select: {
-            unitNumber: true
+        include: {
+          tenantIdentity: {
+            select: {
+              name: true,
+              email: true
+            }
+          },
+          property: {
+            select: {
+              name: true,
+              location: true,
+              managerId: true
+            }
+          },
+          unit: {
+            select: {
+              unitNumber: true
+            }
           }
         }
-      }
+      });
+
+      // Mark unit as unoccupied
+      await tx.unit.update({
+        where: { id: lease.unitId },
+        data: { isOccupied: false }
+      });
+
+      return lease;
     });
+
+    // Sync manager's invoice for current period (non-blocking)
+    try {
+      const result = await syncManagerInvoiceForCurrentPeriod(
+        lease.property.managerId,
+        { action: 'LEASE_ENDED', leaseId: lease.id }
+      );
+      console.log(`[TenantService] Invoice sync result after lease end:`, result);
+    } catch (error) {
+      console.error('[TenantService] Failed to sync invoice after lease end:', error);
+      // Non-critical - don't fail the lease termination
+    }
 
     return updatedLease;
   }

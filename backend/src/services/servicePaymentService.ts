@@ -62,8 +62,8 @@ export async function initiatePayment(params: InitiatePaymentParams): Promise<In
   const { invoiceId, managerId, phoneNumber, network = 'MTN' } = params;
 
   // 1. Load invoice and verify ownership + payable status
-  const invoice = await prisma.invoice.findFirst({
-    where: { id: invoiceId, managerId },
+  const invoice = await (prisma.invoice as any).findFirst({
+    where: { id: invoiceId, billedUserId: managerId },
   });
 
   if (!invoice) {
@@ -207,7 +207,8 @@ export async function processWebhook(payload: WebhookPayload): Promise<ProcessWe
     }
 
     // Manager ID mismatch check
-    if (invoice.managerId !== payment.managerId) {
+    const invoiceBilledUserId = (invoice as any).billedUserId || (invoice as any).managerId;
+    if (invoiceBilledUserId !== payment.managerId) {
       await failPayment(payment.id, 'INVOICE_MANAGER_MISMATCH');
       return { ok: true, paymentId: payment.id, status: 'FAILED', message: 'Invoice manager mismatch' };
     }
@@ -233,9 +234,9 @@ export async function processWebhook(payload: WebhookPayload): Promise<ProcessWe
       });
 
       // c) Recompute manager billing status
-      const remainingOverdue = await tx.invoice.count({
+      const remainingOverdue = await (tx.invoice as any).count({
         where: {
-          managerId: payment.managerId,
+          billedUserId: payment.managerId,
           status: 'OVERDUE',
           id: { not: payment.invoiceId },
         },
@@ -292,7 +293,7 @@ export interface PaymentStatusResult {
 }
 
 export async function getPaymentStatus(paymentId: string, managerId: string): Promise<PaymentStatusResult | null> {
-  const payment = await prisma.servicePayment.findFirst({
+  const payment = await (prisma.servicePayment as any).findFirst({
     where: { id: paymentId, managerId },
   });
 
@@ -304,7 +305,7 @@ export async function getPaymentStatus(paymentId: string, managerId: string): Pr
 // ─── Manager: list service payments ──────────────────────────────────────────
 
 export async function listManagerServicePayments(managerId: string, limit: number = 20): Promise<PaymentStatusResult[]> {
-  const payments = await prisma.servicePayment.findMany({
+  const payments = await (prisma.servicePayment as any).findMany({
     where: { managerId },
     orderBy: { createdAt: 'desc' },
     take: limit,
@@ -316,7 +317,7 @@ export async function listManagerServicePayments(managerId: string, limit: numbe
 // ─── Manager: get single service payment ─────────────────────────────────────
 
 export async function getManagerServicePayment(paymentId: string, managerId: string): Promise<PaymentStatusResult | null> {
-  const payment = await prisma.servicePayment.findFirst({
+  const payment = await (prisma.servicePayment as any).findFirst({
     where: { id: paymentId, managerId },
   });
   if (!payment) return null;

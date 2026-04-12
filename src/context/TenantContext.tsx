@@ -31,6 +31,7 @@ interface TenantContextType {
     invitationsLoading: boolean;
     invitationsError: string | null;
     loadInvitations: () => Promise<void>;
+    loadTenants: () => Promise<void>;
     acceptInvitation: (invitationId: string) => Promise<boolean>;
     rejectInvitation: (invitationId: string) => Promise<boolean>;
     getPendingInvitationsForTenant: (tenantId: string) => TenantInvitation[];
@@ -53,8 +54,9 @@ interface TenantProviderProps {
 }
 
 export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
-    // Central tenant database - replaced with empty state (no mock data)
+    // Central tenant database - loaded from backend
     const [allTenants, setAllTenants] = useState<Tenant[]>([]);
+    const [tenantsLoading, setTenantsLoading] = useState<boolean>(false);
 
     // Backend invitations state
     const [invitations, setInvitations] = useState<TenantInvitation[]>([]);
@@ -63,6 +65,37 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
 
     // Manager's tenants (filter by propertyId existing)
     const myTenants = allTenants.filter(tenant => tenant.propertyId);
+
+    // Load manager's tenants from backend
+    const loadTenants = async (): Promise<void> => {
+        setTenantsLoading(true);
+        try {
+            const { status, json } = await apiGet('/manager/tenants');
+            if (status === 200 && json?.success && Array.isArray(json.data)) {
+                const tenants: Tenant[] = json.data.map((t: any) => ({
+                    id: t.id,
+                    tenantId: t.tenantId,
+                    name: t.name,
+                    email: t.email,
+                    phoneNumber: t.phoneNumber || '',
+                    propertyId: t.propertyId,
+                    propertyName: t.propertyName,
+                    unitId: t.unitId,
+                    unitNumber: t.unitNumber,
+                    rentAmount: t.rentAmount,
+                    paymentStatus: t.paymentStatus as RentStatus,
+                    amountOwed: t.amountOwed || 0,
+                    leaseId: t.leaseId,
+                    createdAt: new Date(),
+                }));
+                setAllTenants(tenants);
+            }
+        } catch (error) {
+            console.error('Error loading tenants:', error);
+        } finally {
+            setTenantsLoading(false);
+        }
+    };
 
     // Backend: load invitations for current tenant (derived from JWT)
     const loadInvitations = async (): Promise<void> => {
@@ -147,10 +180,19 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
     };
     const getInvitationResponsesForManager = (_managerId: string): TenantInvitation[] => [];
     const updateTenant = (_id: string, _updates: Partial<Tenant>) => { };
-    const getTenantById = (_id: string): Tenant | undefined => undefined;
-    const getTenantByTenantId = (_tenantId: string): Tenant | undefined => undefined;
-    const getOverdueTenants = () => ({ overdue: [] as Tenant[], pastOverdue: [] as Tenant[] });
-    const getTenantsByProperty = (_propertyId: string): Tenant[] => [];
+    const getTenantById = (id: string): Tenant | undefined => {
+        return allTenants.find(t => t.id === id);
+    };
+    const getTenantByTenantId = (tenantId: string): Tenant | undefined => {
+        return allTenants.find(t => t.tenantId === tenantId);
+    };
+    const getOverdueTenants = () => {
+        const overdue = allTenants.filter(t => t.paymentStatus === 'overdue');
+        return { overdue, pastOverdue: [] as Tenant[] };
+    };
+    const getTenantsByProperty = (propertyId: string): Tenant[] => {
+        return allTenants.filter(t => t.propertyId === propertyId);
+    };
 
     const value: TenantContextType = {
         allTenants,
@@ -160,6 +202,7 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
         invitationsLoading,
         invitationsError,
         loadInvitations,
+        loadTenants,
         acceptInvitation,
         rejectInvitation,
         getPendingInvitationsForTenant,

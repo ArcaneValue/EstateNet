@@ -813,6 +813,106 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                         />
                     )}
 
+                    {/* ── Upcoming Invoice (PENDING) ── */}
+                    {invoices.find(inv => inv.status === 'PENDING') && (() => {
+                        const pendingInv = invoices.find(inv => inv.status === 'PENDING')!;
+                        const periodEndDate = new Date(pendingInv.periodEnd);
+                        const payableDate = new Date(periodEndDate.getTime() + 24 * 60 * 60 * 1000);
+
+                        return (
+                            <Card style={{
+                                marginBottom: spacing.lg,
+                                backgroundColor: colors.info + '10',
+                                borderColor: colors.info,
+                                borderWidth: 1
+                            }}>
+                                <View style={{ padding: spacing.xl }}>
+                                    {/* Status Pill */}
+                                    <View style={{
+                                        alignSelf: 'flex-start',
+                                        backgroundColor: colors.info + '20',
+                                        paddingHorizontal: spacing.md,
+                                        paddingVertical: spacing.xs,
+                                        borderRadius: borderRadius.full,
+                                        marginBottom: spacing.lg,
+                                    }}>
+                                        <Text style={[typography.bodySmall, { color: colors.info, fontWeight: '700' }]}>
+                                            UPCOMING
+                                        </Text>
+                                    </View>
+
+                                    {/* Title */}
+                                    <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.sm }]}>
+                                        Current Month Invoice
+                                    </Text>
+                                    <Text style={[typography.body, { color: colors.textSecondary, marginBottom: spacing.lg }]}>
+                                        This invoice updates in real-time as tenants join. You can pay it starting {formatDate(payableDate.toISOString())}.
+                                    </Text>
+
+                                    {/* Amount Display */}
+                                    <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.xs }]}>
+                                        Current amount
+                                    </Text>
+                                    <Text style={[typography.h1, { color: colors.info, fontSize: 40, fontWeight: '700', marginBottom: spacing.md }]}>
+                                        {formatCompactCurrencyUGX(pendingInv.feeAmount)}
+                                    </Text>
+
+                                    {/* Meta Info */}
+                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: spacing.lg, gap: spacing.md }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                            <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
+                                            <Text style={[typography.bodySmall, { color: colors.textSecondary, marginLeft: 4 }]}>
+                                                {formatDateShort(pendingInv.periodStart)} - {formatDateShort(pendingInv.periodEnd)}
+                                            </Text>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                            <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
+                                            <Text style={[typography.bodySmall, { color: colors.textSecondary, marginLeft: 4 }]}>
+                                                Payable {formatDateShort(payableDate.toISOString())}
+                                            </Text>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                            <Ionicons name="home-outline" size={14} color={colors.textSecondary} />
+                                            <Text style={[typography.bodySmall, { color: colors.textSecondary, marginLeft: 4 }]}>
+                                                {pendingInv.lineCount} unit{pendingInv.lineCount !== 1 ? 's' : ''}
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    {/* Info Box */}
+                                    <View style={{
+                                        backgroundColor: colors.background,
+                                        padding: spacing.md,
+                                        borderRadius: borderRadius.md,
+                                        borderLeftWidth: 3,
+                                        borderLeftColor: colors.info,
+                                    }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                                            <Ionicons name="information-circle" size={20} color={colors.info} style={{ marginRight: spacing.sm, marginTop: 2 }} />
+                                            <Text style={[typography.bodySmall, { color: colors.text, flex: 1, lineHeight: 20 }]}>
+                                                This amount updates automatically as tenants join or leave. You'll be able to pay the final amount after {formatDate(pendingInv.periodEnd)}.
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    {/* View Details Button */}
+                                    <TouchableOpacity
+                                        onPress={() => handleViewInvoiceDetail(pendingInv.id)}
+                                        style={{
+                                            marginTop: spacing.md,
+                                            paddingVertical: spacing.sm,
+                                            alignItems: 'center',
+                                        }}
+                                    >
+                                        <Text style={[typography.body, { color: colors.primary, fontWeight: '600' }]}>
+                                            View breakdown →
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </Card>
+                        );
+                    })()}
+
                     {/* ── How to Pay ── */}
                     {(billingStatus?.currentInvoice || invoices.some((i) => i.status === 'DUE' || i.status === 'OVERDUE')) && (
                         <Card style={{ backgroundColor: colors.info + '10', marginBottom: spacing.lg }}>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
@@ -17,8 +17,15 @@ interface OccupiedUnitsModalProps {
 export const OccupiedUnitsModal: React.FC<OccupiedUnitsModalProps> = ({ visible, onClose }) => {
     const { colors, spacing, typography } = useTheme();
     const { properties } = useProperties();
-    const { getTenantsByProperty } = useTenants();
+    const { getTenantsByProperty, loadTenants } = useTenants();
     const [selectedProperty, setSelectedProperty] = React.useState<Property | null>(null);
+
+    // Load tenants from backend when modal opens
+    useEffect(() => {
+        if (visible) {
+            loadTenants();
+        }
+    }, [visible, loadTenants]);
 
     const propertiesWithOccupied = properties?.filter(p => p?.units?.some(u => u?.isOccupied)) || [];
 

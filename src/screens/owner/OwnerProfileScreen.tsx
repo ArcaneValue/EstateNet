@@ -20,8 +20,6 @@ import { Modal } from '../../components/Modal';
 import { Input } from '../../components/Input';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { TopAppBar } from '../../components/TopAppBar';
-import { ScreenWrapper } from '../../components/ScreenWrapper';
 
 interface OwnerProfileScreenProps {
   navigation: any;
@@ -173,15 +171,26 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
   };
 
   return (
-    <ScreenWrapper>
-      <TopAppBar
-        onNotificationsPress={() => navigation.navigate('Notifications')}
-        onProfilePress={() => navigation.navigate('Profile')}
-        profileImage={user?.profileImage}
-        propertyCount={properties.length}
-        unitCount={totalUnits}
-      />
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: spacing.xl }}
+      >
+        {/* Header with Settings Icon */}
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: spacing.lg,
+          paddingTop: spacing.md,
+          paddingBottom: spacing.sm,
+        }}>
+          <View style={{ width: 24 }} />
+          <Text style={[typography.h3, { color: colors.text }]}>Profile</Text>
+          <TouchableOpacity onPress={() => setShowSettings(true)}>
+            <Ionicons name="settings-outline" size={24} color={colors.text} />
+          </TouchableOpacity>
+        </View>
 
         {/* Profile Hero */}
         <View style={{ alignItems: 'center', paddingVertical: spacing.lg, paddingHorizontal: spacing.lg }}>
@@ -271,139 +280,73 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
           ))}
         </View>
 
-        {/* Settings List */}
-        <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.lg }}>
-          <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md }]}>Settings</Text>
+        {/* Quick Info Cards */}
+        <View style={{ padding: spacing.lg }}>
+          <Card style={{ marginBottom: spacing.md }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                backgroundColor: colors.success + '20',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: spacing.md,
+              }}>
+                <Ionicons name="call" size={24} color={colors.success} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Phone</Text>
+                <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>
+                  {user?.phoneNumber || 'Not set'}
+                </Text>
+              </View>
+            </View>
+          </Card>
 
-          <TouchableOpacity
-            onPress={() => setShowAccountInfo(true)}
-            style={{
-              backgroundColor: colors.surface,
-              padding: spacing.md,
-              borderRadius: borderRadius.md,
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginBottom: spacing.sm,
-              ...shadows.sm,
-            }}
-          >
-            <View style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: colors.primary + '15',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: spacing.md,
-            }}>
-              <Ionicons name="person-circle-outline" size={22} color={colors.primary} />
+          <Card style={{ marginBottom: spacing.md }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                backgroundColor: colors.info + '20',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: spacing.md,
+              }}>
+                <Ionicons name="mail" size={24} color={colors.info} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Email</Text>
+                <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>
+                  {user?.email || 'Not set'}
+                </Text>
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>Account Info</Text>
-              <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Update your profile details</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
+          </Card>
 
-          <TouchableOpacity
-            onPress={() => setShowNotifications(true)}
-            style={{
-              backgroundColor: colors.surface,
-              padding: spacing.md,
-              borderRadius: borderRadius.md,
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginBottom: spacing.sm,
-              ...shadows.sm,
-            }}
-          >
-            <View style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: colors.success + '15',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: spacing.md,
-            }}>
-              <Ionicons name="notifications-outline" size={22} color={colors.success} />
+          <Card>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                backgroundColor: colors.accent + '20',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: spacing.md,
+              }}>
+                <Ionicons name="calendar" size={24} color={colors.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Member Since</Text>
+                <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>
+                  {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'January 2024'}
+                </Text>
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>Notifications</Text>
-              <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Manage notification preferences</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => setShowAppearance(true)}
-            style={{
-              backgroundColor: colors.surface,
-              padding: spacing.md,
-              borderRadius: borderRadius.md,
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginBottom: spacing.sm,
-              ...shadows.sm,
-            }}
-          >
-            <View style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: colors.accent + '15',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: spacing.md,
-            }}>
-              <Ionicons name="color-palette-outline" size={22} color={colors.accent} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>Appearance</Text>
-              <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Choose your theme</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => setShowAboutModal(true)}
-            style={{
-              backgroundColor: colors.surface,
-              padding: spacing.md,
-              borderRadius: borderRadius.md,
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginBottom: spacing.lg,
-              ...shadows.sm,
-            }}
-          >
-            <View style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: colors.info + '15',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: spacing.md,
-            }}>
-              <Ionicons name="information-circle-outline" size={22} color={colors.info} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>About EstateNet</Text>
-              <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>App information</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <Button
-            title="Sign Out"
-            onPress={handleSignOut}
-            variant="outline"
-            size="large"
-            style={{ borderColor: colors.error }}
-            textStyle={{ color: colors.error }}
-            icon={<Ionicons name="log-out-outline" size={20} color={colors.error} />}
-          />
+          </Card>
         </View>
       </ScrollView>
 
@@ -414,73 +357,63 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
         title="Settings"
         size="large"
       >
-        <View>
-          <SettingItem
-            icon="person-circle-outline"
-            label="Account Info"
+        <SettingItem
+          icon="person-circle-outline"
+          label="Account Info"
+          onPress={() => {
+            setShowSettings(false);
+            setTimeout(() => setShowAccountInfo(true), 300);
+          }}
+          colors={colors}
+          spacing={spacing}
+          typography={typography}
+        />
+        <SettingItem
+          icon="notifications-outline"
+          label="Notifications"
+          onPress={() => {
+            setShowSettings(false);
+            setTimeout(() => setShowNotifications(true), 300);
+          }}
+          colors={colors}
+          spacing={spacing}
+          typography={typography}
+        />
+        <SettingItem
+          icon="color-palette-outline"
+          label="Appearance"
+          onPress={() => {
+            setShowSettings(false);
+            setTimeout(() => setShowAppearance(true), 300);
+          }}
+          colors={colors}
+          spacing={spacing}
+          typography={typography}
+        />
+        <SettingItem
+          icon="information-circle-outline"
+          label="About EstateNet"
+          onPress={() => {
+            setShowSettings(false);
+            setTimeout(() => setShowAboutModal(true), 300);
+          }}
+          colors={colors}
+          spacing={spacing}
+          typography={typography}
+        />
+        <View style={{ marginTop: spacing.xl }}>
+          <Button
+            title="Sign Out"
             onPress={() => {
               setShowSettings(false);
-              setTimeout(() => setShowAccountInfo(true), 300);
+              signOut();
             }}
-            colors={colors}
-            spacing={spacing}
-            typography={typography}
+            variant="outline"
+            size="large"
+            style={{ borderColor: colors.error }}
+            textStyle={{ color: colors.error }}
+            icon={<Ionicons name="log-out-outline" size={20} color={colors.error} />}
           />
-          <SettingItem
-            icon="notifications-outline"
-            label="Notifications"
-            onPress={() => {
-              setShowSettings(false);
-              setTimeout(() => setShowNotifications(true), 300);
-            }}
-            colors={colors}
-            spacing={spacing}
-            typography={typography}
-          />
-          <SettingItem
-            icon="color-palette-outline"
-            label="Appearance"
-            onPress={() => {
-              setShowSettings(false);
-              setTimeout(() => setShowAppearance(true), 300);
-            }}
-            colors={colors}
-            spacing={spacing}
-            typography={typography}
-          />
-          <SettingItem
-            icon="information-circle-outline"
-            label="About EstateNet"
-            onPress={() => {
-              setShowSettings(false);
-              setTimeout(() => setShowAboutModal(true), 300);
-            }}
-            colors={colors}
-            spacing={spacing}
-            typography={typography}
-          />
-          <View style={{ marginTop: spacing.xl }}>
-            <Button
-              title="Sign Out"
-              onPress={async () => {
-                console.log('[Settings] Sign Out button pressed');
-                setShowSettings(false);
-                setTimeout(async () => {
-                  try {
-                    await signOut();
-                    console.log('[Settings] signOut completed');
-                  } catch (error) {
-                    console.error('[Settings] signOut error:', error);
-                  }
-                }, 300);
-              }}
-              variant="outline"
-              size="large"
-              style={{ borderColor: colors.error }}
-              textStyle={{ color: colors.error }}
-              icon={<Ionicons name="log-out-outline" size={20} color={colors.error} />}
-            />
-          </View>
         </View>
       </Modal>
 
@@ -688,7 +621,7 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
           </Text>
         </View>
       </Modal>
-    </ScreenWrapper>
+    </SafeAreaView>
   );
 };
 

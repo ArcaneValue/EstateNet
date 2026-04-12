@@ -40,7 +40,7 @@ export interface NotificationDispatcher {
  */
 export class FirebaseNotificationDispatcher implements NotificationDispatcher {
   private fcmEnabled: boolean = false;
-  
+
   constructor() {
     // Initialize FCM when environment variables are set
     this.fcmEnabled = !!(process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY);
@@ -71,7 +71,7 @@ export class FirebaseNotificationDispatcher implements NotificationDispatcher {
       // 
       // const response = await admin.messaging().send(message);
       // console.log('Successfully sent FCM message:', response);
-      
+
       return true;
     } catch (error) {
       console.error('[FCM] Push notification failed:', error);
@@ -88,12 +88,12 @@ export class FirebaseNotificationDispatcher implements NotificationDispatcher {
         contentLength: payload.htmlContent.length,
         metadata: payload.metadata
       });
-      
+
       // TODO: Implement actual email sending
       // - SendGrid integration
       // - AWS SES integration  
       // - SMTP fallback
-      
+
       return true;
     } catch (error) {
       console.error('[EMAIL] Email notification failed:', error);
@@ -106,7 +106,7 @@ export class FirebaseNotificationDispatcher implements NotificationDispatcher {
  * Development/Testing Dispatcher - Logs all notifications
  */
 export class LoggingNotificationDispatcher implements NotificationDispatcher {
-  
+
   async sendPush(payload: PushNotificationPayload): Promise<boolean> {
     console.log('[PUSH] Push notification sent:', {
       title: payload.title,
@@ -137,7 +137,7 @@ export class NotificationDispatcherService {
   constructor(dispatcher?: NotificationDispatcher) {
     // Use Firebase dispatcher in production, logging dispatcher in development
     this.dispatcher = dispatcher || (
-      process.env.NODE_ENV === 'production' 
+      process.env.NODE_ENV === 'production'
         ? new FirebaseNotificationDispatcher()
         : new LoggingNotificationDispatcher()
     );
@@ -151,7 +151,7 @@ export class NotificationDispatcherService {
       // Get manager's push token and email (when user preferences are implemented)
       const title = 'New Payment Claim';
       const body = `New payment claim of ${claimData.amount.toLocaleString()} UGX from ${claimData.tenantName}`;
-      
+
       await Promise.all([
         this.dispatcher.sendPush({
           title,
@@ -171,7 +171,7 @@ export class NotificationDispatcherService {
         //   htmlContent: emailTemplate
         // })
       ]);
-      
+
       console.log(`[DISPATCHER] Manager notification sent for claim ${claimData.id}`);
     } catch (error) {
       console.error('[DISPATCHER] Failed to notify manager:', error);
@@ -184,10 +184,10 @@ export class NotificationDispatcherService {
   async notifyTenantClaimDecision(tenantId: string, claimData: any, decision: 'VERIFIED' | 'REJECTED'): Promise<void> {
     try {
       const title = `Payment Claim ${decision === 'VERIFIED' ? 'Verified' : 'Rejected'}`;
-      const body = decision === 'VERIFIED' 
+      const body = decision === 'VERIFIED'
         ? `Your payment claim of ${claimData.amount.toLocaleString()} UGX has been verified`
         : `Your payment claim of ${claimData.amount.toLocaleString()} UGX was rejected. ${claimData.note ? 'Reason: ' + claimData.note : ''}`;
-      
+
       await this.dispatcher.sendPush({
         title,
         body,
@@ -198,10 +198,97 @@ export class NotificationDispatcherService {
           amount: claimData.amount.toString()
         }
       });
-      
+
       console.log(`[DISPATCHER] Tenant notification sent for claim ${claimData.id} decision: ${decision}`);
     } catch (error) {
       console.error('[DISPATCHER] Failed to notify tenant:', error);
+    }
+  }
+
+  /**
+   * Send invoice created notification to manager
+   */
+  async notifyManagerInvoiceCreated(managerId: string, invoice: any): Promise<void> {
+    try {
+      const periodDate = new Date(invoice.periodStart);
+      const period = `${periodDate.getFullYear()}-${String(periodDate.getMonth() + 1).padStart(2, '0')}`;
+      const title = 'New Invoice Generated';
+      const body = `Your service fee invoice for ${period} has been created. Amount: UGX ${invoice.feeAmount.toLocaleString()}`;
+
+      await this.dispatcher.sendPush({
+        title,
+        body,
+        data: {
+          type: 'INVOICE_CREATED',
+          invoiceId: invoice.id,
+          amount: invoice.feeAmount.toString(),
+          period,
+          dueDate: invoice.dueDate
+        }
+      });
+
+      console.log(`[DISPATCHER] Invoice created notification sent for invoice ${invoice.id}`);
+    } catch (error) {
+      console.error('[DISPATCHER] Failed to notify manager about invoice creation:', error);
+    }
+  }
+
+  /**
+   * Send invoice updated notification to manager
+   */
+  async notifyManagerInvoiceUpdated(managerId: string, invoice: any, previousAmount: number, newAmount: number): Promise<void> {
+    try {
+      const periodDate = new Date(invoice.periodStart);
+      const period = `${periodDate.getFullYear()}-${String(periodDate.getMonth() + 1).padStart(2, '0')}`;
+      const change = newAmount - previousAmount;
+      const changeText = change > 0
+        ? `increased by UGX ${Math.abs(change).toLocaleString()}`
+        : `decreased by UGX ${Math.abs(change).toLocaleString()}`;
+      const title = 'Invoice Updated';
+      const body = `Your invoice for ${period} has been ${changeText} to UGX ${newAmount.toLocaleString()}`;
+
+      await this.dispatcher.sendPush({
+        title,
+        body,
+        data: {
+          type: 'INVOICE_UPDATED',
+          invoiceId: invoice.id,
+          previousAmount: previousAmount.toString(),
+          newAmount: newAmount.toString(),
+          change: change.toString(),
+          period
+        }
+      });
+
+      console.log(`[DISPATCHER] Invoice updated notification sent for invoice ${invoice.id}`);
+    } catch (error) {
+      console.error('[DISPATCHER] Failed to notify manager about invoice update:', error);
+    }
+  }
+
+  /**
+   * Send invoice deleted notification to manager
+   */
+  async notifyManagerInvoiceDeleted(managerId: string, invoice: any): Promise<void> {
+    try {
+      const periodDate = new Date(invoice.periodStart);
+      const period = `${periodDate.getFullYear()}-${String(periodDate.getMonth() + 1).padStart(2, '0')}`;
+      const title = 'Invoice Removed';
+      const body = `Your invoice for ${period} has been removed as you have no occupied units.`;
+
+      await this.dispatcher.sendPush({
+        title,
+        body,
+        data: {
+          type: 'INVOICE_DELETED',
+          invoiceId: invoice.id,
+          period
+        }
+      });
+
+      console.log(`[DISPATCHER] Invoice deleted notification sent for invoice ${invoice.id}`);
+    } catch (error) {
+      console.error('[DISPATCHER] Failed to notify manager about invoice deletion:', error);
     }
   }
 
@@ -212,7 +299,7 @@ export class NotificationDispatcherService {
     try {
       const title = 'Invoice Overdue';
       const body = `Your invoice of ${invoiceData.feeAmount.toLocaleString()} UGX is overdue. Please pay to avoid service restrictions.`;
-      
+
       await this.dispatcher.sendPush({
         title,
         body,
@@ -223,7 +310,7 @@ export class NotificationDispatcherService {
           dueDate: invoiceData.dueDate
         }
       });
-      
+
       console.log(`[DISPATCHER] Invoice overdue notification sent for invoice ${invoiceData.id}`);
     } catch (error) {
       console.error('[DISPATCHER] Failed to notify manager about overdue invoice:', error);
@@ -237,7 +324,7 @@ export class NotificationDispatcherService {
     try {
       const title = 'Weekly Summary';
       const body = `Collected: ${summaryData.totalCollected.toLocaleString()} UGX | Outstanding: ${summaryData.totalOutstanding.toLocaleString()} UGX | ${summaryData.newClaimsCount} new claims`;
-      
+
       await this.dispatcher.sendPush({
         title,
         body,
@@ -246,7 +333,7 @@ export class NotificationDispatcherService {
           ...summaryData
         }
       });
-      
+
       console.log(`[DISPATCHER] Weekly summary sent to manager ${managerId}`);
     } catch (error) {
       console.error('[DISPATCHER] Failed to send weekly summary:', error);

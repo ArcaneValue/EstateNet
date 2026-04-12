@@ -29,9 +29,9 @@ export const getBillingStatus = async (req: AuthenticatedRequest, res: Response)
     const termsAcceptedAt = freshUser?.managerTermsAcceptedAt;
 
     // Get current invoice if exists (Option A: invoices are immutable snapshots)
-    const currentInvoice = await prisma.invoice.findFirst({
+    const currentInvoice = await (prisma.invoice as any).findFirst({
       where: {
-        managerId: req.user.id,
+        billedUserId: req.user.id,
         status: { in: ['DUE', 'OVERDUE'] }
       },
       orderBy: {
@@ -104,9 +104,9 @@ export const getBillingOverview = async (req: AuthenticatedRequest, res: Respons
     const billingStatus = freshUser?.billingStatus || 'CURRENT';
 
     // Get current invoice (DUE or OVERDUE)
-    const currentInvoice = await prisma.invoice.findFirst({
+    const currentInvoice = await (prisma.invoice as any).findFirst({
       where: {
-        managerId,
+        billedUserId: managerId,
         status: { in: ['DUE', 'OVERDUE'] }
       },
       orderBy: {
@@ -115,9 +115,9 @@ export const getBillingOverview = async (req: AuthenticatedRequest, res: Respons
     });
 
     // Get all overdue invoices
-    const overdueInvoices = await prisma.invoice.findMany({
+    const overdueInvoices = await (prisma.invoice as any).findMany({
       where: {
-        managerId,
+        billedUserId: managerId,
         status: 'OVERDUE'
       },
       orderBy: {
@@ -133,7 +133,7 @@ export const getBillingOverview = async (req: AuthenticatedRequest, res: Respons
     });
 
     // Calculate total outstanding
-    const totalOutstanding = overdueInvoices.reduce((sum, invoice) => sum + invoice.feeAmount, 0) +
+    const totalOutstanding = overdueInvoices.reduce((sum: number, invoice: any) => sum + invoice.feeAmount, 0) +
       (currentInvoice && currentInvoice.status === 'DUE' ? currentInvoice.feeAmount : 0);
 
     // Get current occupied unit count
@@ -141,7 +141,7 @@ export const getBillingOverview = async (req: AuthenticatedRequest, res: Respons
       where: {
         status: 'ACTIVE',
         property: {
-          managerId
+          billedUserId: managerId
         }
       }
     });
@@ -151,7 +151,7 @@ export const getBillingOverview = async (req: AuthenticatedRequest, res: Respons
       where: {
         status: 'ACTIVE',
         property: {
-          managerId
+          billedUserId: managerId
         }
       },
       select: {
@@ -174,7 +174,7 @@ export const getBillingOverview = async (req: AuthenticatedRequest, res: Respons
           periodStart: currentInvoice.periodStart,
           periodEnd: currentInvoice.periodEnd
         } : null,
-        overdueInvoices: overdueInvoices.map(invoice => ({
+        overdueInvoices: overdueInvoices.map((invoice: any) => ({
           id: invoice.id,
           feeAmount: invoice.feeAmount,
           dueDate: invoice.dueDate,
@@ -301,9 +301,9 @@ export const getInvoices = async (req: AuthenticatedRequest, res: Response): Pro
       return;
     }
 
-    const invoices = await prisma.invoice.findMany({
+    const invoices = await (prisma.invoice as any).findMany({
       where: {
-        managerId: req.user.id
+        billedUserId: req.user.id
       },
       orderBy: {
         createdAt: 'desc'
@@ -320,7 +320,7 @@ export const getInvoices = async (req: AuthenticatedRequest, res: Response): Pro
 
     res.status(200).json({
       success: true,
-      data: invoices.map(invoice => ({
+      data: invoices.map((invoice: any) => ({
         id: invoice.id,
         periodStart: invoice.periodStart,
         periodEnd: invoice.periodEnd,
@@ -358,10 +358,10 @@ export const getInvoiceById = async (req: AuthenticatedRequest, res: Response): 
 
     const { id } = req.params;
 
-    const invoice = await prisma.invoice.findFirst({
+    const invoice = await (prisma.invoice as any).findFirst({
       where: {
         id,
-        managerId: req.user.id
+        billedUserId: req.user.id
       },
       include: {
         lines: {
@@ -402,7 +402,7 @@ export const getInvoiceById = async (req: AuthenticatedRequest, res: Response): 
         paidAt: invoice.paidAt || null,
         createdAt: invoice.createdAt,
         updatedAt: invoice.updatedAt,
-        lines: invoice.lines.map(line => ({
+        lines: invoice.lines.map((line: any) => ({
           id: line.id,
           propertyId: line.propertyId,
           unitId: line.unitId,
@@ -453,7 +453,7 @@ export const generateInvoice = async (req: AuthenticatedRequest, res: Response):
     const allManagerLeases = await prisma.lease.findMany({
       where: {
         property: {
-          managerId: managerId
+          billedUserId: managerId
         }
       },
       select: {
@@ -465,7 +465,7 @@ export const generateInvoice = async (req: AuthenticatedRequest, res: Response):
         property: {
           select: {
             id: true,
-            managerId: true
+            billedUserId: true
           }
         }
       }
@@ -480,7 +480,7 @@ export const generateInvoice = async (req: AuthenticatedRequest, res: Response):
       where: {
         status: 'ACTIVE',
         property: {
-          managerId: managerId
+          billedUserId: managerId
         },
         startDate: {
           lte: new Date(periodStart)  // Option A: only leases active AT periodStart
@@ -512,9 +512,9 @@ export const generateInvoice = async (req: AuthenticatedRequest, res: Response):
     const feeAmount = Math.round(subtotalAmount * FEE_RATE);
 
     // Create invoice
-    const invoice = await prisma.invoice.create({
+    const invoice = await (prisma.invoice as any).create({
       data: {
-        managerId,
+        billedUserId: managerId,
         periodStart: new Date(periodStart),
         periodEnd: new Date(periodEnd),
         subtotalAmount,
@@ -588,9 +588,10 @@ export const markInvoicePaid = async (req: AuthenticatedRequest, res: Response):
     });
 
     // Recompute manager billing status: only unlock if no other OVERDUE invoices remain
-    const remainingOverdue = await prisma.invoice.count({
+    const billedUserId = (invoice as any).billedUserId || (invoice as any).managerId;
+    const remainingOverdue = await (prisma.invoice as any).count({
       where: {
-        managerId: invoice.managerId,
+        billedUserId: billedUserId,
         status: 'OVERDUE',
         id: { not: id }
       }
@@ -598,15 +599,15 @@ export const markInvoicePaid = async (req: AuthenticatedRequest, res: Response):
 
     if (remainingOverdue === 0) {
       await prisma.user.update({
-        where: { id: invoice.managerId },
+        where: { id: billedUserId },
         data: {
           billingStatus: 'CURRENT',
           billingGraceUntil: null
         }
       });
-      console.log(`[DEV] Marked invoice ${id} as paid, manager ${invoice.managerId} billing set to CURRENT (no remaining overdue)`);
+      console.log(`[DEV] Marked invoice ${id} as paid, user ${billedUserId} billing set to CURRENT (no remaining overdue)`);
     } else {
-      console.log(`[DEV] Marked invoice ${id} as paid, manager ${invoice.managerId} still has ${remainingOverdue} overdue invoice(s)`);
+      console.log(`[DEV] Marked invoice ${id} as paid, user ${billedUserId} still has ${remainingOverdue} overdue invoice(s)`);
     }
 
     res.status(200).json({

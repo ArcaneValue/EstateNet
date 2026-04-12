@@ -30,6 +30,14 @@ export const LeaseProvider: React.FC<LeaseProviderProps> = ({ children }) => {
       return;
     }
 
+    // Only load lease data for TENANT users
+    if (user.role !== 'TENANT') {
+      setActiveLease(null);
+      setLeaseError(null);
+      setLeaseLoading(false);
+      return;
+    }
+
     setLeaseLoading(true);
     setLeaseError(null);
     try {

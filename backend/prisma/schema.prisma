@@ -8,17 +8,17 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  phoneNumber  String?
-  role         UserRole @default(TENANT)
-  tenantId     String?  @unique
-  profileImage String?
+  id                String   @id @default(cuid())
+  email             String   @unique
+  passwordHash      String
+  name              String
+  phoneNumber       String?
+  role              UserRole @default(TENANT)
+  tenantId          String?  @unique
+  profileImage      String?
   notificationPrefs Json?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   // Manager payout fields
   payoutPhoneNumber String?
@@ -26,29 +26,31 @@ model User {
 
   // Manager billing fields
   managerTermsAcceptedAt DateTime?
-  billingStatus         BillingStatus? @default(CURRENT)
-  billingGraceUntil     DateTime?
+  billingTermsAcceptedAt DateTime?
+  billingStatus          BillingStatus? @default(CURRENT)
+  billingGraceUntil      DateTime?
 
   // Manager org linkage - links manager to their owning organization
   createdByOwnerId String? // Set when manager accepts owner invitation
 
   // Relations
-  tenantIdentity TenantIdentity? @relation(fields: [tenantId], references: [tenantId])
-  sentInvitations TenantInvitation[]
-  sentMessages    Message[]       @relation("MessageFromUser")
-  receivedMessages Message[]      @relation("MessageToUser")
-  notifications    Notification[]
-  ownedProperties Property[]    @relation("PropertyOwner")
-  managedProperties Property[]  @relation("PropertyManager")
-  ownerInvitations OwnerManagerInvitation[] @relation("OwnerInvitations")
-  receivedManagerInvitations OwnerManagerInvitation[] @relation("ManagerInvitations")
-  invoices     Invoice[]
-  servicePayments ServicePayment[] @relation("ServicePayments")
-  managerPaymentClaims PaymentClaim[] @relation("ManagerPaymentClaims")
-  managerVerifications PaymentClaimVerification[] @relation("ManagerVerifications")
-  auditLogs AuditLog[] @relation("UserAuditLogs")
-  createdByOwner User? @relation("ManagerOrgLinkage", fields: [createdByOwnerId], references: [id], onDelete: SetNull)
-  managersInOrg User[] @relation("ManagerOrgLinkage")
+  tenantIdentity             TenantIdentity?            @relation(fields: [tenantId], references: [tenantId])
+  sentInvitations            TenantInvitation[]
+  sentMessages               Message[]                  @relation("MessageFromUser")
+  receivedMessages           Message[]                  @relation("MessageToUser")
+  notifications              Notification[]
+  ownedProperties            Property[]                 @relation("PropertyOwner")
+  managedProperties          Property[]                 @relation("PropertyManager")
+  billedProperties           Property[]                 @relation("PropertyBilledUser")
+  ownerInvitations           OwnerManagerInvitation[]   @relation("OwnerInvitations")
+  receivedManagerInvitations OwnerManagerInvitation[]   @relation("ManagerInvitations")
+  invoices                   Invoice[]
+  servicePayments            ServicePayment[]           @relation("ServicePayments")
+  managerPaymentClaims       PaymentClaim[]             @relation("ManagerPaymentClaims")
+  managerVerifications       PaymentClaimVerification[] @relation("ManagerVerifications")
+  auditLogs                  AuditLog[]                 @relation("UserAuditLogs")
+  createdByOwner             User?                      @relation("ManagerOrgLinkage", fields: [createdByOwnerId], references: [id], onDelete: SetNull)
+  managersInOrg              User[]                     @relation("ManagerOrgLinkage")
 
   @@map("users")
 }
@@ -64,10 +66,10 @@ model TenantIdentity {
   updatedAt    DateTime @updatedAt
 
   // Relations
-  user User?
-  leases Lease[]
-  invitations TenantInvitation[]
-  payments Payment[]
+  user          User?
+  leases        Lease[]
+  invitations   TenantInvitation[]
+  payments      Payment[]
   paymentClaims PaymentClaim[]
 
   @@map("tenant_identities")
@@ -120,23 +122,25 @@ enum BillingStatus {
 }
 
 model Property {
-  id        String   @id @default(cuid())
-  name      String
-  location  String
-  ownerId   String   // Property owner (required)
-  managerId String?  // Assigned manager (optional)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  location     String
+  ownerId      String // Property owner (required)
+  managerId    String? // Assigned manager (optional)
+  billedUserId String // Who pays the service fee
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relations
-  owner       User   @relation("PropertyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  manager     User?  @relation("PropertyManager", fields: [managerId], references: [id], onDelete: SetNull)
-  units       Unit[]
-  leases      Lease[]
-  invitations TenantInvitation[]
-  payments    Payment[]
+  owner                   User                     @relation("PropertyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  manager                 User?                    @relation("PropertyManager", fields: [managerId], references: [id], onDelete: SetNull)
+  billedUser              User                     @relation("PropertyBilledUser", fields: [billedUserId], references: [id], onDelete: Cascade)
+  units                   Unit[]
+  leases                  Lease[]
+  invitations             TenantInvitation[]
+  payments                Payment[]
   ownerManagerInvitations OwnerManagerInvitation[]
-  invoiceLines InvoiceLine[]
+  invoiceLines            InvoiceLine[]
 
   @@map("properties")
 }
@@ -151,10 +155,10 @@ model Unit {
   updatedAt  DateTime @updatedAt
 
   // Relations
-  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  leases     Lease[]
-  invitations TenantInvitation[]
-  payments   Payment[]
+  property     Property           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  leases       Lease[]
+  invitations  TenantInvitation[]
+  payments     Payment[]
   invoiceLines InvoiceLine[]
 
   @@unique([propertyId, unitNumber])
@@ -162,19 +166,19 @@ model Unit {
 }
 
 model Lease {
-  id        String     @id @default(cuid())
-  tenantId  String     // references TenantIdentity.tenantId (not the cuid)
+  id         String      @id @default(cuid())
+  tenantId   String // references TenantIdentity.tenantId (not the cuid)
   propertyId String
-  unitId    String
+  unitId     String
   rentAmount Int
-  startDate DateTime   @default(now())
-  endDate   DateTime?
-  status    LeaseStatus @default(ACTIVE)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  startDate  DateTime    @default(now())
+  endDate    DateTime?
+  status     LeaseStatus @default(ACTIVE)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 
-  property  Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  unit      Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  property       Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unit           Unit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
   tenantIdentity TenantIdentity @relation(fields: [tenantId], references: [tenantId], onDelete: Restrict)
   messages       Message[]
   invoiceLines   InvoiceLine[]
@@ -186,41 +190,41 @@ model Lease {
 }
 
 model TenantInvitation {
-  id          String           @id @default(cuid())
-  tenantId    String
-  propertyId  String
-  unitId      String
-  rentAmount  Int
-  status      InvitationStatus @default(PENDING)
-  invitedByUserId String       // manager user id
-  createdAt   DateTime @default(now())
-  respondedAt DateTime?
+  id              String           @id @default(cuid())
+  tenantId        String
+  propertyId      String
+  unitId          String
+  rentAmount      Int
+  status          InvitationStatus @default(PENDING)
+  invitedByUserId String // manager user id
+  createdAt       DateTime         @default(now())
+  respondedAt     DateTime?
 
   // Relations
   tenantIdentity TenantIdentity @relation(fields: [tenantId], references: [tenantId], onDelete: Cascade)
-  property  Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  unit      Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  property       Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unit           Unit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
   invitingUser   User           @relation(fields: [invitedByUserId], references: [id], onDelete: Cascade)
 
   @@map("tenant_invitations")
 }
 
 model Payment {
-  id            String        @id @default(cuid())
-  tenantId      String
-  propertyId    String
-  unitId        String
-  leaseId       String?
-  amount        Int
-  status        PaymentStatus @default(PENDING)
-  paymentMethod String?
-  transactionId String?
-  paymentDate   DateTime
-  dueDate       DateTime
-  billingPeriod String        // format "YYYY-MM"
-  paymentClaimId String?      // Reference to the original payment claim
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id             String        @id @default(cuid())
+  tenantId       String
+  propertyId     String
+  unitId         String
+  leaseId        String?
+  amount         Int
+  status         PaymentStatus @default(PENDING)
+  paymentMethod  String?
+  transactionId  String?
+  paymentDate    DateTime
+  dueDate        DateTime
+  billingPeriod  String // format "YYYY-MM"
+  paymentClaimId String? // Reference to the original payment claim
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   // Relations
   tenantIdentity TenantIdentity @relation(fields: [tenantId], references: [tenantId], onDelete: Cascade)
@@ -228,27 +232,27 @@ model Payment {
   unit           Unit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
   lease          Lease?         @relation(fields: [leaseId], references: [id], onDelete: SetNull)
 
+  @@unique([paymentClaimId])
   @@index([billingPeriod, tenantId])
   @@index([propertyId, status])
   @@index([status, paymentDate])
   @@index([leaseId])
-  @@unique([paymentClaimId])
   @@map("payments")
 }
 
 model Message {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   fromUserId String
   toUserId   String
   leaseId    String?
   subject    String?
   body       String
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
   readAt     DateTime?
-  archived   Boolean  @default(false)
+  archived   Boolean   @default(false)
 
-  fromUser User  @relation("MessageFromUser", fields: [fromUserId], references: [id], onDelete: Cascade)
-  toUser   User  @relation("MessageToUser", fields: [toUserId], references: [id], onDelete: Cascade)
+  fromUser User   @relation("MessageFromUser", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User   @relation("MessageToUser", fields: [toUserId], references: [id], onDelete: Cascade)
   lease    Lease? @relation(fields: [leaseId], references: [id], onDelete: SetNull)
 
   @@index([toUserId, createdAt])
@@ -258,13 +262,13 @@ model Message {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
   type      String
   title     String
   body      String
   metadata  Json?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   readAt    DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -274,61 +278,61 @@ model Notification {
 }
 
 model OwnerManagerInvitation {
-  id          String           @id @default(cuid())
-  propertyId  String
-  ownerId     String
+  id           String           @id @default(cuid())
+  propertyId   String
+  ownerId      String
   managerEmail String
-  managerId   String?          // Set when a manager accepts the invitation
-  status      InvitationStatus @default(PENDING)
-  createdAt   DateTime @default(now())
-  respondedAt DateTime?
+  managerId    String? // Set when a manager accepts the invitation
+  status       InvitationStatus @default(PENDING)
+  createdAt    DateTime         @default(now())
+  respondedAt  DateTime?
 
   // Relations
-  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  owner      User     @relation("OwnerInvitations", fields: [ownerId], references: [id], onDelete: Cascade)
-  manager    User?    @relation("ManagerInvitations", fields: [managerId], references: [id], onDelete: SetNull)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  owner    User     @relation("OwnerInvitations", fields: [ownerId], references: [id], onDelete: Cascade)
+  manager  User?    @relation("ManagerInvitations", fields: [managerId], references: [id], onDelete: SetNull)
 
   @@map("owner_manager_invitations")
 }
 
 model Invoice {
-  id            String   @id @default(cuid())
-  managerId     String
-  periodStart   DateTime
-  periodEnd     DateTime
+  id             String    @id @default(cuid())
+  billedUserId   String
+  periodStart    DateTime
+  periodEnd      DateTime
   subtotalAmount Int
-  feeRateBps    Int      // 150 = 1.5%
-  feeAmount     Int
-  status        String   // 'DUE' | 'PAID' | 'OVERDUE'
-  dueDate       DateTime
-  paidAt        DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  feeRateBps     Int // 150 = 1.5%
+  feeAmount      Int
+  status         String // 'DUE' | 'PAID' | 'OVERDUE'
+  dueDate        DateTime
+  paidAt         DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   // Relations
-  manager       User     @relation(fields: [managerId], references: [id])
-  lines         InvoiceLine[]
+  billedUser      User             @relation(fields: [billedUserId], references: [id])
+  lines           InvoiceLine[]
   servicePayments ServicePayment[]
 
-  @@unique([managerId, periodStart, periodEnd])
+  @@unique([billedUserId, periodStart, periodEnd])
   @@map("invoices")
 }
 
 model InvoiceLine {
-  id          String   @id @default(cuid())
-  invoiceId   String
-  propertyId  String
-  unitId      String
-  rentAmount  Int
-  tenantId    String?
-  leaseId     String?
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  invoiceId  String
+  propertyId String
+  unitId     String
+  rentAmount Int
+  tenantId   String?
+  leaseId    String?
+  createdAt  DateTime @default(now())
 
   // Relations
-  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  property    Property @relation(fields: [propertyId], references: [id])
-  unit        Unit     @relation(fields: [unitId], references: [id])
-  lease       Lease?   @relation(fields: [leaseId], references: [id])
+  invoice  Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id])
+  unit     Unit     @relation(fields: [unitId], references: [id])
+  lease    Lease?   @relation(fields: [leaseId], references: [id])
 
   @@map("invoice_lines")
 }
@@ -339,8 +343,8 @@ model ServicePayment {
   managerId         String
   amount            Int
   currency          String   @default("UGX")
-  provider          String   // 'MOCK' | 'YO'
-  network           String   // 'MTN' | 'AIRTEL'
+  provider          String // 'MOCK' | 'YO'
+  network           String // 'MTN' | 'AIRTEL'
   phoneNumber       String
   externalRef       String   @unique
   providerRequestId String?
@@ -350,33 +354,33 @@ model ServicePayment {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  invoice           Invoice  @relation(fields: [invoiceId], references: [id])
-  manager           User     @relation("ServicePayments", fields: [managerId], references: [id])
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+  manager User    @relation("ServicePayments", fields: [managerId], references: [id])
 
   @@map("service_payments")
 }
 
 model PaymentClaim {
-  id              String   @id @default(cuid())
-  tenantId        String
-  leaseId         String
-  managerId       String
-  amount          Int
-  currency        String   @default("UGX")
-  claimedPaidAt   DateTime
-  billingPeriod   String   // format "YYYY-MM" derived from claimedPaidAt
-  method          String   // 'CASH' | 'MTN' | 'AIRTEL' | 'BANK_TRANSFER'
-  referenceText   String?
-  status          PaymentClaimStatus @default(PENDING)
-  flagged         Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            String             @id @default(cuid())
+  tenantId      String
+  leaseId       String
+  managerId     String
+  amount        Int
+  currency      String             @default("UGX")
+  claimedPaidAt DateTime
+  billingPeriod String // format "YYYY-MM" derived from claimedPaidAt
+  method        String // 'CASH' | 'MTN' | 'AIRTEL' | 'BANK_TRANSFER'
+  referenceText String?
+  status        PaymentClaimStatus @default(PENDING)
+  flagged       Boolean            @default(false)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
   // Relations
-  tenantIdentity  TenantIdentity @relation(fields: [tenantId], references: [tenantId])
-  lease           Lease @relation(fields: [leaseId], references: [id])
-  manager         User @relation("ManagerPaymentClaims", fields: [managerId], references: [id])
-  verification    PaymentClaimVerification?
+  tenantIdentity TenantIdentity            @relation(fields: [tenantId], references: [tenantId])
+  lease          Lease                     @relation(fields: [leaseId], references: [id])
+  manager        User                      @relation("ManagerPaymentClaims", fields: [managerId], references: [id])
+  verification   PaymentClaimVerification?
 
   @@index([managerId, status])
   @@index([tenantId, status])
@@ -386,25 +390,25 @@ model PaymentClaim {
 }
 
 model PaymentClaimVerification {
-  id          String @id @default(cuid())
-  claimId     String @unique
-  managerId   String
-  decision    PaymentClaimDecision
-  note        String?
-  decidedAt   DateTime @default(now())
+  id        String               @id @default(cuid())
+  claimId   String               @unique
+  managerId String
+  decision  PaymentClaimDecision
+  note      String?
+  decidedAt DateTime             @default(now())
 
   // Relations
-  claim       PaymentClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
-  manager     User @relation("ManagerVerifications", fields: [managerId], references: [id])
+  claim   PaymentClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  manager User         @relation("ManagerVerifications", fields: [managerId], references: [id])
 
   @@map("payment_claim_verifications")
 }
 
 model AuditLog {
   id                String   @id @default(cuid())
-  entityType        String   // 'PAYMENT_CLAIM'
+  entityType        String // 'PAYMENT_CLAIM'
   entityId          String
-  action            String   // 'CREATED', 'VERIFIED', 'REJECTED'
+  action            String // 'CREATED', 'VERIFIED', 'REJECTED'
   performedByUserId String
   previousState     Json?
   newState          Json
@@ -413,7 +417,7 @@ model AuditLog {
   createdAt         DateTime @default(now())
 
   // Relations
-  performedByUser   User     @relation("UserAuditLogs", fields: [performedByUserId], references: [id])
+  performedByUser User @relation("UserAuditLogs", fields: [performedByUserId], references: [id])
 
   @@index([entityId, entityType, createdAt])
   @@index([performedByUserId, createdAt])
@@ -421,12 +425,12 @@ model AuditLog {
 }
 
 model JobLock {
-  id           String   @id @default(cuid())
-  jobName      String   @unique
-  lockedUntil  DateTime
-  lockedBy     String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(cuid())
+  jobName     String   @unique
+  lockedUntil DateTime
+  lockedBy    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@map("job_locks")
 }

@@ -73,8 +73,16 @@ export const PaymentProvider: React.FC<PaymentProviderProps> = ({ children }) =>
         return null;
     };
 
-    const loadPayments = async () => {
+    const loadPayments = async (): Promise<void> => {
         if (!user) {
+            setPayments([]);
+            setPaymentsError(null);
+            setPaymentsLoading(false);
+            return;
+        }
+
+        // Only load payments for TENANT users
+        if (user.role !== 'TENANT') {
             setPayments([]);
             setPaymentsError(null);
             setPaymentsLoading(false);
@@ -122,6 +130,14 @@ export const PaymentProvider: React.FC<PaymentProviderProps> = ({ children }) =>
 
     const loadRentStatus = async (): Promise<void> => {
         if (!user) {
+            setRentStatus(null);
+            setRentStatusError(null);
+            setRentStatusLoading(false);
+            return;
+        }
+
+        // Only load rent status for TENANT users
+        if (user.role !== 'TENANT') {
             setRentStatus(null);
             setRentStatusError(null);
             setRentStatusLoading(false);

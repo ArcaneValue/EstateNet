@@ -1,7 +1,7 @@
 import { prisma } from '../utils/database';
 
 interface DuplicateGroup {
-  managerId: string;
+  billedUserId: string;
   periodStart: Date;
   periodEnd: Date;
   keep_id: string;
@@ -10,12 +10,12 @@ interface DuplicateGroup {
 
 /**
  * Detect duplicate invoices in the database
- * Returns groups of invoices with same (managerId, periodStart, periodEnd)
+ * Returns groups of invoices with same (billedUserId, periodStart, periodEnd)
  */
 export const detectDuplicateInvoices = async (): Promise<any[]> => {
   const query = `
     SELECT 
-      "managerId",
+      "billedUserId",
       "periodStart",
       "periodEnd",
       COUNT(*) as duplicate_count,
@@ -23,9 +23,9 @@ export const detectDuplicateInvoices = async (): Promise<any[]> => {
       STRING_AGG("createdAt"::text, ', ' ORDER BY "createdAt") as created_times,
       MIN("createdAt") as earliest_created
     FROM invoices 
-    GROUP BY "managerId", "periodStart", "periodEnd"
+    GROUP BY "billedUserId", "periodStart", "periodEnd"
     HAVING COUNT(*) > 1
-    ORDER BY "managerId", "periodStart";
+    ORDER BY "billedUserId", "periodStart";
   `;
 
   try {
@@ -49,13 +49,13 @@ export const cleanupDuplicateInvoices = async (): Promise<{ deletedCount: number
     // Get duplicates with earliest ID to keep
     const duplicatesQuery = `
       SELECT 
-        "managerId",
+        "billedUserId",
         "periodStart",
         "periodEnd",
         MIN(id) as keep_id,
         ARRAY_AGG(id ORDER BY "createdAt") as all_ids
       FROM invoices 
-      GROUP BY "managerId", "periodStart", "periodEnd"
+      GROUP BY "billedUserId", "periodStart", "periodEnd"
       HAVING COUNT(*) > 1
     `;
 
@@ -78,7 +78,7 @@ export const cleanupDuplicateInvoices = async (): Promise<{ deletedCount: number
         await prisma.$executeRawUnsafe(deleteQuery);
         totalDeleted += idsToDelete.length;
 
-        console.log(`[DuplicateCleanup] Deleted ${idsToDelete.length} duplicates for manager ${group.managerId}, period ${group.periodStart} to ${group.periodEnd}`);
+        console.log(`[DuplicateCleanup] Deleted ${idsToDelete.length} duplicates for user ${group.billedUserId}, period ${group.periodStart} to ${group.periodEnd}`);
       }
     }
 

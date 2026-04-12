@@ -118,17 +118,17 @@ export const getMissingPeriods = (lastPeriod: string, currentPeriod: string): st
 };
 
 /**
- * Get latest invoice period for a manager
+ * Get latest invoice period for a user
  */
 // Fixed: Return type changed from undefined to null to match TypeScript expectations
-export const getLatestInvoicePeriod = async (managerId: string): Promise<string | null> => {
-  const latestInvoice = await prisma.invoice.findFirst({
-    where: { managerId },
+export const getLatestInvoicePeriod = async (billedUserId: string): Promise<string | null> => {
+  const latestInvoice = await (prisma.invoice as any).findFirst({
+    where: { billedUserId },
     orderBy: { periodStart: 'desc' },
     select: { periodStart: true }
   });
 
-  return latestInvoice && latestInvoice.periodStart ? getBillingPeriod(latestInvoice.periodStart) : null;
+  return latestInvoice ? getBillingPeriod(latestInvoice.periodStart) : null;
 };
 
 /**
@@ -167,63 +167,63 @@ export const ensureBackfillInvoicesForAllManagers = async (now: Date = new Date(
       console.log(`[BillingScheduler]   Manager: id=${lease.property.manager?.id}, role=${lease.property.manager?.role}`);
     });
 
-    // Group by manager to avoid duplicates
-    const managerIds = new Set(occupiedLeases.map(lease => lease.property.managerId).filter(Boolean));
-    console.log(`[BillingScheduler] Found ${managerIds.size} unique managers with occupied units`);
-    console.log(`[BillingScheduler] Found ${managerIds.size} managers with occupied units for backfill`);
+    // Group by billedUserId to avoid duplicates
+    const billedUserIds = new Set(occupiedLeases.map(lease => (lease.property as any).billedUserId).filter(Boolean));
+    console.log(`[BillingScheduler] Found ${billedUserIds.size} unique users with billing responsibility`);
+    console.log(`[BillingScheduler] Found ${billedUserIds.size} users with occupied units for backfill`);
 
-    for (const managerId of Array.from(managerIds)) {
-      console.log(`[BillingScheduler] Processing manager: ${managerId}`);
+    for (const billedUserId of Array.from(billedUserIds)) {
+      console.log(`[BillingScheduler] Processing user: ${billedUserId}`);
 
-      // Get manager details to verify role
-      const manager = await prisma.user.findFirst({
-        where: { id: managerId as string },
+      // Get user details to verify role
+      const user = await prisma.user.findFirst({
+        where: { id: billedUserId as string },
         select: { role: true, createdAt: true }
       });
 
-      console.log(`[BillingScheduler] Manager ${managerId}: role=${manager?.role}, createdAt=${manager?.createdAt}`);
+      console.log(`[BillingScheduler] User ${billedUserId}: role=${user?.role}, createdAt=${user?.createdAt}`);
 
-      if (!manager || manager.role !== UserRole.MANAGER) {
-        console.log(`[BillingScheduler] Manager ${managerId}: Skipping - not a manager`);
+      if (!user || (user.role !== UserRole.MANAGER && user.role !== UserRole.OWNER)) {
+        console.log(`[BillingScheduler] User ${billedUserId}: Skipping - not a manager or owner`);
         continue;
       }
 
-      // Find last invoice period for this manager
-      const lastPeriod = await getLatestInvoicePeriod(managerId as string);
+      // Find last invoice period for this user
+      const lastPeriod = await getLatestInvoicePeriod(billedUserId as string);
 
       // Determine missing periods - guaranteed string with nullish coalescing
-      const startPeriod = lastPeriod ?? getBillingPeriod(manager.createdAt || new Date());
-      console.log(`[BillingScheduler] Manager ${managerId}: lastPeriod=${lastPeriod}, startPeriod=${startPeriod}`);
+      const startPeriod = lastPeriod ?? getBillingPeriod(user.createdAt || new Date());
+      console.log(`[BillingScheduler] User ${billedUserId}: lastPeriod=${lastPeriod}, startPeriod=${startPeriod}`);
       if (!startPeriod) {
-        console.log(`[BillingScheduler] Manager ${managerId}: No valid start period found, skipping`);
+        console.log(`[BillingScheduler] User ${billedUserId}: No valid start period found, skipping`);
         continue;
       }
       const missingPeriods = getMissingPeriods(startPeriod, currentPeriod);
 
-      console.log(`[BillingScheduler] Manager ${managerId}: backfilling ${missingPeriods.length} periods from ${startPeriod} to ${currentPeriod}`);
+      console.log(`[BillingScheduler] User ${billedUserId}: backfilling ${missingPeriods.length} periods from ${startPeriod} to ${currentPeriod}`);
 
       for (const period of missingPeriods) {
         const { periodStart, periodEnd } = getPeriodDates(period);
 
         // Check if invoice already exists for this period
-        const existingInvoice = await prisma.invoice.findFirst({
+        const existingInvoice = await (prisma.invoice as any).findFirst({
           where: {
-            managerId: managerId as string,
+            billedUserId: billedUserId as string,
             periodStart: { gte: periodStart },
             periodEnd: { lte: periodEnd }
           }
         });
 
         if (existingInvoice) {
-          console.log(`[BillingScheduler] Invoice already exists for manager ${managerId}, period ${period}`);
+          console.log(`[BillingScheduler] Invoice already exists for user ${billedUserId}, period ${period}`);
           continue;
         }
 
-        // Get all occupied units for this manager ACTIVE at period start (Option A snapshot)
-        const occupiedUnits = await prisma.lease.findMany({
+        // Get all occupied units for this user ACTIVE at period start (Option A snapshot)
+        const occupiedUnits = await (prisma.lease as any).findMany({
           where: {
             status: 'ACTIVE',
-            property: { managerId: managerId as string },
+            property: { billedUserId: billedUserId as string },
             startDate: { lte: periodStart },
             OR: [
               { endDate: null },
@@ -238,19 +238,19 @@ export const ensureBackfillInvoicesForAllManagers = async (now: Date = new Date(
         });
 
         if (occupiedUnits.length === 0) {
-          console.log(`[BillingScheduler] No occupied units for manager ${managerId}, period ${period}`);
+          console.log(`[BillingScheduler] No occupied units for user ${billedUserId}, period ${period}`);
           continue;
         }
 
         // Calculate subtotal
-        const subtotalAmount = occupiedUnits.reduce((sum, lease) => sum + lease.rentAmount, 0);
+        const subtotalAmount = occupiedUnits.reduce((sum: number, lease: any) => sum + lease.rentAmount, 0);
         const feeAmount = Math.round(subtotalAmount * FEE_RATE);
 
         try {
           // Create invoice with DB uniqueness protection
-          const invoice = await prisma.invoice.create({
+          const invoice = await (prisma.invoice as any).create({
             data: {
-              managerId: managerId as string,
+              billedUserId: billedUserId as string,
               periodStart,
               periodEnd,
               subtotalAmount,
@@ -259,7 +259,7 @@ export const ensureBackfillInvoicesForAllManagers = async (now: Date = new Date(
               status: 'DUE',
               dueDate: new Date(periodEnd.getTime() + 7 * 24 * 60 * 60 * 1000), // 7 days after period end
               lines: {
-                create: occupiedUnits.map(lease => ({
+                create: occupiedUnits.map((lease: any) => ({
                   propertyId: lease.propertyId,
                   unitId: lease.unitId,
                   rentAmount: lease.rentAmount,
@@ -270,12 +270,12 @@ export const ensureBackfillInvoicesForAllManagers = async (now: Date = new Date(
             }
           });
 
-          console.log(`[BillingScheduler] Created backfill invoice ${invoice.id} for manager ${managerId}, period ${period}: ${invoice.feeAmount} UGX fee`);
+          console.log(`[BillingScheduler] Created backfill invoice ${invoice.id} for user ${billedUserId}, period ${period}: ${invoice.feeAmount} UGX fee`);
           invoicesCreatedCount++;
         } catch (createError: any) {
           // Handle unique constraint violation gracefully
           if (createError.code === 'P2002' && createError.meta?.target?.includes('unique_manager_billing_period')) {
-            console.log(`[BillingScheduler] Invoice already exists (race condition) for manager ${managerId}, period ${period}`);
+            console.log(`[BillingScheduler] Invoice already exists (race condition) for user ${billedUserId}, period ${period}`);
             continue;
           }
           throw createError;
@@ -327,40 +327,40 @@ export const ensureMonthlyInvoicesForAllManagers = async (now: Date = new Date()
       }
     });
 
-    // Group by manager to avoid duplicates
-    const managerIds = new Set(occupiedLeases.map(lease => lease.property.managerId).filter(Boolean));
-    console.log(`[BillingScheduler] Found ${managerIds.size} managers with occupied units`);
+    // Group by billedUserId to avoid duplicates
+    const billedUserIds = new Set(occupiedLeases.map(lease => (lease.property as any).billedUserId).filter(Boolean));
+    console.log(`[BillingScheduler] Found ${billedUserIds.size} users with billing responsibility`);
 
-    for (const managerId of Array.from(managerIds)) {
-      // Get manager details to verify role
-      const manager = await prisma.user.findFirst({
-        where: { id: managerId as string },
+    for (const billedUserId of Array.from(billedUserIds)) {
+      // Get user details to verify role
+      const user = await prisma.user.findFirst({
+        where: { id: billedUserId as string },
         select: { role: true }
       });
 
-      if (!manager || manager.role !== UserRole.MANAGER) {
+      if (!user || (user.role !== UserRole.MANAGER && user.role !== UserRole.OWNER)) {
         continue;
       }
 
       // Check if invoice already exists for this period (DB uniqueness handles this)
-      const existingInvoice = await prisma.invoice.findFirst({
+      const existingInvoice = await (prisma.invoice as any).findFirst({
         where: {
-          managerId: managerId as string,
+          billedUserId: billedUserId as string,
           periodStart: { gte: periodStart },
           periodEnd: { lte: periodEnd }
         }
       });
 
       if (existingInvoice) {
-        console.log(`[BillingScheduler] Invoice already exists for manager ${managerId}, period ${currentPeriod}`);
+        console.log(`[BillingScheduler] Invoice already exists for user ${billedUserId}, period ${currentPeriod}`);
         continue;
       }
 
-      // Get all occupied units for this manager ACTIVE at period start (Option A snapshot)
-      const occupiedUnits = await prisma.lease.findMany({
+      // Get all occupied units for this user ACTIVE at period start (Option A snapshot)
+      const occupiedUnits = await (prisma.lease as any).findMany({
         where: {
           status: 'ACTIVE',
-          property: { managerId: managerId as string },
+          property: { billedUserId: billedUserId as string },
           startDate: { lte: periodStart },
           OR: [
             { endDate: null },
@@ -375,20 +375,20 @@ export const ensureMonthlyInvoicesForAllManagers = async (now: Date = new Date()
       });
 
       if (occupiedUnits.length === 0) {
-        console.log(`[BillingScheduler] No occupied units for manager ${managerId}, period ${currentPeriod}`);
+        console.log(`[BillingScheduler] No occupied units for user ${billedUserId}, period ${currentPeriod}`);
         continue;
       }
 
       // Calculate subtotal
-      const subtotalAmount = occupiedUnits.reduce((sum, lease) => sum + lease.rentAmount, 0);
+      const subtotalAmount = occupiedUnits.reduce((sum: number, lease: any) => sum + lease.rentAmount, 0);
       const feeAmount = Math.round(subtotalAmount * FEE_RATE);
 
       try {
-        // Create invoice for this manager (Option A: immutable snapshot at period start)
+        // Create invoice for this user (Option A: immutable snapshot at period start)
         // Only leases ACTIVE at periodStart are included - no mid-period changes affect invoice
-        const invoice = await prisma.invoice.create({
+        const invoice = await (prisma.invoice as any).create({
           data: {
-            managerId: managerId as string,
+            billedUserId: billedUserId as string,
             periodStart,
             periodEnd,
             subtotalAmount,
@@ -397,7 +397,7 @@ export const ensureMonthlyInvoicesForAllManagers = async (now: Date = new Date()
             status: 'DUE',
             dueDate: new Date(periodEnd.getTime() + 7 * 24 * 60 * 60 * 1000), // 7 days after period end
             lines: {
-              create: occupiedUnits.map(lease => ({
+              create: occupiedUnits.map((lease: any) => ({
                 propertyId: lease.propertyId,
                 unitId: lease.unitId,
                 rentAmount: lease.rentAmount,
@@ -408,12 +408,12 @@ export const ensureMonthlyInvoicesForAllManagers = async (now: Date = new Date()
           }
         });
 
-        console.log(`[BillingScheduler] Created invoice ${invoice.id} for manager ${managerId}, period ${currentPeriod}: ${invoice.feeAmount} UGX fee`);
+        console.log(`[BillingScheduler] Created invoice ${invoice.id} for user ${billedUserId}, period ${currentPeriod}: ${invoice.feeAmount} UGX fee`);
         invoicesCreatedCount++;
       } catch (createError: any) {
         // Handle unique constraint violation gracefully
         if (createError.code === 'P2002' && createError.meta?.target?.includes('unique_manager_billing_period')) {
-          console.log(`[BillingScheduler] Invoice already exists (race condition) for manager ${managerId}, period ${currentPeriod}`);
+          console.log(`[BillingScheduler] Invoice already exists (race condition) for user ${billedUserId}, period ${currentPeriod}`);
           continue;
         }
         throw createError;
@@ -440,14 +440,17 @@ export const markOverdueInvoices = async (now: Date = new Date()): Promise<{ inv
 
   try {
     // Find all DUE invoices past their due date
-    const overdueInvoices = await prisma.invoice.findMany({
+    const overdueInvoices = await (prisma.invoice as any).findMany({
       where: {
         status: 'DUE',
         dueDate: { lt: now }
       },
       include: {
-        manager: {
-          select: { id: true, billingStatus: true }
+        billedUser: {
+          select: {
+            id: true,
+            billingStatus: true
+          }
         }
       }
     });
@@ -461,10 +464,10 @@ export const markOverdueInvoices = async (now: Date = new Date()): Promise<{ inv
         data: { status: 'OVERDUE' }
       });
 
-      // Update manager billing status if not already overdue
-      if (invoice.manager.billingStatus !== 'OVERDUE') {
+      // Update user billing status if not already overdue
+      if (invoice.billedUser.billingStatus !== 'OVERDUE') {
         await prisma.user.update({
-          where: { id: invoice.managerId },
+          where: { id: invoice.billedUserId },
           data: {
             billingStatus: 'OVERDUE',
             billingGraceUntil: null
@@ -472,7 +475,7 @@ export const markOverdueInvoices = async (now: Date = new Date()): Promise<{ inv
         });
       }
 
-      console.log(`[BillingScheduler] Marked invoice ${invoice.id} as OVERDUE, manager ${invoice.managerId} billing set to OVERDUE`);
+      console.log(`[BillingScheduler] Marked invoice ${invoice.id} as OVERDUE, user ${invoice.billedUserId} billing set to OVERDUE`);
       invoicesMarkedOverdueCount++;
     }
 
@@ -487,33 +490,38 @@ export const markOverdueInvoices = async (now: Date = new Date()): Promise<{ inv
 };
 
 /**
- * Sync manager billing status based on actual invoice states (DB-grounded enforcement)
+ * Sync user billing status based on actual invoice states (DB-grounded enforcement)
  */
 export const syncManagerBillingStatus = async (now: Date = new Date()): Promise<{ managersUpdatedCount: number }> => {
-  console.log(`[BillingScheduler] Starting manager billing status sync for ${now.toISOString()}`);
+  console.log(`[BillingScheduler] Starting user billing status sync for ${now.toISOString()}`);
 
   let managersUpdatedCount = 0;
 
   try {
-    // Get all managers
-    const managers = await prisma.user.findMany({
-      where: { role: UserRole.MANAGER },
+    // Get all users with billing responsibility (managers and owners)
+    const users = await prisma.user.findMany({
+      where: {
+        OR: [
+          { role: UserRole.MANAGER },
+          { role: UserRole.OWNER }
+        ]
+      },
       select: { id: true, billingStatus: true }
     });
 
-    for (const manager of managers) {
+    for (const user of users) {
       // Check for any overdue invoices (DB truth)
-      const hasOverdueInvoice = await prisma.invoice.findFirst({
+      const hasOverdueInvoice = await (prisma.invoice as any).findFirst({
         where: {
-          managerId: manager.id,
+          billedUserId: user.id,
           status: 'OVERDUE'
         }
       });
 
       // Check for any due invoices (not overdue yet)
-      const hasDueInvoice = await prisma.invoice.findFirst({
+      const hasDueInvoice = await (prisma.invoice as any).findFirst({
         where: {
-          managerId: manager.id,
+          billedUserId: user.id,
           status: 'DUE'
         }
       });
@@ -529,24 +537,24 @@ export const syncManagerBillingStatus = async (now: Date = new Date()): Promise<
       }
 
       // Update if status changed
-      if (manager.billingStatus !== newBillingStatus) {
+      if (user.billingStatus !== newBillingStatus) {
         await prisma.user.update({
-          where: { id: manager.id },
+          where: { id: user.id },
           data: {
             billingStatus: newBillingStatus,
             ...(newBillingStatus === 'CURRENT' ? { billingGraceUntil: null } : {})
           }
         });
 
-        console.log(`[BillingScheduler] Updated manager ${manager.id} billing status: ${manager.billingStatus} → ${newBillingStatus}`);
+        console.log(`[BillingScheduler] Updated user ${user.id} billing status: ${user.billingStatus} → ${newBillingStatus}`);
         managersUpdatedCount++;
       }
     }
 
-    console.log(`[BillingScheduler] Manager billing status sync complete. Updated ${managersUpdatedCount} managers`);
+    console.log(`[BillingScheduler] User billing status sync complete. Updated ${managersUpdatedCount} users`);
 
   } catch (error) {
-    console.error('[BillingScheduler] Error syncing manager billing status:', error);
+    console.error('[BillingScheduler] Error syncing user billing status:', error);
     throw error;
   }
 
@@ -602,4 +610,30 @@ export const runDailyBillingTasks = async (now: Date = new Date()): Promise<{
   }
 
   return results;
+};
+
+/**
+ * Synchronize user's current period invoice with actual occupied units
+ * This is a stub implementation - full hybrid billing logic to be implemented
+ */
+export const syncManagerInvoiceForCurrentPeriod = async (
+  billedUserId: string,
+  context?: {
+    action?: 'LEASE_CREATED' | 'LEASE_ENDED' | 'MANUAL_SYNC';
+    leaseId?: string;
+  }
+): Promise<{
+  action: 'CREATED' | 'UPDATED' | 'DELETED' | 'NO_CHANGE';
+  invoiceId: string | null;
+  previousAmount?: number;
+  newAmount?: number;
+}> => {
+  console.log(`[InvoiceSync] Stub: Syncing invoice for user ${billedUserId}, action: ${context?.action || 'UNKNOWN'}`);
+
+  // Stub implementation - returns NO_CHANGE for now
+  // Full implementation will handle invoice creation/update/deletion based on occupied units
+  return {
+    action: 'NO_CHANGE',
+    invoiceId: null
+  };
 };

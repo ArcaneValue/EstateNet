@@ -7,6 +7,7 @@ type Unit = any;
 export interface CreatePropertyData {
   name: string;
   location: string;
+  billedUserId?: string;
   units?: {
     unitNumber: string;
     rentAmount: number;

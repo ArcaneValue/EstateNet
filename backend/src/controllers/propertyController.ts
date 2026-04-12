@@ -7,7 +7,7 @@ const propertyService = new PropertyService();
 
 export const createProperty = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { name, location, units }: CreatePropertyData = req.body;
+    const { name, location, units, billedUserEmail }: CreatePropertyData & { billedUserEmail?: string | null } = req.body;
 
     // Validation
     if (!name || !location) {
@@ -16,6 +16,43 @@ export const createProperty = async (req: AuthenticatedRequest, res: Response): 
         message: 'Name and location are required'
       });
       return;
+    }
+
+    // Determine billed user: if billedUserEmail is null/undefined, use current user (SELF)
+    let billedUserId: string;
+
+    if (!billedUserEmail) {
+      // SELF - current user will be billed
+      billedUserId = req.user!.id;
+    } else {
+      // OTHER - lookup user by email
+      const billedUser = await (prisma.user as any).findUnique({
+        where: { email: billedUserEmail },
+        select: {
+          id: true,
+          role: true,
+          billingTermsAcceptedAt: true
+        }
+      });
+
+      if (!billedUser) {
+        res.status(400).json({
+          success: false,
+          message: `User with email ${billedUserEmail} does not exist`
+        });
+        return;
+      }
+
+      if (!billedUser.billingTermsAcceptedAt) {
+        res.status(400).json({
+          success: false,
+          message: `User ${billedUserEmail} must accept billing terms first`,
+          requiresTermsAcceptance: true
+        });
+        return;
+      }
+
+      billedUserId = billedUser.id;
     }
 
     if (units) {
@@ -39,6 +76,23 @@ export const createProperty = async (req: AuthenticatedRequest, res: Response): 
       return;
     }
 
+    // If SELF, verify current user has accepted billing terms
+    if (!billedUserEmail) {
+      const currentUser = await (prisma.user as any).findUnique({
+        where: { id: req.user!.id },
+        select: { billingTermsAcceptedAt: true }
+      });
+
+      if (!currentUser?.billingTermsAcceptedAt) {
+        res.status(400).json({
+          success: false,
+          message: 'You must accept billing terms before creating a property',
+          requiresTermsAcceptance: true
+        });
+        return;
+      }
+    }
+
     // Determine ownerId based on role and org linkage
     let ownerId = req.user.id;
     if (req.user.role === 'MANAGER' && req.user.createdByOwnerId) {
@@ -46,12 +100,13 @@ export const createProperty = async (req: AuthenticatedRequest, res: Response): 
       ownerId = req.user.createdByOwnerId;
     }
 
-    const property = await prisma.property.create({
+    const property = await (prisma.property as any).create({
       data: {
         name,
         location,
         ownerId,
         managerId: req.user.role === 'MANAGER' ? req.user.id : undefined,
+        billedUserId,
         units: units ? {
           create: units.map(unit => ({
             unitNumber: unit.unitNumber,
