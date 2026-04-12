@@ -3,6 +3,7 @@ import { View, Text, ScrollView, FlatList, Alert, Modal } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLease } from '../../context/LeaseContext';
+import { useTutorial, TUTORIAL_KEYS } from '../../context/TutorialContext';
 import { apiGet, apiPost } from '../../utils/apiClient';
 import { Input } from '../../components/Input';
 import { Button } from '../../components/Button';
@@ -10,6 +11,7 @@ import { Card } from '../../components/Card';
 import { TopAppBar } from '../../components/TopAppBar';
 import { Ionicons } from '@expo/vector-icons';
 import { RecordPaymentClaimModal } from '../../components/RecordPaymentClaimModal';
+import { TutorialModal } from '../../components/TutorialModal';
 
 interface Lease {
     id: string;
@@ -57,6 +59,10 @@ export const PaymentsScreen: React.FC<PaymentsScreenProps> = ({ navigation }) =>
 
     // Modal states
     const [showClaimModal, setShowClaimModal] = useState(false);
+    const [showTutorial, setShowTutorial] = useState(false);
+
+    // Tutorial
+    const { shouldShowTutorial, markTutorialSeen } = useTutorial();
 
     // Payment methods
     const paymentMethods = [
@@ -73,7 +79,20 @@ export const PaymentsScreen: React.FC<PaymentsScreenProps> = ({ navigation }) =>
 
     useEffect(() => {
         loadData();
+        checkTutorial();
     }, []);
+
+    const checkTutorial = async () => {
+        const shouldShow = await shouldShowTutorial(TUTORIAL_KEYS.PAYMENT_CLAIMS);
+        if (shouldShow) {
+            setTimeout(() => setShowTutorial(true), 500);
+        }
+    };
+
+    const handleTutorialClose = async () => {
+        await markTutorialSeen(TUTORIAL_KEYS.PAYMENT_CLAIMS);
+        setShowTutorial(false);
+    };
 
     const loadData = async () => {
         setLoading(true);
@@ -322,6 +341,36 @@ export const PaymentsScreen: React.FC<PaymentsScreenProps> = ({ navigation }) =>
                     onClaimRecorded={handleClaimRecorded}
                 />
             )}
+
+            {/* Tutorial Modal */}
+            <TutorialModal
+                visible={showTutorial}
+                onClose={handleTutorialClose}
+                title="Record Your Rent Payments"
+                description="Submit payment claims for verification by your property manager. Once verified, your payment will be recorded in the system."
+                steps={[
+                    {
+                        title: 'Record Payment Claim',
+                        description: 'Click the "Record Payment Claim" button to submit a new payment.',
+                        icon: 'document-text-outline'
+                    },
+                    {
+                        title: 'Enter Payment Details',
+                        description: 'Fill in the amount, payment method, date, and any reference information.',
+                        icon: 'create-outline'
+                    },
+                    {
+                        title: 'Wait for Verification',
+                        description: 'Your property manager will review and verify your payment claim.',
+                        icon: 'time-outline'
+                    },
+                    {
+                        title: 'Download Receipt',
+                        description: 'Once verified, you can download your payment receipt.',
+                        icon: 'download-outline'
+                    }
+                ]}
+            />
         </View>
     );
 };

@@ -4,8 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLease } from '../../context/LeaseContext';
+import { useTutorial, TUTORIAL_KEYS } from '../../context/TutorialContext';
 import { Button } from '../../components/Button';
 import { TopAppBar } from '../../components/TopAppBar';
+import { TutorialModal } from '../../components/TutorialModal';
 import { Ionicons } from '@expo/vector-icons';
 import { apiGet, apiPost } from '../../utils/apiClient';
 
@@ -39,6 +41,10 @@ export const TenantInvitationsScreen: React.FC<TenantInvitationsScreenProps> = (
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [processingId, setProcessingId] = useState<string | null>(null);
+    const [showTutorial, setShowTutorial] = useState(false);
+
+    // Tutorial
+    const { shouldShowTutorial, markTutorialSeen } = useTutorial();
 
     const loadInvitations = async () => {
         setLoading(true);
@@ -64,7 +70,20 @@ export const TenantInvitationsScreen: React.FC<TenantInvitationsScreenProps> = (
 
     useEffect(() => {
         loadInvitations();
+        checkTutorial();
     }, []);
+
+    const checkTutorial = async () => {
+        const shouldShow = await shouldShowTutorial(TUTORIAL_KEYS.TENANT_INVITATIONS);
+        if (shouldShow) {
+            setTimeout(() => setShowTutorial(true), 500);
+        }
+    };
+
+    const handleTutorialClose = async () => {
+        await markTutorialSeen(TUTORIAL_KEYS.TENANT_INVITATIONS);
+        setShowTutorial(false);
+    };
 
     const handleAccept = async (invitationId: string) => {
         setProcessingId(invitationId);
@@ -293,6 +312,36 @@ export const TenantInvitationsScreen: React.FC<TenantInvitationsScreenProps> = (
                     />
                 )}
             </ScrollView>
+
+            {/* Invitations Tutorial */}
+            <TutorialModal
+                visible={showTutorial}
+                onClose={handleTutorialClose}
+                title="Property Invitations"
+                description="Accept invitations from property managers to activate your lease and start your tenancy."
+                steps={[
+                    {
+                        title: 'Receive Invitations',
+                        description: 'Property managers send you invitations via email. Check this screen to see all pending invitations.',
+                        icon: 'mail-outline'
+                    },
+                    {
+                        title: 'Review Details',
+                        description: 'Each invitation shows the property name, location, unit number, and monthly rent amount.',
+                        icon: 'information-circle-outline'
+                    },
+                    {
+                        title: 'Accept or Decline',
+                        description: 'Accept an invitation to activate your lease and start using EstateNet features. Decline if you no longer need it.',
+                        icon: 'checkmark-circle-outline'
+                    },
+                    {
+                        title: 'Activate Your Lease',
+                        description: 'Once accepted, your lease becomes active and you can record payments, send messages, and more.',
+                        icon: 'home-outline'
+                    }
+                ]}
+            />
         </SafeAreaView>
     );
 };

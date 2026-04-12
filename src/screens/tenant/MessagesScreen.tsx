@@ -3,10 +3,12 @@ import { View, Text, ScrollView, FlatList, TouchableOpacity, TextInput, Alert, K
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTutorial, TUTORIAL_KEYS } from '../../context/TutorialContext';
 import { Ionicons } from '@expo/vector-icons';
 import { MessageDetailsModal } from './MessageDetailsModal';
 import { Button } from '../../components/Button';
 import { Modal } from '../../components/Modal';
+import { TutorialModal } from '../../components/TutorialModal';
 import { useLease } from '../../context/LeaseContext';
 import { useMessages } from '../../context/MessageContext';
 
@@ -57,6 +59,10 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({ navigation }) =>
     const [messageBody, setMessageBody] = useState('');
     const [attachments, setAttachments] = useState<string[]>([]);
     const [isSending, setIsSending] = useState(false);
+    const [showTutorial, setShowTutorial] = useState(false);
+
+    // Tutorial
+    const { shouldShowTutorial, markTutorialSeen } = useTutorial();
 
     const categories: { id: MessageCategory; label: string; icon: string }[] = [
         { id: 'general', label: 'General Inquiry', icon: 'chatbubble-outline' },
@@ -75,8 +81,21 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({ navigation }) =>
 
     useEffect(() => {
         loadTenantTargets();
+        checkTutorial();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    const checkTutorial = async () => {
+        const shouldShow = await shouldShowTutorial(TUTORIAL_KEYS.TENANT_MESSAGES);
+        if (shouldShow) {
+            setTimeout(() => setShowTutorial(true), 500);
+        }
+    };
+
+    const handleTutorialClose = async () => {
+        await markTutorialSeen(TUTORIAL_KEYS.TENANT_MESSAGES);
+        setShowTutorial(false);
+    };
 
     useEffect(() => {
         if (leaseLoading) return;
@@ -919,6 +938,36 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({ navigation }) =>
                     />
                 </View>
             </Modal>
+
+            {/* Messages Tutorial */}
+            <TutorialModal
+                visible={showTutorial}
+                onClose={handleTutorialClose}
+                title="Communicate with Management"
+                description="Send messages to your property manager and receive important notifications."
+                steps={[
+                    {
+                        title: 'Inbox & Sent Messages',
+                        description: 'Switch between Inbox to read messages and Sent to see your message history.',
+                        icon: 'mail-outline'
+                    },
+                    {
+                        title: 'Compose New Message',
+                        description: 'Click the compose button to send a message to your property manager.',
+                        icon: 'create-outline'
+                    },
+                    {
+                        title: 'Message Categories',
+                        description: 'Choose from categories like Maintenance, Billing, or General Inquiry to organize your messages.',
+                        icon: 'folder-outline'
+                    },
+                    {
+                        title: 'Quick Templates',
+                        description: 'Use pre-written templates for common requests like maintenance issues or payment inquiries.',
+                        icon: 'document-text-outline'
+                    }
+                ]}
+            />
         </SafeAreaView>
     );
 };

@@ -5,12 +5,14 @@ import { useAuth } from '../../context/AuthContext';
 import { useTenants } from '../../context/TenantContext';
 import { useLease } from '../../context/LeaseContext';
 import { usePayments } from '../../context/PaymentContext';
+import { useTutorial, TUTORIAL_KEYS } from '../../context/TutorialContext';
 import { Card } from '../../components/Card';
 import { StatusBadge } from '../../components/StatusBadge';
 import { TopAppBar } from '../../components/TopAppBar';
 import { InvitationModal } from './InvitationModal';
 import { SkeletonLoader } from '../../components/SkeletonLoader';
 import { InfoBanner } from '../../components/InfoBanner';
+import { TutorialModal } from '../../components/TutorialModal';
 import { Ionicons } from '@expo/vector-icons';
 import { formatCompactCurrencyUGX } from '../../utils/formatters';
 
@@ -28,13 +30,48 @@ export const TenantHomeScreen: React.FC<TenantHomeScreenProps> = ({ navigation }
     const [pendingInvitations, setPendingInvitations] = useState<any[]>([]);
     const [currentInvitationIndex, setCurrentInvitationIndex] = useState(0);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [showWelcomeTutorial, setShowWelcomeTutorial] = useState(false);
+    const [showDashboardTutorial, setShowDashboardTutorial] = useState(false);
+
+    // Tutorial
+    const { shouldShowTutorial, markTutorialSeen } = useTutorial();
 
     useEffect(() => {
         const run = async () => {
             await loadInvitations();
+            checkTutorials();
         };
         run();
     }, [user?.tenantId]);
+
+    const checkTutorials = async () => {
+        // Check welcome tutorial first
+        const shouldShowWelcome = await shouldShowTutorial(TUTORIAL_KEYS.WELCOME_TENANT);
+        if (shouldShowWelcome) {
+            setTimeout(() => setShowWelcomeTutorial(true), 800);
+        } else {
+            // If welcome already seen, check dashboard tutorial
+            const shouldShowDashboard = await shouldShowTutorial(TUTORIAL_KEYS.TENANT_DASHBOARD);
+            if (shouldShowDashboard) {
+                setTimeout(() => setShowDashboardTutorial(true), 500);
+            }
+        }
+    };
+
+    const handleWelcomeTutorialClose = async () => {
+        await markTutorialSeen(TUTORIAL_KEYS.WELCOME_TENANT);
+        setShowWelcomeTutorial(false);
+        // Show dashboard tutorial next
+        const shouldShowDashboard = await shouldShowTutorial(TUTORIAL_KEYS.TENANT_DASHBOARD);
+        if (shouldShowDashboard) {
+            setTimeout(() => setShowDashboardTutorial(true), 300);
+        }
+    };
+
+    const handleDashboardTutorialClose = async () => {
+        await markTutorialSeen(TUTORIAL_KEYS.TENANT_DASHBOARD);
+        setShowDashboardTutorial(false);
+    };
 
     useEffect(() => {
         if (user?.tenantId) {
@@ -360,6 +397,61 @@ export const TenantHomeScreen: React.FC<TenantHomeScreenProps> = ({ navigation }
                     isProcessing={isProcessing}
                 />
             )}
+
+            {/* Welcome Tutorial */}
+            <TutorialModal
+                visible={showWelcomeTutorial}
+                onClose={handleWelcomeTutorialClose}
+                title="Welcome to EstateNet"
+                description="Your complete tenant portal. Let's get you started!"
+                steps={[
+                    {
+                        title: 'Manage Your Rental',
+                        description: 'View your lease details, rent amount, and property information all in one place.',
+                        icon: 'home-outline'
+                    },
+                    {
+                        title: 'Record Payments',
+                        description: 'Submit payment claims for verification by your property manager. Get receipts once verified.',
+                        icon: 'card-outline'
+                    },
+                    {
+                        title: 'Stay Connected',
+                        description: 'Send messages to your property manager and receive important notifications.',
+                        icon: 'chatbubbles-outline'
+                    },
+                    {
+                        title: 'Accept Invitations',
+                        description: 'Receive and accept property invitations to activate your lease.',
+                        icon: 'mail-outline'
+                    }
+                ]}
+            />
+
+            {/* Dashboard Tutorial */}
+            <TutorialModal
+                visible={showDashboardTutorial}
+                onClose={handleDashboardTutorialClose}
+                title="Your Rental Dashboard"
+                description="Here's what you can see and do on your home screen."
+                steps={[
+                    {
+                        title: 'Rent Status',
+                        description: 'Check if your rent is paid or overdue at a glance.',
+                        icon: 'checkmark-circle-outline'
+                    },
+                    {
+                        title: 'Property Details',
+                        description: 'View your property name, location, unit number, and monthly rent amount.',
+                        icon: 'business-outline'
+                    },
+                    {
+                        title: 'Quick Actions',
+                        description: 'Navigate to Payments, Messages, and other features using the bottom tabs.',
+                        icon: 'apps-outline'
+                    }
+                ]}
+            />
         </View>
     );
 };

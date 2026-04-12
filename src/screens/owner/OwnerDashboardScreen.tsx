@@ -13,15 +13,18 @@ import {
 } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTutorial, TUTORIAL_KEYS } from '../../context/TutorialContext';
 import { useOwnerApi } from '../../hooks/useOwnerApi';
 import { useNotifications } from '../../hooks/useNotifications';
 import { Ionicons } from '@expo/vector-icons';
 import { TopAppBar } from '../../components/TopAppBar';
 import { ScreenWrapper } from '../../components/ScreenWrapper';
+import { TutorialModal } from '../../components/TutorialModal';
 import { AddPropertyForm } from '../../components/AddPropertyForm';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { formatCompactNumber } from '../../utils/formatters';
+import { useEffect } from 'react';
 
 export const OwnerDashboardScreen: React.FC<any> = ({ navigation }) => {
   const { colors, spacing, typography, borderRadius, shadows } = useTheme();
@@ -35,6 +38,45 @@ export const OwnerDashboardScreen: React.FC<any> = ({ navigation }) => {
   const [selectedProperty, setSelectedProperty] = useState('');
   const [managerEmail, setManagerEmail] = useState('');
   const [sending, setSending] = useState(false);
+  const [showWelcomeTutorial, setShowWelcomeTutorial] = useState(false);
+  const [showDashboardTutorial, setShowDashboardTutorial] = useState(false);
+
+  // Tutorial
+  const { shouldShowTutorial, markTutorialSeen } = useTutorial();
+
+  // Check tutorials on mount
+  useEffect(() => {
+    checkTutorials();
+  }, []);
+
+  const checkTutorials = async () => {
+    // Check welcome tutorial first
+    const shouldShowWelcome = await shouldShowTutorial(TUTORIAL_KEYS.WELCOME_OWNER);
+    if (shouldShowWelcome) {
+      setTimeout(() => setShowWelcomeTutorial(true), 800);
+    } else {
+      // If welcome already seen, check dashboard tutorial
+      const shouldShowDashboard = await shouldShowTutorial(TUTORIAL_KEYS.OWNER_DASHBOARD);
+      if (shouldShowDashboard) {
+        setTimeout(() => setShowDashboardTutorial(true), 500);
+      }
+    }
+  };
+
+  const handleWelcomeTutorialClose = async () => {
+    await markTutorialSeen(TUTORIAL_KEYS.WELCOME_OWNER);
+    setShowWelcomeTutorial(false);
+    // Show dashboard tutorial next
+    const shouldShowDashboard = await shouldShowTutorial(TUTORIAL_KEYS.OWNER_DASHBOARD);
+    if (shouldShowDashboard) {
+      setTimeout(() => setShowDashboardTutorial(true), 300);
+    }
+  };
+
+  const handleDashboardTutorialClose = async () => {
+    await markTutorialSeen(TUTORIAL_KEYS.OWNER_DASHBOARD);
+    setShowDashboardTutorial(false);
+  };
 
   const totalUnits = useMemo(() => (
     properties.reduce((sum: number, property: any) => sum + (property.units?.length || 0), 0)
@@ -341,6 +383,66 @@ export const OwnerDashboardScreen: React.FC<any> = ({ navigation }) => {
           </View>
         </View>
       </RNModal>
+
+      {/* Welcome Tutorial */}
+      <TutorialModal
+        visible={showWelcomeTutorial}
+        onClose={handleWelcomeTutorialClose}
+        title="Welcome to EstateNet"
+        description="Your complete property portfolio management platform. Let's get you started!"
+        steps={[
+          {
+            title: 'Manage Your Portfolio',
+            description: 'Add and track all your rental properties in one centralized dashboard.',
+            icon: 'home-outline'
+          },
+          {
+            title: 'Assign Property Managers',
+            description: 'Invite professional managers to handle day-to-day operations of your properties.',
+            icon: 'people-outline'
+          },
+          {
+            title: 'Financial Insights',
+            description: 'View real-time income statements, cash flow reports, and financial position of your portfolio.',
+            icon: 'stats-chart-outline'
+          },
+          {
+            title: 'Stay Informed',
+            description: 'Get notifications about manager activities, rent collection, and property updates.',
+            icon: 'notifications-outline'
+          }
+        ]}
+      />
+
+      {/* Dashboard Tutorial */}
+      <TutorialModal
+        visible={showDashboardTutorial}
+        onClose={handleDashboardTutorialClose}
+        title="Your Property Dashboard"
+        description="Here's an overview of your property portfolio and what you can do."
+        steps={[
+          {
+            title: 'Portfolio Overview',
+            description: 'See total properties, managers, and pending invitations at a glance.',
+            icon: 'grid-outline'
+          },
+          {
+            title: 'Quick Actions',
+            description: 'Add properties, invite managers, and view financial reports with one tap.',
+            icon: 'flash-outline'
+          },
+          {
+            title: 'Recent Activity',
+            description: 'Track manager invitations, property updates, and other important events.',
+            icon: 'time-outline'
+          },
+          {
+            title: 'Navigation',
+            description: 'Use the bottom tabs to access Properties, Invitations, Managers, and your Profile.',
+            icon: 'apps-outline'
+          }
+        ]}
+      />
     </ScreenWrapper>
   );
 };

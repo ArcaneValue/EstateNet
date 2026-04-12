@@ -7,7 +7,8 @@ import {
   getTenantPaymentClaims,
   getManagerPaymentClaims,
   verifyPaymentClaim,
-  getPaymentClaimHistory
+  getPaymentClaimHistory,
+  downloadReceipt
 } from '../controllers/paymentClaimController';
 
 const router = Router();
@@ -55,6 +56,16 @@ router.get(
   authenticateToken,
   requireRole(['MANAGER']),
   getPaymentClaimHistory
+);
+
+// ─── Receipt Routes ─────────────────────────────────────────────────────
+
+// Download receipt for verified payment claim
+router.get(
+  '/receipts/:paymentClaimId',
+  authenticateToken,
+  requireRole(['TENANT', 'MANAGER']),
+  downloadReceipt
 );
 
 export { router as paymentClaimRoutes };

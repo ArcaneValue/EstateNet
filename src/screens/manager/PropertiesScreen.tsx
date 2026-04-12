@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Modal as RNModal, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
+import { useTutorial, TUTORIAL_KEYS } from '../../context/TutorialContext';
 import { PropertyListItem } from '../../components/PropertyListItem';
 import { Modal } from '../../components/Modal';
 import { Button } from '../../components/Button';
 import { TenantListItem } from '../../components/TenantListItem';
 import { AddPropertyForm } from '../../components/AddPropertyForm';
+import { TutorialModal } from '../../components/TutorialModal';
 import { TopAppBar } from '../../components/TopAppBar';
 import { useManagerProperties, Property } from '../../hooks/useManagerProperties';
 import { useManagerEnforcement } from '../../hooks/useManagerEnforcement';
@@ -37,6 +39,26 @@ export const PropertiesScreen: React.FC<any> = ({ navigation }) => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [propertyTenants, setPropertyTenants] = useState<PropertyTenant[]>([]);
     const [tenantsLoading, setTenantsLoading] = useState(false);
+    const [showTutorial, setShowTutorial] = useState(false);
+
+    // Tutorial
+    const { shouldShowTutorial, markTutorialSeen } = useTutorial();
+
+    useEffect(() => {
+        checkTutorial();
+    }, []);
+
+    const checkTutorial = async () => {
+        const shouldShow = await shouldShowTutorial(TUTORIAL_KEYS.MANAGER_PROPERTIES);
+        if (shouldShow) {
+            setTimeout(() => setShowTutorial(true), 500);
+        }
+    };
+
+    const handleTutorialClose = async () => {
+        await markTutorialSeen(TUTORIAL_KEYS.MANAGER_PROPERTIES);
+        setShowTutorial(false);
+    };
 
     const handleAddPropertyPress = async () => {
         if (__DEV__) {
@@ -309,6 +331,36 @@ export const PropertiesScreen: React.FC<any> = ({ navigation }) => {
                     </View>
                 </Modal>
             )}
+
+            {/* Properties Tutorial */}
+            <TutorialModal
+                visible={showTutorial}
+                onClose={handleTutorialClose}
+                title="Manage Your Properties"
+                description="Add and oversee all your rental properties from this screen."
+                steps={[
+                    {
+                        title: 'Add Properties',
+                        description: 'Click the "Add Property" button to register a new rental property with units and rent amounts.',
+                        icon: 'add-circle-outline'
+                    },
+                    {
+                        title: 'View Property Details',
+                        description: 'Tap any property to see details, units, occupancy, and assigned tenants.',
+                        icon: 'information-circle-outline'
+                    },
+                    {
+                        title: 'Track Occupancy',
+                        description: 'Monitor which units are occupied and which are vacant at a glance.',
+                        icon: 'home-outline'
+                    },
+                    {
+                        title: 'Billing Reminder',
+                        description: 'Adding your first property starts your billing cycle. Make sure to pay your service fee on time.',
+                        icon: 'card-outline'
+                    }
+                ]}
+            />
         </SafeAreaView>
     );
 };

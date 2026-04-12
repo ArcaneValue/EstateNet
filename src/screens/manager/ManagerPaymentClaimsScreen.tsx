@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, RefreshControl, Alert } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTutorial, TUTORIAL_KEYS } from '../../context/TutorialContext';
 import { apiGet, apiPost } from '../../utils/apiClient';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
@@ -11,6 +12,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { FilterChips } from '../../components/FilterChips';
 import { Ionicons } from '@expo/vector-icons';
 import { formatFullCurrency } from '../../utils/currencyFormatter';
+import { TutorialModal } from '../../components/TutorialModal';
 
 interface PaymentClaim {
     id: string;
@@ -63,6 +65,10 @@ export const ManagerPaymentClaimsScreen: React.FC<ManagerPaymentClaimsScreenProp
         decision: 'VERIFY' | 'REJECT' | null;
         note: string;
     }>({ visible: false, claim: null, decision: null, note: '' });
+    const [showTutorial, setShowTutorial] = useState(false);
+
+    // Tutorial
+    const { shouldShowTutorial, markTutorialSeen } = useTutorial();
 
     const statusOptions = [
         { value: 'ALL', label: 'All' },
@@ -75,6 +81,22 @@ export const ManagerPaymentClaimsScreen: React.FC<ManagerPaymentClaimsScreenProp
         console.log('statusFilter changed:', statusFilter);
         loadClaims();
     }, [statusFilter]);
+
+    useEffect(() => {
+        checkTutorial();
+    }, []);
+
+    const checkTutorial = async () => {
+        const shouldShow = await shouldShowTutorial(TUTORIAL_KEYS.MANAGER_PAYMENT_CLAIMS);
+        if (shouldShow) {
+            setTimeout(() => setShowTutorial(true), 500);
+        }
+    };
+
+    const handleTutorialClose = async () => {
+        await markTutorialSeen(TUTORIAL_KEYS.MANAGER_PAYMENT_CLAIMS);
+        setShowTutorial(false);
+    };
 
     const loadClaims = async (isRefresh = false) => {
         console.log('loadClaims called with isRefresh:', isRefresh);
@@ -420,6 +442,31 @@ export const ManagerPaymentClaimsScreen: React.FC<ManagerPaymentClaimsScreenProp
                     </View>
                 </Modal>
             )}
+
+            {/* Tutorial Modal */}
+            <TutorialModal
+                visible={showTutorial}
+                onClose={handleTutorialClose}
+                title="Verify Tenant Payments"
+                description="Review and verify payment claims submitted by your tenants. Verified payments are automatically recorded in the system."
+                steps={[
+                    {
+                        title: 'Review Payment Details',
+                        description: 'Check the tenant name, amount, property, and payment method for each claim.',
+                        icon: 'document-text-outline'
+                    },
+                    {
+                        title: 'Verify or Reject',
+                        description: 'Click "Verify" to approve the payment or "Reject" if there\'s an issue.',
+                        icon: 'checkmark-circle-outline'
+                    },
+                    {
+                        title: 'Add Notes (Optional)',
+                        description: 'When rejecting a claim, you can add a note explaining the reason.',
+                        icon: 'create-outline'
+                    }
+                ]}
+            />
         </View>
     );
 };

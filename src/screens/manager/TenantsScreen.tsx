@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TextInput, Alert, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
+import { useTutorial, TUTORIAL_KEYS } from '../../context/TutorialContext';
 import { TenantListItem } from '../../components/TenantListItem';
 import { Modal } from '../../components/Modal';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
 import { TopAppBar } from '../../components/TopAppBar';
+import { TutorialModal } from '../../components/TutorialModal';
 import { useProperties } from '../../context/PropertyContext';
 import { useAuth } from '../../context/AuthContext';
 import { InviteTenantModal } from './InviteTenantModal';
@@ -64,13 +66,30 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
     const [leases, setLeases] = useState<any[]>([]);
     const [leasesLoading, setLeasesLoading] = useState(false);
     const [leasesError, setLeasesError] = useState<string | null>(null);
+    const [showTutorial, setShowTutorial] = useState(false);
+
+    // Tutorial
+    const { shouldShowTutorial, markTutorialSeen } = useTutorial();
 
     // Load tenants from backend on mount
     useEffect(() => {
         loadManagerTenants();
         loadInvitations();
         loadLeases();
+        checkTutorial();
     }, []);
+
+    const checkTutorial = async () => {
+        const shouldShow = await shouldShowTutorial(TUTORIAL_KEYS.MANAGER_TENANTS);
+        if (shouldShow) {
+            setTimeout(() => setShowTutorial(true), 500);
+        }
+    };
+
+    const handleTutorialClose = async () => {
+        await markTutorialSeen(TUTORIAL_KEYS.MANAGER_TENANTS);
+        setShowTutorial(false);
+    };
 
     const loadInvitations = async () => {
         if (__DEV__) console.log('[Invitations] Fetching manager invitations...');
@@ -667,6 +686,36 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
                     loadInvitations();
                 }}
                 navigation={navigation}
+            />
+
+            {/* Tenants Tutorial */}
+            <TutorialModal
+                visible={showTutorial}
+                onClose={handleTutorialClose}
+                title="Manage Your Tenants"
+                description="Invite tenants, track leases, and communicate with residents from this screen."
+                steps={[
+                    {
+                        title: 'Invite Tenants',
+                        description: 'Send invitations to tenants via email. They can accept and activate their lease.',
+                        icon: 'person-add-outline'
+                    },
+                    {
+                        title: 'View Tenant Details',
+                        description: 'Tap any tenant to see their property, unit, rent amount, and payment status.',
+                        icon: 'information-circle-outline'
+                    },
+                    {
+                        title: 'Send Messages',
+                        description: 'Communicate with tenants directly through the messaging system.',
+                        icon: 'chatbubble-outline'
+                    },
+                    {
+                        title: 'Track Invitations',
+                        description: 'Switch to the Invitations tab to see pending, accepted, and rejected invitations.',
+                        icon: 'mail-outline'
+                    }
+                ]}
             />
         </SafeAreaView>
     );

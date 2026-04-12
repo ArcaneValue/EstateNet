@@ -195,6 +195,15 @@ export const createPaymentClaim = async (req: AuthenticatedRequest, res: Respons
       console.error('Payment claim notification error:', notifyError);
     }
 
+    // Send email notification to manager
+    try {
+      const EmailService = (await import('../services/emailService')).default;
+      await EmailService.sendPaymentSubmittedEmail(claim.id);
+    } catch (emailError) {
+      console.error('Payment claim email error:', emailError);
+      // Don't fail the request if email fails
+    }
+
     // Emit event for future push notification integration
     try {
       paymentClaimEvents.emitPaymentClaimCreated({
@@ -519,6 +528,17 @@ export const verifyPaymentClaim = async (req: AuthenticatedRequest, res: Respons
       console.error('Payment claim verification notification error:', notifyError);
     }
 
+    // Send email notification to tenant if verified
+    if (decision === 'VERIFIED') {
+      try {
+        const EmailService = (await import('../services/emailService')).default;
+        await EmailService.sendPaymentVerifiedEmail(claimId);
+      } catch (emailError) {
+        console.error('Payment verification email error:', emailError);
+        // Don't fail the request if email fails
+      }
+    }
+
     // Emit event for future push notification integration
     try {
       paymentClaimEvents.emitPaymentClaimVerified({
@@ -641,6 +661,80 @@ export const getPaymentClaimHistory = async (req: AuthenticatedRequest, res: Res
     res.status(500).json({
       success: false,
       message: 'Internal server error'
+    });
+  }
+};
+
+// ─── Receipt Download Endpoint ─────────────────────────────────────────────
+
+export const downloadReceipt = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { paymentClaimId } = req.params;
+
+    if (!req.user?.id) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+      return;
+    }
+
+    // Get claim and verify it exists and is verified
+    const claim = await (prisma as any).paymentClaim.findUnique({
+      where: { id: paymentClaimId },
+      select: {
+        id: true,
+        status: true,
+        tenantId: true,
+        managerId: true
+      }
+    });
+
+    if (!claim) {
+      res.status(404).json({
+        success: false,
+        message: 'Payment claim not found'
+      });
+      return;
+    }
+
+    if (claim.status !== 'VERIFIED') {
+      res.status(400).json({
+        success: false,
+        message: 'Receipt is only available for verified payment claims'
+      });
+      return;
+    }
+
+    // Verify user has access (must be tenant or manager of this claim)
+    const isTenant = claim.tenantId === req.user.tenantId || claim.tenantId === req.user.id;
+    const isManager = claim.managerId === req.user.id;
+
+    if (!isTenant && !isManager) {
+      res.status(403).json({
+        success: false,
+        message: 'Access denied. You do not have permission to download this receipt.'
+      });
+      return;
+    }
+
+    // Generate PDF receipt
+    const ReceiptService = (await import('../services/receiptService')).default;
+    const pdfBuffer = await ReceiptService.generateReceiptPDF(paymentClaimId);
+
+    // Set response headers for PDF download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="receipt-${paymentClaimId.substring(0, 8)}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+
+    // Send PDF buffer
+    res.send(pdfBuffer);
+
+  } catch (error) {
+    console.error('Download receipt error:', error);
+    res.status(500).json({
+      success: false,
+      message: error instanceof Error ? error.message : 'Internal server error'
     });
   }
 };

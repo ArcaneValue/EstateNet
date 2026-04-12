@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useManagerDashboard } from '../../hooks/useManagerDashboard';
 import { useProperties } from '../../context/PropertyContext';
 import { usePayments } from '../../context/PaymentContext';
+import { useTutorial, TUTORIAL_KEYS } from '../../context/TutorialContext';
 import { MetricCard } from '../../components/MetricCard';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
@@ -12,6 +13,7 @@ import { StatusBadge } from '../../components/StatusBadge';
 import { TopAppBar } from '../../components/TopAppBar';
 import { Modal } from '../../components/Modal';
 import { ScreenWrapper } from '../../components/ScreenWrapper';
+import { TutorialModal } from '../../components/TutorialModal';
 import { OccupiedUnitsModal } from './OccupiedUnitsModal';
 import { InviteTenantModal } from './InviteTenantModal';
 import { RecordPaymentModal } from './RecordPaymentModal';
@@ -46,6 +48,11 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation, 
     const [profileImage, setProfileImage] = useState<string | null>(null);
     const [showAllActivitiesModal, setShowAllActivitiesModal] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const [showWelcomeTutorial, setShowWelcomeTutorial] = useState(false);
+    const [showDashboardTutorial, setShowDashboardTutorial] = useState(false);
+
+    // Tutorial
+    const { shouldShowTutorial, markTutorialSeen } = useTutorial();
 
     // Check if user is an owner
     const isUserOwner = isOwner();
@@ -73,6 +80,40 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation, 
             navigation.setParams({ refresh: undefined });
         }
     }, [route?.params?.refresh, refetch, navigation]);
+
+    // Check tutorials on mount
+    useEffect(() => {
+        checkTutorials();
+    }, []);
+
+    const checkTutorials = async () => {
+        // Check welcome tutorial first
+        const shouldShowWelcome = await shouldShowTutorial(TUTORIAL_KEYS.WELCOME_MANAGER);
+        if (shouldShowWelcome) {
+            setTimeout(() => setShowWelcomeTutorial(true), 800);
+        } else {
+            // If welcome already seen, check dashboard tutorial
+            const shouldShowDashboard = await shouldShowTutorial(TUTORIAL_KEYS.MANAGER_DASHBOARD);
+            if (shouldShowDashboard) {
+                setTimeout(() => setShowDashboardTutorial(true), 500);
+            }
+        }
+    };
+
+    const handleWelcomeTutorialClose = async () => {
+        await markTutorialSeen(TUTORIAL_KEYS.WELCOME_MANAGER);
+        setShowWelcomeTutorial(false);
+        // Show dashboard tutorial next
+        const shouldShowDashboard = await shouldShowTutorial(TUTORIAL_KEYS.MANAGER_DASHBOARD);
+        if (shouldShowDashboard) {
+            setTimeout(() => setShowDashboardTutorial(true), 300);
+        }
+    };
+
+    const handleDashboardTutorialClose = async () => {
+        await markTutorialSeen(TUTORIAL_KEYS.MANAGER_DASHBOARD);
+        setShowDashboardTutorial(false);
+    };
 
     // Dashboard data calculations
     const totalProperties = dashboardData?.propertiesCount ?? 0;
@@ -522,6 +563,66 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation, 
                     </ScrollView>
                 </Modal>
             </ScrollView>
+
+            {/* Welcome Tutorial */}
+            <TutorialModal
+                visible={showWelcomeTutorial}
+                onClose={handleWelcomeTutorialClose}
+                title="Welcome to EstateNet"
+                description="Your complete property management platform. Let's get you started!"
+                steps={[
+                    {
+                        title: 'Manage Properties',
+                        description: 'Add and oversee rental properties. Track units, tenants, and occupancy rates.',
+                        icon: 'business-outline'
+                    },
+                    {
+                        title: 'Collect Rent',
+                        description: 'Verify tenant payment claims and track rent collection. Monitor outstanding payments.',
+                        icon: 'cash-outline'
+                    },
+                    {
+                        title: 'Service Fee (1.5%)',
+                        description: 'EstateNet charges 1.5% of the value of your occupied units each month. View billing details in the Billing tab.',
+                        icon: 'card-outline'
+                    },
+                    {
+                        title: 'Stay Organized',
+                        description: 'Invite tenants, send reminders, and keep track of all property activities in one place.',
+                        icon: 'checkmark-done-outline'
+                    }
+                ]}
+            />
+
+            {/* Dashboard Tutorial */}
+            <TutorialModal
+                visible={showDashboardTutorial}
+                onClose={handleDashboardTutorialClose}
+                title="Your Management Dashboard"
+                description="Here's an overview of what you can see and do on your dashboard."
+                steps={[
+                    {
+                        title: 'Key Metrics',
+                        description: 'View total properties, units, occupancy, rent collected, and outstanding amounts at a glance.',
+                        icon: 'stats-chart-outline'
+                    },
+                    {
+                        title: 'Quick Actions',
+                        description: 'Invite tenants, record payments, send reminders, and view payment claims directly from here.',
+                        icon: 'flash-outline'
+                    },
+                    {
+                        title: 'Recent Activity',
+                        description: 'Track recent payments, invitations, and tenant activities in real-time.',
+                        icon: 'time-outline'
+                    },
+                    {
+                        title: 'Navigation Tabs',
+                        description: 'Use the bottom tabs to access Properties, Tenants, Billing, and your Profile.',
+                        icon: 'apps-outline'
+                    }
+                ]}
+            />
         </ScreenWrapper>
     );
 };

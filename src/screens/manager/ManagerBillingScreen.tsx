@@ -15,7 +15,9 @@ import {
 } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTutorial, TUTORIAL_KEYS } from '../../context/TutorialContext';
 import { TopAppBar } from '../../components/TopAppBar';
+import { TutorialModal } from '../../components/TutorialModal';
 import { apiGet, apiPost } from '../../utils/apiClient';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
@@ -188,6 +190,10 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
     const [showBreakdown, setShowBreakdown] = useState(false);
     const [showHowBilling, setShowHowBilling] = useState(false);
 
+    // Tutorial state
+    const [showTutorial, setShowTutorial] = useState(false);
+    const { shouldShowTutorial, markTutorialSeen } = useTutorial();
+
     // Enforcement route params
     const enforcementBanner: string | undefined = route?.params?.enforcementBanner;
     const blockedFeature: string | undefined = route?.params?.blockedFeature;
@@ -207,6 +213,23 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
             });
         }
     }, [enforcementBanner, blockedFeature, enforcement]);
+
+    // ── Check tutorial on mount ──
+    useEffect(() => {
+        checkTutorial();
+    }, []);
+
+    const checkTutorial = async () => {
+        const shouldShow = await shouldShowTutorial(TUTORIAL_KEYS.MANAGER_BILLING);
+        if (shouldShow) {
+            setTimeout(() => setShowTutorial(true), 500);
+        }
+    };
+
+    const handleTutorialClose = async () => {
+        await markTutorialSeen(TUTORIAL_KEYS.MANAGER_BILLING);
+        setShowTutorial(false);
+    };
 
     // ── Parallel data load ──────────────────────────────────────────────────
     const loadData = useCallback(async (isRefresh = false) => {
@@ -1464,6 +1487,41 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                     </View>
                 </Modal>
             </ScrollView>
+
+            {/* Billing Tutorial */}
+            <TutorialModal
+                visible={showTutorial}
+                onClose={handleTutorialClose}
+                title="Service Fee Billing"
+                description="EstateNet charges a small percentage based on your occupied units. Here's how billing works."
+                steps={[
+                    {
+                        title: 'Service Fee (1.5%)',
+                        description: 'You pay 1.5% of the total value of your occupied units each month. For example, if you have occupied units worth UGX 1,000,000/month, your service fee is UGX 15,000.',
+                        icon: 'cash-outline'
+                    },
+                    {
+                        title: 'Payment Methods',
+                        description: 'Pay via Mobile Money (MTN or Airtel). Payments are processed securely through our payment gateway.',
+                        icon: 'card-outline'
+                    },
+                    {
+                        title: 'Billing Cycle',
+                        description: 'Your billing period starts when you add your first property. Invoices are generated monthly based on the rental value of occupied units.',
+                        icon: 'calendar-outline'
+                    },
+                    {
+                        title: 'Due Dates & Grace Period',
+                        description: 'Pay before the due date to avoid service interruption. A grace period may apply for late payments.',
+                        icon: 'time-outline'
+                    },
+                    {
+                        title: 'View Invoices & Receipts',
+                        description: 'All invoices and payment receipts are available here. Download them anytime for your records.',
+                        icon: 'document-text-outline'
+                    }
+                ]}
+            />
         </View>
     );
 };
