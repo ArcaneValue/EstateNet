@@ -23,14 +23,14 @@ import { Platform } from 'react-native';
 type Environment = 'dev' | 'beta' | 'prod';
 
 // ⚠️ CHANGE THIS to switch environments
-const CURRENT_ENV: Environment = 'beta'; // Set to 'beta' for external testing
+const CURRENT_ENV: Environment = 'prod'; // Set to 'prod' for production server
 
 // Beta testing ngrok URL (get from: ngrok http 3001)
 // Example: 'https://abc123def456.ngrok-free.app'
 const NGROK_URL = 'https://nonstanzaic-unlovably-collin.ngrok-free.dev'; // ← Your ngrok URL
 
 // Production URL (when deployed to cloud)
-const PRODUCTION_URL = 'https://estatenet.onrender.com';
+const PRODUCTION_URL = 'http://76.13.254.3';
 
 // ============================================
 
