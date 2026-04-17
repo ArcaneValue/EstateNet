@@ -408,6 +408,14 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation, 
                                 spacing={spacing}
                                 borderRadius={borderRadius}
                             />
+                            <ActionButton
+                                icon="chatbubbles"
+                                label="Feedback"
+                                onPress={() => navigation.navigate('FeedbackCommunity')}
+                                colors={colors}
+                                spacing={spacing}
+                                borderRadius={borderRadius}
+                            />
                         </View>
                     </View>
                 )}

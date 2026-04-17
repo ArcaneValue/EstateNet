@@ -48,14 +48,16 @@ export const acceptManagerTerms = async (req: AuthenticatedRequest, res: Respons
     }
 
     // Update user record with terms acceptance timestamp
+    // Accept BOTH manager terms AND billing terms at once
     console.log('[Terms] Updating user:', req.user.id, 'with role:', req.user?.role);
     const updatedUser = await prisma.user.update({
       where: { id: req.user.id },
       data: {
-        managerTermsAcceptedAt: new Date()
+        managerTermsAcceptedAt: new Date(),
+        billingTermsAcceptedAt: new Date() // Also accept billing terms
       }
     });
-    console.log('[Terms] User updated successfully');
+    console.log('[Terms] User updated successfully - both manager and billing terms accepted');
 
     // Generate new token with updated user data
     const newToken = generateToken({

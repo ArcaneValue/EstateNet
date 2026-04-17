@@ -1,8 +1,11 @@
 import { Router } from 'express';
 import { setupAuthentication, login, getCurrentUser, registerManager, registerTenant, registerOwner } from '../controllers/authController';
+import { AdminAuthController } from '../controllers/adminAuthController';
 import { body, validationResult } from 'express-validator';
 import { authSetupValidation, loginValidation, managerRegisterValidation, tenantIdentityValidation, validateRequest } from '../middlewares/validation';
 import { authenticateToken } from '../middlewares/auth';
+
+const adminAuthController = new AdminAuthController();
 
 const router = Router();
 
@@ -70,6 +73,17 @@ router.post('/login',
 router.get('/me',
     authenticateToken,
     getCurrentUser
+);
+
+// Admin verification endpoint
+router.post('/admin-verify',
+    authenticateToken,
+    [
+        body('email').isEmail().withMessage('Valid email is required'),
+        body('password').notEmpty().withMessage('Password is required')
+    ],
+    validateRequest,
+    adminAuthController.verifyAdminCredentials.bind(adminAuthController)
 );
 
 export { router as authRoutes };

@@ -337,6 +337,42 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ navigation }) 
                     </Card>
                 </View>
 
+                {/* Feedback Community */}
+                <TouchableOpacity
+                    onPress={() => navigation.navigate('Feedback')}
+                    activeOpacity={0.7}
+                    style={{ marginBottom: spacing.lg }}
+                >
+                    <Card style={{ padding: spacing.lg }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                                <View
+                                    style={{
+                                        backgroundColor: colors.primary + '15',
+                                        width: 48,
+                                        height: 48,
+                                        borderRadius: 24,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        marginRight: spacing.md,
+                                    }}
+                                >
+                                    <Ionicons name="chatbubbles" size={24} color={colors.primary} />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[typography.bodyLarge, { color: colors.text, fontWeight: '600' }]}>
+                                        Feedback Community
+                                    </Text>
+                                    <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 2 }]}>
+                                        Share feedback and suggestions
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+                        </View>
+                    </Card>
+                </TouchableOpacity>
+
                 {/* Property Details */}
                 <View style={{ marginBottom: spacing.lg }}>
                     <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md }]}>

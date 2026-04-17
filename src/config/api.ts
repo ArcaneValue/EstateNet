@@ -92,6 +92,8 @@ export const API_CONFIG = {
   TIMEOUT: 10000,
 };
 
+export const API_URL = BASE_URL;
+
 export const createApiUrl = (endpoint: string) => {
   const fullUrl = `${API_CONFIG.BASE_URL}${endpoint}`;
   return fullUrl;

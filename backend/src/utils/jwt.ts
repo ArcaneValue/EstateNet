@@ -10,6 +10,13 @@ export interface JWTPayload {
     billingStatus?: string | null | undefined;
     billingGraceUntil?: string | null | undefined;
     createdByOwnerId?: string | undefined;
+    isAdmin?: boolean;
+    adminPermissions?: {
+        isSuperAdmin?: boolean;
+        canManagePosts?: boolean;
+        canManageUsers?: boolean;
+        canViewAnalytics?: boolean;
+    };
 }
 
 export const generateToken = (user: JWTPayload): string => {

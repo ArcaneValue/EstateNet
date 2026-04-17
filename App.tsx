@@ -9,6 +9,8 @@ import { LeaseProvider } from './src/context/LeaseContext';
 import { MessageProvider } from './src/context/MessageContext';
 import { NotificationProvider } from './src/context/NotificationContext';
 import { TutorialProvider } from './src/context/TutorialContext';
+import { FeedbackProvider } from './src/context/FeedbackContext';
+import { AdminSessionProvider } from './src/context/AdminSessionContext';
 import { Navigation } from './src/navigation';
 
 export default function App() {
@@ -18,16 +20,22 @@ export default function App() {
         <TutorialProvider>
           <PropertyProvider>
             <TenantProvider>
-              <PaymentProvider>
-                <LeaseProvider>
+              <LeaseProvider>
+                <PaymentProvider>
                   <MessageProvider>
                     <NotificationProvider>
-                      <StatusBar style="auto" />
-                      <Navigation />
+                      <TutorialProvider>
+                        <AdminSessionProvider>
+                          <FeedbackProvider>
+                            <StatusBar style="auto" />
+                            <Navigation />
+                          </FeedbackProvider>
+                        </AdminSessionProvider>
+                      </TutorialProvider>
                     </NotificationProvider>
                   </MessageProvider>
-                </LeaseProvider>
-              </PaymentProvider>
+                </PaymentProvider>
+              </LeaseProvider>
             </TenantProvider>
           </PropertyProvider>
         </TutorialProvider>

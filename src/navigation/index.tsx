@@ -57,6 +57,15 @@ import { MessagesScreen } from '../screens/tenant/MessagesScreen';
 import { TenantProfileScreen } from '../screens/tenant/TenantProfileScreen';
 import { TenantInvitationsScreen } from '../screens/tenant/TenantInvitationsScreen';
 
+// Feedback Screens
+import { FeedbackCommunityScreen } from '../screens/shared/FeedbackCommunityScreen';
+import { CreateFeedbackScreen } from '../screens/shared/CreateFeedbackScreen';
+import { FeedbackPostDetailScreen } from '../screens/shared/FeedbackPostDetailScreen';
+import { MyFeedbackScreen } from '../screens/shared/MyFeedbackScreen';
+import { AdminFeedbackHubScreen } from '../screens/admin/AdminFeedbackHubScreen';
+import { AdminPostDetailScreen } from '../screens/admin/AdminPostDetailScreen';
+import { AdminPermissionsScreen } from '../screens/admin/AdminPermissionsScreen';
+
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -126,6 +135,8 @@ const ManagerTabs = () => {
 
 // Manager Stack with Tabs and additional screens
 const ManagerStack = () => {
+    const { user } = useAuth();
+
     return (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="ManagerTabs" component={ManagerTabs} />
@@ -138,6 +149,13 @@ const ManagerStack = () => {
             <Stack.Screen name="IncomeStatement" component={IncomeStatementScreen} />
             <Stack.Screen name="FinancialPosition" component={FinancialPositionScreen} />
             <Stack.Screen name="CashflowStatement" component={CashflowStatementScreen} />
+            <Stack.Screen name="FeedbackCommunity" component={FeedbackCommunityScreen} />
+            <Stack.Screen name="CreateFeedback" component={CreateFeedbackScreen} />
+            <Stack.Screen name="FeedbackDetail" component={FeedbackPostDetailScreen} />
+            <Stack.Screen name="MyFeedback" component={MyFeedbackScreen} />
+            <Stack.Screen name="AdminFeedbackHub" component={AdminFeedbackHubScreen} />
+            <Stack.Screen name="AdminPostDetail" component={AdminPostDetailScreen} />
+            <Stack.Screen name="AdminPermissions" component={AdminPermissionsScreen} />
         </Stack.Navigator>
     );
 };
@@ -205,6 +223,8 @@ const OwnerTabs = () => {
 
 // Owner Stack with Tabs and additional screens
 const OwnerStack = () => {
+    const { user } = useAuth();
+
     return (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="OwnerTabs" component={OwnerTabs} />
@@ -220,6 +240,30 @@ const OwnerStack = () => {
             <Stack.Screen name="OwnerRegistry" component={OwnerRegistryScreen} />
             <Stack.Screen name="OutstandingRent" component={OutstandingRentScreen} />
             <Stack.Screen name="RentCollection" component={RentCollectionScreen} />
+            <Stack.Screen name="FeedbackCommunity" component={FeedbackCommunityScreen} />
+            <Stack.Screen name="CreateFeedback" component={CreateFeedbackScreen} />
+            <Stack.Screen name="FeedbackDetail" component={FeedbackPostDetailScreen} />
+            <Stack.Screen name="MyFeedback" component={MyFeedbackScreen} />
+            <Stack.Screen name="AdminFeedbackHub" component={AdminFeedbackHubScreen} />
+            <Stack.Screen name="AdminPostDetail" component={AdminPostDetailScreen} />
+            <Stack.Screen name="AdminPermissions" component={AdminPermissionsScreen} />
+        </Stack.Navigator>
+    );
+};
+
+// Tenant Stack with Tabs and additional screens
+const TenantStack = () => {
+
+    return (
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="TenantTabs" component={TenantTabs} />
+            <Stack.Screen name="FeedbackCommunity" component={FeedbackCommunityScreen} />
+            <Stack.Screen name="CreateFeedback" component={CreateFeedbackScreen} />
+            <Stack.Screen name="FeedbackDetail" component={FeedbackPostDetailScreen} />
+            <Stack.Screen name="MyFeedback" component={MyFeedbackScreen} />
+            <Stack.Screen name="AdminFeedbackHub" component={AdminFeedbackHubScreen} />
+            <Stack.Screen name="AdminPostDetail" component={AdminPostDetailScreen} />
+            <Stack.Screen name="AdminPermissions" component={AdminPermissionsScreen} />
         </Stack.Navigator>
     );
 };
@@ -317,7 +361,7 @@ export const Navigation = () => {
             ) : user?.role === 'MANAGER' ? (
                 <ManagerStack />
             ) : (
-                <TenantTabs />
+                <TenantStack />
             )}
         </NavigationContainer>
     );

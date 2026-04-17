@@ -78,6 +78,8 @@ export class AuthService {
     }
 
     async login(email: string, password: string) {
+        console.log('[AuthService] Login attempt for:', email);
+
         // Find user with tenant identity
         const user = await prisma.user.findUnique({
             where: { email },
@@ -87,14 +89,36 @@ export class AuthService {
         });
 
         if (!user) {
+            console.log('[AuthService] User not found:', email);
             throw new Error('Invalid credentials');
         }
 
+        console.log('[AuthService] User found:', user.email, 'Role:', user.role);
+        console.log('[AuthService] Password hash exists:', !!user.passwordHash);
+        console.log('[AuthService] Password hash preview:', user.passwordHash?.substring(0, 20));
+
         // Verify password
+        console.log('[AuthService] Comparing password...');
         const isValidPassword = await comparePassword(password, user.passwordHash);
+        console.log('[AuthService] Password valid:', isValidPassword);
+
         if (!isValidPassword) {
+            console.log('[AuthService] Password comparison failed for:', email);
             throw new Error('Invalid credentials');
         }
+
+        // Check if user is an admin
+        const adminPermission = await (prisma as any).adminPermission.findUnique({
+            where: { email: user.email }
+        });
+
+        const isAdmin = !!adminPermission;
+        const adminPermissions = adminPermission ? {
+            isSuperAdmin: adminPermission.isSuperAdmin,
+            canManagePosts: adminPermission.canManagePosts,
+            canManageUsers: adminPermission.canManageUsers,
+            canViewAnalytics: adminPermission.canViewAnalytics
+        } : undefined;
 
         // Generate token
         const token = generateToken({
@@ -106,7 +130,9 @@ export class AuthService {
             managerTermsAcceptedAt: user.managerTermsAcceptedAt?.toISOString() || null,
             billingStatus: user.billingStatus || null,
             billingGraceUntil: user.billingGraceUntil?.toISOString() || null,
-            createdByOwnerId: user.createdByOwnerId || undefined
+            createdByOwnerId: user.createdByOwnerId || undefined,
+            isAdmin,
+            adminPermissions
         });
 
         return {
@@ -116,7 +142,9 @@ export class AuthService {
                 name: user.name,
                 role: user.role,
                 tenantId: user.tenantId,
-                phoneNumber: user.phoneNumber
+                phoneNumber: user.phoneNumber,
+                isAdmin,
+                adminPermissions
             },
             tenantIdentity: user.tenantIdentity,
             token

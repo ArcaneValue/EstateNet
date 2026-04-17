@@ -7,10 +7,16 @@ const propertyService = new PropertyService();
 
 export const createProperty = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
+    console.log('[PropertyController] Create property request:', {
+      body: req.body,
+      user: { id: req.user?.id, email: req.user?.email, role: req.user?.role }
+    });
+
     const { name, location, units, billedUserEmail }: CreatePropertyData & { billedUserEmail?: string | null } = req.body;
 
     // Validation
     if (!name || !location) {
+      console.log('[PropertyController] Validation failed: missing name or location');
       res.status(400).json({
         success: false,
         message: 'Name and location are required'
@@ -78,12 +84,16 @@ export const createProperty = async (req: AuthenticatedRequest, res: Response): 
 
     // If SELF, verify current user has accepted billing terms
     if (!billedUserEmail) {
+      console.log('[PropertyController] Checking billing terms for current user:', req.user!.id);
       const currentUser = await (prisma.user as any).findUnique({
         where: { id: req.user!.id },
         select: { billingTermsAcceptedAt: true }
       });
 
+      console.log('[PropertyController] Current user billing terms:', currentUser?.billingTermsAcceptedAt);
+
       if (!currentUser?.billingTermsAcceptedAt) {
+        console.log('[PropertyController] Billing terms not accepted - returning 400');
         res.status(400).json({
           success: false,
           message: 'You must accept billing terms before creating a property',
@@ -91,6 +101,7 @@ export const createProperty = async (req: AuthenticatedRequest, res: Response): 
         });
         return;
       }
+      console.log('[PropertyController] Billing terms check passed');
     }
 
     // Determine ownerId based on role and org linkage

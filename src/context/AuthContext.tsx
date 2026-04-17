@@ -34,6 +34,14 @@ interface User {
         messages?: boolean;
         invitations?: boolean;
     };
+    // Admin fields
+    isAdmin?: boolean;
+    adminPermissions?: {
+        isSuperAdmin?: boolean;
+        canManagePosts?: boolean;
+        canManageUsers?: boolean;
+        canViewAnalytics?: boolean;
+    };
 }
 
 // Test credentials
@@ -55,6 +63,7 @@ export const generateTenantId = (): string => {
 
 interface AuthContextType {
     user: User | null;
+    token: string | null;
     isAuthenticated: boolean;
     isLoading: boolean;
     signIn: (email: string, password: string) => Promise<void>;
@@ -72,6 +81,7 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
+    const [token, setToken] = useState<string | null>(null);
     const [selectedRole, setSelectedRole] = useState<UserRole>('MANAGER');
     const [isLoading, setIsLoading] = useState(true);
 
@@ -96,6 +106,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                             const userData = JSON.parse(storedUser);
                             // Keep role as-is (uppercase from backend)
                             setUser(userData);
+                            setToken(storedToken);
                         } else {
                             // Token is invalid, clear storage
                             await AsyncStorage.multiRemove(['authToken', 'user']);
@@ -144,6 +155,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
             // Store token
             await AsyncStorage.setItem('authToken', token);
+            setToken(token);
 
             setUser(normalizedUser);
             // Persist user to AsyncStorage
@@ -196,6 +208,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
             // Store token
             await AsyncStorage.setItem('authToken', token);
+            setToken(token);
 
             setUser(normalizedUser);
             // Persist user to AsyncStorage
@@ -208,9 +221,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const signOut = async () => {
         setUser(null);
+        setToken(null);
         // Clear persisted user and token from AsyncStorage
         await AsyncStorage.removeItem('user');
         await AsyncStorage.removeItem('authToken');
+        // Clear admin session to prevent it from persisting across account switches
+        await AsyncStorage.removeItem('adminSession');
     };
 
     const setUserRole = (role: UserRole) => {
@@ -255,6 +271,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const value: AuthContextType = {
         user,
+        token,
         isAuthenticated: !!user,
         isLoading,
         signIn,

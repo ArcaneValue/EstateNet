@@ -116,7 +116,7 @@ export const OwnerDashboardScreen: React.FC<any> = ({ navigation }) => {
   const quickActions = [
     {
       label: 'Add Property',
-      icon: 'add-circle',
+      icon: 'home-outline',
       action: () => setShowAddPropertyModal(true),
     },
     {
@@ -128,6 +128,11 @@ export const OwnerDashboardScreen: React.FC<any> = ({ navigation }) => {
       label: 'View Reports',
       icon: 'bar-chart',
       action: () => navigation.navigate('OwnerFinancial'),
+    },
+    {
+      label: 'Feedback',
+      icon: 'chatbubbles',
+      action: () => navigation.navigate('FeedbackCommunity'),
     },
   ];
 

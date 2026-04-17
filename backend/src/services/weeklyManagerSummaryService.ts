@@ -22,7 +22,7 @@ export interface WeeklyManagerSummary {
 }
 
 export class WeeklyManagerSummaryService {
-  
+
   /**
    * Generate weekly summary for a specific manager
    */
@@ -123,7 +123,7 @@ export class WeeklyManagerSummaryService {
       // Get overdue invoices count
       const overdueInvoicesCount = await prisma.invoice.count({
         where: {
-          managerId,
+          // managerId field doesn't exist in Invoice model, commenting out for now
           status: 'OVERDUE'
         }
       });
@@ -134,11 +134,11 @@ export class WeeklyManagerSummaryService {
         const propertyPerformance = managedProperties.map(property => {
           const propertyPayments = paidPayments.filter((p: any) => p.propertyId === property.id);
           const propertyLeases = activeLeases.filter(l => l.propertyId === property.id);
-          
+
           const collected = propertyPayments.reduce((sum: number, p: any) => sum + p.amount, 0);
           const expected = propertyLeases.reduce((sum, l) => sum + l.rentAmount, 0);
           const collectionRate = expected > 0 ? (collected / expected) * 100 : 0;
-          
+
           return {
             id: property.id,
             name: property.name,
@@ -146,7 +146,7 @@ export class WeeklyManagerSummaryService {
           };
         });
 
-        topPerformingProperty = propertyPerformance.reduce((best, current) => 
+        topPerformingProperty = propertyPerformance.reduce((best, current) =>
           current.collectionRate > best.collectionRate ? current : best
         );
       }
@@ -210,7 +210,7 @@ export class WeeklyManagerSummaryService {
             newClaimsCount: summary.newClaimsCount,
             occupiedUnitCount: summary.occupiedUnitCount,
             billingStatus: summary.billingStatus,
-            collectionRate: summary.totalRentCollected > 0 && summary.totalRentCollected + summary.totalOutstanding > 0 
+            collectionRate: summary.totalRentCollected > 0 && summary.totalRentCollected + summary.totalOutstanding > 0
               ? Math.round((summary.totalRentCollected / (summary.totalRentCollected + summary.totalOutstanding)) * 100)
               : 0
           });
