@@ -37,6 +37,12 @@
         "projectId": "c176bd7c-58ed-4a4d-a0c7-4e664c976cd1"
       }
     },
-    "owner": "muculezigeorge"
+    "owner": "muculezigeorge",
+    "updates": {
+      "url": "https://u.expo.dev/c176bd7c-58ed-4a4d-a0c7-4e664c976cd1"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
   }
 }
