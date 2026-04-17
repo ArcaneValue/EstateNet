@@ -1,3 +1,6 @@
+// 🚀 Automatic OTA deployment test - April 18, 2026
+// This comment will be automatically pushed to users via OTA update
+
 import React, { useEffect, useState } from 'react';
 import {
     View,
