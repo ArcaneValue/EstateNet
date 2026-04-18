@@ -2,6 +2,7 @@
 // This comment will be automatically pushed to users via OTA update
 // ✅ Testing workflow fix - npm instead of yarn (5:39pm)
 // 🔧 Testing manual EAS CLI installation (5:46pm)
+// 🎯 Testing Node.js 20 for Metro compatibility (5:53pm)
 
 import React, { useEffect, useState } from 'react';
 import {
