@@ -31,14 +31,15 @@ jobs:
         with:
           node-version: 18
 
-      - name: Setup Expo and EAS CLI
-        uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
-
       - name: Install dependencies
         run: npm install
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Authenticate with Expo
+        run: |
+          echo "EXPO_TOKEN=${{ secrets.EXPO_TOKEN }}" >> $GITHUB_ENV
 
       - name: Publish OTA Update
         run: |
