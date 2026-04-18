@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
     View,
     Text,
@@ -8,12 +9,14 @@ import {
     TextInput,
     ActivityIndicator,
     Alert,
-    RefreshControl
+    RefreshControl,
+    Modal
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../theme/ThemeContext';
+import { apiDelete } from '../../utils/apiClient';
 
 const STATUSES = [
     { value: 'OPEN', label: 'Open', color: '#FF9800' },
@@ -28,6 +31,7 @@ export const AdminPostDetailScreen = ({ route, navigation }: any) => {
     const [post, setPost] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [deleteConfirmModal, setDeleteConfirmModal] = useState<{ visible: boolean; item: any; type: 'post' | 'comment' }>({ visible: false, item: null, type: 'post' });
     const [response, setResponse] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
@@ -56,10 +60,63 @@ export const AdminPostDetailScreen = ({ route, navigation }: any) => {
         loadPost();
     }, [postId]);
 
+    // Auto-refresh when screen comes into focus
+    useFocusEffect(
+        React.useCallback(() => {
+            loadPost();
+        }, [])
+    );
+
     const handleRefresh = async () => {
         setRefreshing(true);
         await loadPost();
         setRefreshing(false);
+    };
+
+    const handleDeletePost = async () => {
+        try {
+            const { status, json } = await apiDelete(`/admin/feedback/posts/${postId}`);
+            if (status === 200 && json?.success) {
+                Alert.alert('Success', 'Post deleted successfully');
+                navigation.goBack();
+            } else {
+                Alert.alert('Error', 'Failed to delete post');
+            }
+        } catch (error) {
+            console.error('Delete post error:', error);
+            Alert.alert('Error', 'Failed to delete post');
+        }
+    };
+
+    const handleDeleteComment = async (commentId: string) => {
+        try {
+            const { status, json } = await apiDelete(`/admin/feedback/posts/${postId}/comments/${commentId}`);
+            if (status === 200 && json?.success) {
+                Alert.alert('Success', 'Comment deleted successfully');
+                await loadPost(); // Reload to show updated comments
+            } else {
+                Alert.alert('Error', 'Failed to delete comment');
+            }
+        } catch (error) {
+            console.error('Delete comment error:', error);
+            Alert.alert('Error', 'Failed to delete comment');
+        }
+    };
+
+    const confirmDelete = (item: any, type: 'post' | 'comment') => {
+        setDeleteConfirmModal({ visible: true, item, type });
+    };
+
+    const executeDelete = async () => {
+        const { item, type } = deleteConfirmModal;
+
+        if (type === 'post') {
+            await handleDeletePost();
+        } else if (type === 'comment') {
+            await handleDeleteComment(item.id);
+        }
+
+        setDeleteConfirmModal({ visible: false, item: null, type: 'post' });
     };
 
     const handleStatusChange = async (newStatus: string) => {
@@ -156,7 +213,15 @@ export const AdminPostDetailScreen = ({ route, navigation }: any) => {
                         <Text style={[styles.adminBadgeText, { color: colors.primary }]}>ADMIN VIEW</Text>
                     </View>
 
-                    <Text style={[styles.postTitle, { color: colors.text }]}>{post.title}</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <Text style={[styles.postTitle, { color: colors.text, flex: 1 }]}>{post.title}</Text>
+                        <TouchableOpacity
+                            onPress={() => confirmDelete(post, 'post')}
+                            style={{ padding: 4, marginLeft: 8 }}
+                        >
+                            <Ionicons name="trash-outline" size={20} color={colors.error} />
+                        </TouchableOpacity>
+                    </View>
                     <Text style={[styles.postContent, { color: colors.textSecondary }]}>{post.content}</Text>
 
                     <View style={styles.metaInfo}>
@@ -267,12 +332,20 @@ export const AdminPostDetailScreen = ({ route, navigation }: any) => {
                                     </View>
                                 )}
                                 <View style={styles.commentHeader}>
-                                    <Text style={styles.commentAuthor}>
-                                        {comment.author.name}
-                                    </Text>
-                                    <Text style={styles.commentDate}>
-                                        {new Date(comment.createdAt).toLocaleDateString()}
-                                    </Text>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.commentAuthor}>
+                                            {comment.author.name}
+                                        </Text>
+                                        <Text style={styles.commentDate}>
+                                            {new Date(comment.createdAt).toLocaleDateString()}
+                                        </Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        onPress={() => confirmDelete(comment, 'comment')}
+                                        style={{ padding: 4 }}
+                                    >
+                                        <Ionicons name="trash-outline" size={16} color={colors.error} />
+                                    </TouchableOpacity>
                                 </View>
                                 <Text style={styles.commentContent}>{comment.content}</Text>
                             </View>
@@ -284,6 +357,82 @@ export const AdminPostDetailScreen = ({ route, navigation }: any) => {
                     )}
                 </View>
             </ScrollView>
+
+            {/* Delete Confirmation Modal */}
+            <Modal
+                visible={deleteConfirmModal.visible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setDeleteConfirmModal({ visible: false, item: null, type: 'post' })}
+            >
+                <View style={{
+                    flex: 1,
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    padding: 20
+                }}>
+                    <View style={{
+                        backgroundColor: colors.surface,
+                        borderRadius: 12,
+                        padding: 20,
+                        width: '100%',
+                        maxWidth: 400
+                    }}>
+                        <Text style={{
+                            fontSize: 18,
+                            fontWeight: 'bold',
+                            color: colors.text,
+                            marginBottom: 12
+                        }}>
+                            Delete {deleteConfirmModal.type === 'post' ? 'Post' : 'Comment'}?
+                        </Text>
+
+                        <Text style={{
+                            fontSize: 14,
+                            color: colors.textSecondary,
+                            marginBottom: 16,
+                            lineHeight: 20
+                        }}>
+                            {deleteConfirmModal.type === 'post'
+                                ? `Are you sure you want to delete this post? This action cannot be undone.\n\nTitle: ${deleteConfirmModal.item?.title || 'Untitled'}\nAuthor: ${deleteConfirmModal.item?.author?.name || 'Unknown'}`
+                                : `Are you sure you want to delete this comment? This action cannot be undone.\n\nComment: ${deleteConfirmModal.item?.content || 'No content'}\nAuthor: ${deleteConfirmModal.item?.author?.name || 'Unknown'}`
+                            }
+                        </Text>
+
+                        <View style={{
+                            flexDirection: 'row',
+                            justifyContent: 'flex-end',
+                            gap: 12
+                        }}>
+                            <TouchableOpacity
+                                style={{
+                                    paddingHorizontal: 16,
+                                    paddingVertical: 10,
+                                    borderRadius: 8,
+                                    borderWidth: 1,
+                                    borderColor: colors.border
+                                }}
+                                onPress={() => setDeleteConfirmModal({ visible: false, item: null, type: 'post' })}
+                            >
+                                <Text style={{ color: colors.textSecondary }}>Cancel</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={{
+                                    paddingHorizontal: 16,
+                                    paddingVertical: 10,
+                                    borderRadius: 8,
+                                    backgroundColor: colors.error
+                                }}
+                                onPress={executeDelete}
+                            >
+                                <Text style={{ color: '#fff', fontWeight: '600' }}>Delete</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };

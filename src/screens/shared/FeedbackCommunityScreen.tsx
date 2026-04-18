@@ -14,6 +14,7 @@ import {
     RefreshControl,
     ActivityIndicator
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useFeedback } from '../../context/FeedbackContext';
@@ -21,6 +22,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAdminSession } from '../../context/AdminSessionContext';
 import { AdminLoginModal } from './AdminLoginModal';
+import { FeedbackTutorialModal } from '../../components/FeedbackTutorialModal';
 
 const CATEGORIES = [
     { value: 'ALL', label: 'All' },
@@ -45,6 +47,8 @@ export const FeedbackCommunityScreen = ({ navigation }: any) => {
     const [selectedStatus, setSelectedStatus] = useState('ALL');
     const [refreshing, setRefreshing] = useState(false);
     const [showAdminLogin, setShowAdminLogin] = useState(false);
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [showTutorial, setShowTutorial] = useState(false);
 
     const handleAdminAccess = () => {
         if (isAdminAuthenticated && validateAdminSession(user?.role || '')) {
@@ -66,6 +70,31 @@ export const FeedbackCommunityScreen = ({ navigation }: any) => {
     useEffect(() => {
         loadPosts({ category: selectedCategory, status: selectedStatus });
     }, [selectedCategory, selectedStatus]);
+
+    // Check if user should see tutorial on first visit
+    useEffect(() => {
+        const checkFirstVisit = async () => {
+            try {
+                // Check if this is the first time visiting Feedback Community
+                const hasVisitedBefore = await AsyncStorage.getItem('@estatenet_feedback_tutorial_seen');
+                if (!hasVisitedBefore) {
+                    setShowTutorial(true);
+                }
+            } catch (error) {
+                console.log('Tutorial check error:', error);
+            }
+        };
+
+        checkFirstVisit();
+    }, []);
+
+    const handleTutorialComplete = async () => {
+        try {
+            await AsyncStorage.setItem('@estatenet_feedback_tutorial_seen', 'true');
+        } catch (error) {
+            console.log('Tutorial completion error:', error);
+        }
+    };
 
     const handleRefresh = async () => {
         setRefreshing(true);
@@ -262,6 +291,12 @@ export const FeedbackCommunityScreen = ({ navigation }: any) => {
                     setShowAdminLogin(false);
                     navigation.navigate('AdminFeedbackHub');
                 }}
+            />
+
+            <FeedbackTutorialModal
+                visible={showTutorial}
+                onClose={() => setShowTutorial(false)}
+                onComplete={handleTutorialComplete}
             />
         </View>
     );

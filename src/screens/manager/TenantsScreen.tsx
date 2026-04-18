@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TextInput, Alert, ScrollView, TouchableOpacity } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { View, Text, FlatList, TextInput, Alert, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useTutorial, TUTORIAL_KEYS } from '../../context/TutorialContext';
@@ -67,6 +68,7 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
     const [leasesLoading, setLeasesLoading] = useState(false);
     const [leasesError, setLeasesError] = useState<string | null>(null);
     const [showTutorial, setShowTutorial] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
 
     // Tutorial
     const { shouldShowTutorial, markTutorialSeen } = useTutorial();
@@ -79,6 +81,15 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
         checkTutorial();
     }, []);
 
+    // Auto-refresh when screen comes into focus
+    useFocusEffect(
+        React.useCallback(() => {
+            loadManagerTenants();
+            loadInvitations();
+            loadLeases();
+        }, [])
+    );
+
     const checkTutorial = async () => {
         const shouldShow = await shouldShowTutorial(TUTORIAL_KEYS.MANAGER_TENANTS);
         if (shouldShow) {
@@ -89,6 +100,16 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
     const handleTutorialClose = async () => {
         await markTutorialSeen(TUTORIAL_KEYS.MANAGER_TENANTS);
         setShowTutorial(false);
+    };
+
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        await Promise.all([
+            loadManagerTenants(),
+            loadInvitations(),
+            loadLeases()
+        ]);
+        setRefreshing(false);
     };
 
     const loadInvitations = async () => {
@@ -308,6 +329,14 @@ export const TenantsScreen: React.FC<any> = ({ navigation }) => {
                 style={{ flex: 1 }}
                 contentContainerStyle={{ padding: spacing.base, paddingBottom: spacing.xl }}
                 showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={handleRefresh}
+                        tintColor={colors.primary}
+                        colors={[colors.primary]}
+                    />
+                }
             >
                 {/* Tab Toggle */}
                 <View

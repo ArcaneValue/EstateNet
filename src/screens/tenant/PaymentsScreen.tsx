@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, FlatList, Alert, Modal } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { View, Text, ScrollView, FlatList, Alert, Modal, RefreshControl } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLease } from '../../context/LeaseContext';
@@ -60,6 +61,7 @@ export const PaymentsScreen: React.FC<PaymentsScreenProps> = ({ navigation }) =>
     // Modal states
     const [showClaimModal, setShowClaimModal] = useState(false);
     const [showTutorial, setShowTutorial] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
 
     // Tutorial
     const { shouldShowTutorial, markTutorialSeen } = useTutorial();
@@ -81,6 +83,19 @@ export const PaymentsScreen: React.FC<PaymentsScreenProps> = ({ navigation }) =>
         loadData();
         checkTutorial();
     }, []);
+
+    // Auto-refresh when screen comes into focus
+    useFocusEffect(
+        React.useCallback(() => {
+            loadData();
+        }, [])
+    );
+
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        await loadData();
+        setRefreshing(false);
+    };
 
     const checkTutorial = async () => {
         const shouldShow = await shouldShowTutorial(TUTORIAL_KEYS.PAYMENT_CLAIMS);
@@ -327,6 +342,14 @@ export const PaymentsScreen: React.FC<PaymentsScreenProps> = ({ navigation }) =>
                 ListEmptyComponent={renderEmptyComponent}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: spacing.xl }}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={handleRefresh}
+                        tintColor={colors.primary}
+                        colors={[colors.primary]}
+                    />
+                }
             />
 
             {/* Record Payment Claim Modal */}

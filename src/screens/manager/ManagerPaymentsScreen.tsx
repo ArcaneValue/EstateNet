@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, FlatList, RefreshControl } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { apiGet } from '../../utils/apiClient';
@@ -49,12 +50,8 @@ export const ManagerPaymentsScreen: React.FC<ManagerPaymentsScreenProps> = ({ na
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
-    const loadData = async (isRefresh = false) => {
-        if (isRefresh) {
+    const fetchPayments = async () => {
+        if (refreshing) {
             setRefreshing(true);
         } else {
             setLoading(true);
@@ -103,6 +100,18 @@ export const ManagerPaymentsScreen: React.FC<ManagerPaymentsScreenProps> = ({ na
             setRefreshing(false);
         }
     };
+
+    // Load payments on mount
+    useEffect(() => {
+        fetchPayments();
+    }, []);
+
+    // Auto-refresh when screen comes into focus
+    useFocusEffect(
+        React.useCallback(() => {
+            fetchPayments();
+        }, [])
+    );
 
     const renderPaymentItem = ({ item }: { item: Payment }) => (
         <Card style={{ marginHorizontal: spacing.lg, marginBottom: spacing.md }}>
@@ -257,7 +266,7 @@ export const ManagerPaymentsScreen: React.FC<ManagerPaymentsScreenProps> = ({ na
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
-                        onRefresh={() => loadData(true)}
+                        onRefresh={() => fetchPayments()}
                     />
                 }
             />

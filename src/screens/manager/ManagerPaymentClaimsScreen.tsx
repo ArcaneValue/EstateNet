@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, FlatList, RefreshControl, Alert } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -85,6 +86,18 @@ export const ManagerPaymentClaimsScreen: React.FC<ManagerPaymentClaimsScreenProp
     useEffect(() => {
         checkTutorial();
     }, []);
+
+    // Load claims on mount
+    useEffect(() => {
+        loadClaims();
+    }, []);
+
+    // Auto-refresh when screen comes into focus
+    useFocusEffect(
+        React.useCallback(() => {
+            loadClaims();
+        }, [])
+    );
 
     const checkTutorial = async () => {
         const shouldShow = await shouldShowTutorial(TUTORIAL_KEYS.MANAGER_PAYMENT_CLAIMS);

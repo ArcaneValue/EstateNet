@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { RefreshControl } from 'react-native';
 import { View, Text, ScrollView, FlatList, TouchableOpacity } from 'react-native';
 import { Modal } from '../../components';
 import { Button } from '../../components/Button';
@@ -18,7 +19,8 @@ type TimeFilter = 'this_month' | 'last_3_months' | 'custom' | 'all';
 export const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({ visible, onClose }) => {
     const { colors, spacing, typography, borderRadius } = useTheme();
     const [selectedFilter, setSelectedFilter] = useState<TimeFilter>('all');
-    const { payments } = usePayments();
+    const [refreshing, setRefreshing] = useState(false);
+    const { payments, loadPayments } = usePayments();
     const { user } = useAuth();
     const { getTenantByTenantId } = useTenants();
 
@@ -41,6 +43,12 @@ export const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({ visibl
     const allTenantPayments = [...tenantPayments, ...tenantPaymentsByEmail, ...tenantPaymentsByTempId].filter(
         (payment, index, arr) => arr.findIndex(p => p.id === payment.id) === index
     );
+
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        await loadPayments();
+        setRefreshing(false);
+    };
 
     const mapMethodLabel = (method: string) => {
         if (method === 'estatenet') return 'EstateNet';
@@ -154,6 +162,14 @@ export const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({ visibl
                     keyExtractor={(item) => item.id}
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={{ paddingBottom: spacing.lg }}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={handleRefresh}
+                            tintColor={colors.primary}
+                            colors={[colors.primary]}
+                        />
+                    }
                     renderItem={({ item }) => (
                         <View style={{
                             backgroundColor: colors.surface,

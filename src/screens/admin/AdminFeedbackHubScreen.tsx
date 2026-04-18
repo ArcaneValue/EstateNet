@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
     View,
     Text,
@@ -15,6 +16,7 @@ import { API_URL } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
 import { useAdminSession } from '../../context/AdminSessionContext';
 import { useTheme } from '../../theme/ThemeContext';
+import { apiDelete } from '../../utils/apiClient';
 import { SecurityCodeModal } from './SecurityCodeModal';
 import { CreateAdminModal } from './CreateAdminModal';
 
@@ -30,6 +32,7 @@ export const AdminFeedbackHubScreen = ({ navigation }: any) => {
     const [showSettingsMenu, setShowSettingsMenu] = useState(false);
     const [showSecurityCode, setShowSecurityCode] = useState(false);
     const [showCreateAdmin, setShowCreateAdmin] = useState(false);
+    const [deleteConfirmModal, setDeleteConfirmModal] = useState<{ visible: boolean; post: any; type: 'post' | 'comment' }>({ visible: false, post: null, type: 'post' });
 
     const loadData = async () => {
         // Validate admin session before making API calls
@@ -76,10 +79,81 @@ export const AdminFeedbackHubScreen = ({ navigation }: any) => {
         loadData();
     }, []);
 
+    // Auto-refresh when screen comes into focus
+    useFocusEffect(
+        React.useCallback(() => {
+            loadData();
+        }, [])
+    );
+
     const handleRefresh = async () => {
         setRefreshing(true);
         await loadData();
         setRefreshing(false);
+    };
+
+    const handleDeletePost = async (postId: string) => {
+        try {
+            const { status, json } = await apiDelete(`/admin/feedback/posts/${postId}`);
+            if (status === 200 && json?.success) {
+                // Remove post from local state
+                setPosts(prev => prev.filter(post => post.id !== postId));
+                // Reload analytics
+                loadData();
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Delete post error:', error);
+            return false;
+        }
+    };
+
+    const handleDeleteComment = async (postId: string, commentId: string) => {
+        try {
+            const { status, json } = await apiDelete(`/admin/feedback/posts/${postId}/comments/${commentId}`);
+            if (status === 200 && json?.success) {
+                // Reload data to reflect changes
+                loadData();
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Delete comment error:', error);
+            return false;
+        }
+    };
+
+    const confirmDelete = (post: any, type: 'post' | 'comment') => {
+        setDeleteConfirmModal({ visible: true, post, type });
+    };
+
+    const executeDelete = async () => {
+        const { post, type } = deleteConfirmModal;
+        let success = false;
+
+        if (type === 'post') {
+            success = await handleDeletePost(post.id);
+        } else if (type === 'comment') {
+            // For comments, we need both post and comment IDs
+            success = await handleDeleteComment(post.postId, post.id);
+        }
+
+        if (success) {
+            Alert.alert(
+                'Success',
+                `${type === 'post' ? 'Post' : 'Comment'} deleted successfully`,
+                [{ text: 'OK' }]
+            );
+        } else {
+            Alert.alert(
+                'Error',
+                `Failed to delete ${type === 'post' ? 'post' : 'comment'}`,
+                [{ text: 'OK' }]
+            );
+        }
+
+        setDeleteConfirmModal({ visible: false, post: null, type: 'post' });
     };
 
     const getStatusColor = (status: string) => {
@@ -112,10 +186,18 @@ export const AdminFeedbackHubScreen = ({ navigation }: any) => {
             onPress={() => navigation.navigate('AdminPostDetail', { postId: item.id })}
         >
             <View style={styles.postHeader}>
-                <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-                    <Text style={styles.statusText}>{item.status}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+                        <Text style={styles.statusText}>{item.status}</Text>
+                    </View>
+                    <Text style={[styles.categoryText, { color: colors.textSecondary }]}>{item.category}</Text>
                 </View>
-                <Text style={[styles.categoryText, { color: colors.textSecondary }]}>{item.category}</Text>
+                <TouchableOpacity
+                    onPress={() => confirmDelete(item, 'post')}
+                    style={{ padding: 4 }}
+                >
+                    <Ionicons name="trash-outline" size={18} color={colors.error} />
+                </TouchableOpacity>
             </View>
 
             <Text style={[styles.postTitle, { color: colors.text }]}>{item.title}</Text>
@@ -282,6 +364,82 @@ export const AdminFeedbackHubScreen = ({ navigation }: any) => {
                     Alert.alert('Success', 'New admin account created successfully');
                 }}
             />
+
+            {/* Delete Confirmation Modal */}
+            <Modal
+                visible={deleteConfirmModal.visible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setDeleteConfirmModal({ visible: false, post: null, type: 'post' })}
+            >
+                <View style={{
+                    flex: 1,
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    padding: 20
+                }}>
+                    <View style={{
+                        backgroundColor: colors.surface,
+                        borderRadius: 12,
+                        padding: 20,
+                        width: '100%',
+                        maxWidth: 400
+                    }}>
+                        <Text style={{
+                            fontSize: 18,
+                            fontWeight: 'bold',
+                            color: colors.text,
+                            marginBottom: 12
+                        }}>
+                            Delete {deleteConfirmModal.type === 'post' ? 'Post' : 'Comment'}?
+                        </Text>
+
+                        <Text style={{
+                            fontSize: 14,
+                            color: colors.textSecondary,
+                            marginBottom: 16,
+                            lineHeight: 20
+                        }}>
+                            {deleteConfirmModal.type === 'post'
+                                ? `Are you sure you want to delete this post? This action cannot be undone.\n\nTitle: ${deleteConfirmModal.post?.title || 'Untitled'}\nAuthor: ${deleteConfirmModal.post?.author?.name || 'Unknown'}`
+                                : `Are you sure you want to delete this comment? This action cannot be undone.\n\nComment: ${deleteConfirmModal.post?.content || 'No content'}`
+                            }
+                        </Text>
+
+                        <View style={{
+                            flexDirection: 'row',
+                            justifyContent: 'flex-end',
+                            gap: 12
+                        }}>
+                            <TouchableOpacity
+                                style={{
+                                    paddingHorizontal: 16,
+                                    paddingVertical: 10,
+                                    borderRadius: 8,
+                                    borderWidth: 1,
+                                    borderColor: colors.border
+                                }}
+                                onPress={() => setDeleteConfirmModal({ visible: false, post: null, type: 'post' })}
+                            >
+                                <Text style={{ color: colors.textSecondary }}>Cancel</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={{
+                                    paddingHorizontal: 16,
+                                    paddingVertical: 10,
+                                    borderRadius: 8,
+                                    backgroundColor: colors.error
+                                }}
+                                onPress={executeDelete}
+                            >
+                                <Text style={{ color: '#fff', fontWeight: '600' }}>Delete</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
