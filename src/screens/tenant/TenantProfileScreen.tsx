@@ -303,19 +303,6 @@ export const TenantProfileScreen: React.FC<TenantProfileScreenProps> = ({ naviga
                         </View>
                     </Card>
 
-                    {/* Thank You Message */}
-                    <View style={{
-                        paddingVertical: spacing.lg,
-                        alignItems: 'center'
-                    }}>
-                        <Text style={[typography.body, {
-                            color: colors.primary,
-                            fontWeight: '600',
-                            textAlign: 'center'
-                        }]}>
-                            Thank You for Using EstateNet
-                        </Text>
-                    </View>
                 </View>
             </ScrollView>
 

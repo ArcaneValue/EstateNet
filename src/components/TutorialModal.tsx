@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, Modal as RNModal, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { View, Text, Modal as RNModal, TouchableOpacity, StyleSheet, Animated, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { Button } from './Button';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface TutorialStep {
   title: string;
@@ -118,9 +121,6 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
           style={[
             styles.contentContainer,
             {
-              backgroundColor: colors.surface,
-              borderRadius: borderRadius.lg,
-              padding: spacing.lg,
               opacity: fadeAnim,
               transform: [
                 {
@@ -133,129 +133,136 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
             },
           ]}
         >
-          {/* Close Button */}
-          <TouchableOpacity
-            style={[styles.closeButton, { top: spacing.md, right: spacing.md }]}
-            onPress={onClose}
+          <LinearGradient
+            colors={[colors.surface, colors.background]}
+            style={styles.gradientContainer}
           >
-            <Ionicons name="close" size={24} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          {/* Icon */}
-          {currentStep?.icon && (
-            <View
-              style={[
-                styles.iconContainer,
-                {
-                  backgroundColor: colors.primary + '20',
-                  borderRadius: borderRadius.full,
-                  marginBottom: spacing.md,
-                },
-              ]}
+            {/* Close Button */}
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={onClose}
             >
-              <Ionicons name={currentStep.icon} size={40} color={colors.primary} />
-            </View>
-          )}
+              <Ionicons name="close" size={28} color={colors.textSecondary} />
+            </TouchableOpacity>
 
-          {/* Title */}
-          <Text
-            style={[
-              {
-                fontSize: 20,
-                fontWeight: 'bold',
-                color: colors.text,
-                marginBottom: spacing.sm,
-                textAlign: 'center',
-              },
-            ]}
-          >
-            {hasSteps && currentStep ? currentStep.title : title}
-          </Text>
-
-          {/* Description */}
-          <Text
-            style={[
-              {
-                fontSize: 14,
-                color: colors.textSecondary,
-                marginBottom: spacing.md,
-                textAlign: 'center',
-                lineHeight: 20,
-              },
-            ]}
-          >
-            {hasSteps && currentStep ? currentStep.description : description}
-          </Text>
-
-          {/* Step Indicators */}
-          {hasSteps && (
-            <View style={[styles.stepIndicators, { marginBottom: spacing.md }]}>
-              {steps.map((_, index) => (
+            {/* Content */}
+            <View style={styles.content}>
+              {/* Icon */}
+              {currentStep?.icon && (
                 <View
-                  key={index}
                   style={[
-                    styles.stepDot,
+                    styles.iconContainer,
                     {
-                      backgroundColor:
-                        index === currentStepIndex
-                          ? colors.primary
-                          : colors.textSecondary + '40',
-                      width: index === currentStepIndex ? 20 : 8,
-                      height: 6,
-                      borderRadius: 3,
-                      marginHorizontal: 3,
+                      backgroundColor: colors.primary + '15',
+                      borderRadius: borderRadius.full,
                     },
                   ]}
-                />
-              ))}
-            </View>
-          )}
-
-          {/* Action Buttons */}
-          <View style={styles.buttonContainer}>
-            {hasSteps ? (
-              <>
-                {/* Multi-step navigation */}
-                <View style={{ flexDirection: 'row', gap: spacing.sm, flex: 1 }}>
-                  {!isFirstStep && (
-                    <Button
-                      title="Previous"
-                      onPress={handlePrevious}
-                      variant="outline"
-                      style={{ flex: 1 }}
-                    />
-                  )}
-                  <Button
-                    title={isLastStep ? 'Got It!' : 'Next'}
-                    onPress={handleNext}
-                    variant="primary"
-                    style={{ flex: 1 }}
-                    icon={
-                      !isLastStep ? (
-                        <Ionicons name="arrow-forward" size={20} color="white" />
-                      ) : undefined
-                    }
-                    iconPosition="right"
-                  />
+                >
+                  <Ionicons name={currentStep.icon} size={48} color={colors.primary} />
                 </View>
-                <Button
-                  title="Skip Tutorial"
-                  onPress={handleSkip}
-                  variant="ghost"
-                  textStyle={{ color: colors.textSecondary }}
-                  style={{ marginTop: spacing.sm }}
-                />
-              </>
-            ) : (
-              // Single-step tutorial
-              <Button
-                title="Got It!"
-                onPress={onClose}
-                variant="primary"
-                style={{ width: '100%' }}
-              />
-            )}
-          </View>
+              )}
+
+              {/* Title */}
+              <Text
+                style={[
+                  styles.title,
+                  {
+                    color: colors.text,
+                  },
+                ]}
+              >
+                {hasSteps && currentStep ? currentStep.title : title}
+              </Text>
+
+              {/* Description */}
+              <Text
+                style={[
+                  styles.description,
+                  {
+                    color: colors.textSecondary,
+                  },
+                ]}
+              >
+                {hasSteps && currentStep ? currentStep.description : description}
+              </Text>
+
+              {/* Step Indicators */}
+              {hasSteps && (
+                <View style={styles.stepIndicators}>
+                  {steps.map((_, index) => (
+                    <View
+                      key={index}
+                      style={[
+                        styles.stepDot,
+                        {
+                          backgroundColor:
+                            index === currentStepIndex
+                              ? colors.primary
+                              : colors.border,
+                          width: index === currentStepIndex ? 24 : 8,
+                        },
+                      ]}
+                    />
+                  ))}
+                </View>
+              )}
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.buttonContainer}>
+              {hasSteps ? (
+                <>
+                  <View style={styles.navigationButtons}>
+                    {!isFirstStep && (
+                      <TouchableOpacity
+                        onPress={handlePrevious}
+                        style={[
+                          styles.navButton,
+                          styles.outlineButton,
+                          { borderColor: colors.border }
+                        ]}
+                      >
+                        <Text style={[styles.buttonText, { color: colors.text }]}>Previous</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      onPress={handleNext}
+                      style={[
+                        styles.navButton,
+                        styles.primaryButton,
+                        { backgroundColor: colors.primary },
+                        !isFirstStep && { flex: 1 }
+                      ]}
+                    >
+                      <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
+                        {isLastStep ? 'Get Started' : 'Next'}
+                      </Text>
+                      {!isLastStep && (
+                        <Ionicons name="arrow-forward" size={18} color="#FFFFFF" style={{ marginLeft: 8 }} />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                  <TouchableOpacity
+                    onPress={handleSkip}
+                    style={styles.skipButton}
+                  >
+                    <Text style={[styles.skipText, { color: colors.textSecondary }]}>Skip Tutorial</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity
+                  onPress={onClose}
+                  style={[
+                    styles.navButton,
+                    styles.primaryButton,
+                    { backgroundColor: colors.primary }
+                  ]}
+                >
+                  <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>Got It!</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </LinearGradient>
         </Animated.View>
       </Animated.View>
     </RNModal>
@@ -266,7 +273,6 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    paddingTop: 60,
   },
   overlayTouchable: {
     ...StyleSheet.absoluteFillObject,
@@ -277,34 +283,98 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     width: '100%',
-    maxWidth: '100%',
-    maxHeight: '75%',
+    maxHeight: SCREEN_HEIGHT * 0.7,
     position: 'relative',
     zIndex: 2,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
+  },
+  gradientContainer: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 24,
+    paddingBottom: 32,
+    paddingHorizontal: 24,
   },
   closeButton: {
     position: 'absolute',
-    zIndex: 3,
-    padding: 8,
+    top: 20,
+    right: 20,
+    zIndex: 10,
+    padding: 4,
+  },
+  content: {
+    alignItems: 'center',
+    paddingTop: 16,
+    paddingBottom: 24,
   },
   iconContainer: {
-    width: 64,
-    height: 64,
+    width: 80,
+    height: 80,
     justifyContent: 'center',
     alignItems: 'center',
-    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 16,
+  },
+  description: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+    paddingHorizontal: 8,
   },
   stepIndicators: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 6,
   },
-  stepDot: {},
+  stepDot: {
+    height: 8,
+    borderRadius: 4,
+  },
   buttonContainer: {
     width: '100%',
+    gap: 12,
+  },
+  navigationButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  navButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    minHeight: 52,
+  },
+  primaryButton: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  outlineButton: {
+    borderWidth: 1.5,
+    flex: 1,
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  skipButton: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  skipText: {
+    fontSize: 15,
+    fontWeight: '500',
   },
 });
