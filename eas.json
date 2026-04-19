@@ -21,7 +21,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://76.13.254.3:3001/api"
+        "EXPO_PUBLIC_API_URL": "https://nonstanzaic-unlovably-collin.ngrok-free.dev/api"
       },
       "channel": "preview"
     },
