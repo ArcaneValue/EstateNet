@@ -324,6 +324,45 @@ export class FeedbackService {
             trending: trendingPosts
         };
     }
+
+    async deletePost(postId: string) {
+        // Delete all related data first (comments, upvotes)
+        await (prisma as any).forumComment.deleteMany({
+            where: { postId }
+        });
+
+        await (prisma as any).forumPostUpvote.deleteMany({
+            where: { postId }
+        });
+
+        // Delete the post
+        const post = await (prisma as any).forumPost.delete({
+            where: { id: postId }
+        });
+
+        return post;
+    }
+
+    async deleteComment(postId: string, commentId: string) {
+        // Verify the comment belongs to the post
+        const comment = await (prisma as any).forumComment.findFirst({
+            where: {
+                id: commentId,
+                postId: postId
+            }
+        });
+
+        if (!comment) {
+            throw new Error('Comment not found or does not belong to this post');
+        }
+
+        // Delete the comment
+        await (prisma as any).forumComment.delete({
+            where: { id: commentId }
+        });
+
+        return comment;
+    }
 }
 
 export default new FeedbackService();

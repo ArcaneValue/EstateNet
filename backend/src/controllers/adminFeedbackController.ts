@@ -214,6 +214,44 @@ export class AdminFeedbackController {
             });
         }
     }
+
+    async deletePost(req: AuthenticatedRequest, res: Response) {
+        try {
+            const { id } = req.params;
+
+            await feedbackService.deletePost(id);
+
+            res.json({
+                success: true,
+                message: 'Post deleted successfully'
+            });
+        } catch (error: any) {
+            console.error('Delete post error:', error);
+            res.status(500).json({
+                success: false,
+                message: error.message || 'Failed to delete post'
+            });
+        }
+    }
+
+    async deleteComment(req: AuthenticatedRequest, res: Response) {
+        try {
+            const { postId, commentId } = req.params;
+
+            await feedbackService.deleteComment(postId, commentId);
+
+            res.json({
+                success: true,
+                message: 'Comment deleted successfully'
+            });
+        } catch (error: any) {
+            console.error('Delete comment error:', error);
+            res.status(500).json({
+                success: false,
+                message: error.message || 'Failed to delete comment'
+            });
+        }
+    }
 }
 
 export default new AdminFeedbackController();

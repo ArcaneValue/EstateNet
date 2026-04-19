@@ -11,6 +11,8 @@ const router = express.Router();
 router.get('/posts', authenticateToken, requireAdmin, adminFeedbackController.getPosts.bind(adminFeedbackController));
 router.put('/posts/:id/status', authenticateToken, requirePermission('canManagePosts'), adminFeedbackController.updatePostStatus.bind(adminFeedbackController));
 router.post('/posts/:id/respond', authenticateToken, requirePermission('canManagePosts'), adminFeedbackController.respondToPost.bind(adminFeedbackController));
+router.delete('/posts/:id', authenticateToken, requirePermission('canManagePosts'), adminFeedbackController.deletePost.bind(adminFeedbackController));
+router.delete('/posts/:postId/comments/:commentId', authenticateToken, requirePermission('canManagePosts'), adminFeedbackController.deleteComment.bind(adminFeedbackController));
 router.get('/analytics', authenticateToken, requirePermission('canViewAnalytics'), adminFeedbackController.getAnalytics.bind(adminFeedbackController));
 
 router.get('/permissions', authenticateToken, requireSuperAdmin, adminFeedbackController.listAdmins.bind(adminFeedbackController));
