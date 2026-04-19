@@ -108,11 +108,20 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
         }
     };
 
-    // Stats for social media style
+    // Stats for social media style - using real data
+    const totalTenants = useMemo(() => {
+        return properties.reduce((total, property) => {
+            const tenants = property.units?.reduce((unitTotal, unit) => {
+                return unitTotal + (unit.tenants?.length || 0);
+            }, 0) || 0;
+            return total + tenants;
+        }, 0);
+    }, [properties]);
+
     const stats = [
-        { label: 'Properties', value: '3' },
-        { label: 'Tenants', value: '12' },
-        { label: 'Rating', value: '4.8' },
+        { label: 'Properties', value: properties.length.toString() },
+        { label: 'Tenants', value: totalTenants.toString() },
+        { label: 'Rating', value: '5.0' }, // TODO: Implement real rating system
     ];
 
     const sortedPayments = useMemo(() => {
