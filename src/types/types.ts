@@ -37,6 +37,7 @@ export interface Unit {
     rentAmount: number;
     isOccupied: boolean;
     tenantId?: string;
+    leases?: any[]; // Lease relation from database
 }
 
 // Property Interface

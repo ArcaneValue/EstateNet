@@ -112,7 +112,7 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
     const totalTenants = useMemo(() => {
         return properties.reduce((total, property) => {
             const tenants = property.units?.reduce((unitTotal, unit) => {
-                return unitTotal + (unit.tenants?.length || 0);
+                return unitTotal + (unit.leases?.length || 0);
             }, 0) || 0;
             return total + tenants;
         }, 0);
@@ -328,6 +328,20 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
                             </View>
                         </View>
                     </Card>
+
+                    {/* Thank You Message */}
+                    <View style={{
+                        paddingVertical: spacing.lg,
+                        alignItems: 'center'
+                    }}>
+                        <Text style={[typography.body, {
+                            color: colors.primary,
+                            fontWeight: '600',
+                            textAlign: 'center'
+                        }]}>
+                            Thank You for Using EstateNet
+                        </Text>
+                    </View>
                 </View>
             </ScrollView>
 
