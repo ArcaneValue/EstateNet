@@ -118,7 +118,7 @@ export const FeedbackTutorialModal: React.FC<FeedbackTutorialModalProps> = ({
                     padding: spacing.lg,
                     width: '100%',
                     maxWidth: 400,
-                    maxHeight: '80%',
+                    maxHeight: '85%',
                     shadowColor: '#000',
                     shadowOffset: { width: 0, height: 10 },
                     shadowOpacity: 0.25,
@@ -259,7 +259,9 @@ export const FeedbackTutorialModal: React.FC<FeedbackTutorialModalProps> = ({
                                     borderRadius: borderRadius.md,
                                     borderWidth: 1,
                                     borderColor: colors.border,
-                                    alignItems: 'center'
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    minHeight: 48
                                 }}
                             >
                                 <Text style={{
@@ -282,6 +284,8 @@ export const FeedbackTutorialModal: React.FC<FeedbackTutorialModalProps> = ({
                                 borderRadius: borderRadius.md,
                                 backgroundColor: colors.primary,
                                 alignItems: 'center',
+                                justifyContent: 'center',
+                                minHeight: 48,
                                 opacity: loading ? 0.7 : 1
                             }}
                         >
