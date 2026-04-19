@@ -120,7 +120,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
             {
               backgroundColor: colors.surface,
               borderRadius: borderRadius.lg,
-              padding: spacing.xl,
+              padding: spacing.lg,
               opacity: fadeAnim,
               transform: [
                 {
@@ -149,21 +149,22 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
                 {
                   backgroundColor: colors.primary + '20',
                   borderRadius: borderRadius.full,
-                  marginBottom: spacing.lg,
+                  marginBottom: spacing.md,
                 },
               ]}
             >
-              <Ionicons name={currentStep.icon} size={48} color={colors.primary} />
+              <Ionicons name={currentStep.icon} size={40} color={colors.primary} />
             </View>
           )}
 
           {/* Title */}
           <Text
             style={[
-              typography.h2,
               {
+                fontSize: 20,
+                fontWeight: 'bold',
                 color: colors.text,
-                marginBottom: spacing.md,
+                marginBottom: spacing.sm,
                 textAlign: 'center',
               },
             ]}
@@ -174,12 +175,12 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
           {/* Description */}
           <Text
             style={[
-              typography.body,
               {
+                fontSize: 14,
                 color: colors.textSecondary,
-                marginBottom: spacing.xl,
+                marginBottom: spacing.md,
                 textAlign: 'center',
-                lineHeight: 24,
+                lineHeight: 20,
               },
             ]}
           >
@@ -188,7 +189,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
 
           {/* Step Indicators */}
           {hasSteps && (
-            <View style={[styles.stepIndicators, { marginBottom: spacing.lg }]}>
+            <View style={[styles.stepIndicators, { marginBottom: spacing.md }]}>
               {steps.map((_, index) => (
                 <View
                   key={index}
@@ -199,10 +200,10 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
                         index === currentStepIndex
                           ? colors.primary
                           : colors.textSecondary + '40',
-                      width: index === currentStepIndex ? 24 : 8,
-                      height: 8,
-                      borderRadius: 4,
-                      marginHorizontal: 4,
+                      width: index === currentStepIndex ? 20 : 8,
+                      height: 6,
+                      borderRadius: 3,
+                      marginHorizontal: 3,
                     },
                   ]}
                 />
@@ -264,9 +265,8 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    justifyContent: 'flex-end',
+    paddingTop: 60,
   },
   overlayTouchable: {
     ...StyleSheet.absoluteFillObject,
@@ -277,9 +277,14 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     width: '100%',
-    maxWidth: 500,
+    maxWidth: '100%',
+    maxHeight: '75%',
     position: 'relative',
     zIndex: 2,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
   },
   closeButton: {
     position: 'absolute',
@@ -287,8 +292,8 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   iconContainer: {
-    width: 80,
-    height: 80,
+    width: 64,
+    height: 64,
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'center',
