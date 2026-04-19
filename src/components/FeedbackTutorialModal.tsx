@@ -108,41 +108,42 @@ export const FeedbackTutorialModal: React.FC<FeedbackTutorialModalProps> = ({
             <View style={{
                 flex: 1,
                 backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                justifyContent: 'center',
-                alignItems: 'center',
-                padding: 20
+                justifyContent: 'flex-end',
+                paddingTop: 60
             }}>
                 <View style={{
                     backgroundColor: colors.surface,
-                    borderRadius: 16,
-                    padding: spacing.lg,
+                    borderTopLeftRadius: 24,
+                    borderTopRightRadius: 24,
+                    paddingHorizontal: spacing.lg,
+                    paddingTop: spacing.xl,
+                    paddingBottom: spacing.lg,
                     width: '100%',
-                    maxWidth: 400,
-                    maxHeight: '85%',
+                    maxHeight: '80%',
                     shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 10 },
-                    shadowOpacity: 0.25,
-                    shadowRadius: 20,
+                    shadowOffset: { width: 0, height: -4 },
+                    shadowOpacity: 0.15,
+                    shadowRadius: 12,
                     elevation: 10
                 }}>
                     {/* Header */}
                     <View style={{
                         flexDirection: 'row',
                         justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: spacing.lg
+                        alignItems: 'flex-start',
+                        marginBottom: spacing.md
                     }}>
-                        <View style={{ flex: 1 }}>
+                        <View style={{ flex: 1, paddingRight: spacing.sm }}>
                             <Text style={{
-                                fontSize: 20,
+                                fontSize: 18,
                                 fontWeight: 'bold',
                                 color: colors.text,
-                                marginBottom: 4
+                                marginBottom: 2
                             }}>
                                 {currentStepData.title}
                             </Text>
                             <Text style={{
-                                fontSize: 14,
+                                fontSize: 12,
                                 color: colors.textSecondary
                             }}>
                                 Step {currentStep + 1} of {TUTORIAL_STEPS.length}
@@ -150,12 +151,12 @@ export const FeedbackTutorialModal: React.FC<FeedbackTutorialModalProps> = ({
                         </View>
                         <TouchableOpacity
                             onPress={handleSkip}
-                            style={{ padding: 4 }}
+                            style={{ paddingVertical: 4, paddingHorizontal: 8 }}
                         >
                             <Text style={{
-                                fontSize: 14,
-                                color: colors.textSecondary,
-                                fontWeight: '500'
+                                fontSize: 13,
+                                color: colors.primary,
+                                fontWeight: '600'
                             }}>
                                 Skip
                             </Text>
@@ -164,10 +165,10 @@ export const FeedbackTutorialModal: React.FC<FeedbackTutorialModalProps> = ({
 
                     {/* Progress Bar */}
                     <View style={{
-                        height: 4,
+                        height: 3,
                         backgroundColor: colors.border,
                         borderRadius: 2,
-                        marginBottom: spacing.lg
+                        marginBottom: spacing.md
                     }}>
                         <View style={{
                             height: '100%',
@@ -179,37 +180,36 @@ export const FeedbackTutorialModal: React.FC<FeedbackTutorialModalProps> = ({
 
                     {/* Content */}
                     <ScrollView
-                        style={{ flex: 1 }}
+                        style={{ flexGrow: 0, flexShrink: 1 }}
                         showsVerticalScrollIndicator={false}
-                        contentContainerStyle={{ paddingBottom: spacing.lg }}
+                        contentContainerStyle={{ paddingBottom: spacing.sm }}
                     >
                         <View style={{
                             alignItems: 'center',
-                            marginBottom: spacing.lg
+                            marginBottom: spacing.md
                         }}>
                             <View style={{
-                                width: 80,
-                                height: 80,
-                                borderRadius: 40,
+                                width: 64,
+                                height: 64,
+                                borderRadius: 32,
                                 backgroundColor: colors.primary + '15',
                                 justifyContent: 'center',
-                                alignItems: 'center',
-                                marginBottom: spacing.md
+                                alignItems: 'center'
                             }}>
                                 <Ionicons
                                     name={currentStepData.icon as any}
-                                    size={40}
+                                    size={32}
                                     color={colors.primary}
                                 />
                             </View>
                         </View>
 
                         <Text style={{
-                            fontSize: 16,
-                            lineHeight: 24,
+                            fontSize: 14,
+                            lineHeight: 20,
                             color: colors.text,
                             textAlign: 'center',
-                            marginBottom: spacing.lg
+                            marginBottom: spacing.md
                         }}>
                             {currentStepData.description}
                         </Text>
@@ -217,23 +217,23 @@ export const FeedbackTutorialModal: React.FC<FeedbackTutorialModalProps> = ({
                         {currentStepData.action && (
                             <View style={{
                                 backgroundColor: colors.info + '15',
-                                padding: spacing.md,
-                                borderRadius: borderRadius.md,
-                                borderLeftWidth: 4,
+                                padding: spacing.sm,
+                                borderRadius: borderRadius.sm,
+                                borderLeftWidth: 3,
                                 borderLeftColor: colors.info
                             }}>
                                 <Text style={{
-                                    fontSize: 14,
+                                    fontSize: 12,
                                     color: colors.info,
-                                    fontWeight: '500',
-                                    marginBottom: 4
+                                    fontWeight: '600',
+                                    marginBottom: 2
                                 }}>
                                     Try this:
                                 </Text>
                                 <Text style={{
-                                    fontSize: 14,
+                                    fontSize: 12,
                                     color: colors.textSecondary,
-                                    lineHeight: 20
+                                    lineHeight: 16
                                 }}>
                                     {currentStepData.action}
                                 </Text>
@@ -244,8 +244,9 @@ export const FeedbackTutorialModal: React.FC<FeedbackTutorialModalProps> = ({
                     {/* Navigation */}
                     <View style={{
                         flexDirection: 'row',
-                        gap: spacing.md,
+                        gap: spacing.sm,
                         paddingTop: spacing.md,
+                        marginTop: spacing.sm,
                         borderTopWidth: 1,
                         borderTopColor: colors.border
                     }}>
@@ -254,18 +255,18 @@ export const FeedbackTutorialModal: React.FC<FeedbackTutorialModalProps> = ({
                                 onPress={handlePrevious}
                                 style={{
                                     flex: 1,
-                                    paddingVertical: spacing.md,
-                                    paddingHorizontal: spacing.lg,
+                                    paddingVertical: 12,
+                                    paddingHorizontal: spacing.md,
                                     borderRadius: borderRadius.md,
                                     borderWidth: 1,
                                     borderColor: colors.border,
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    minHeight: 48
+                                    height: 44
                                 }}
                             >
                                 <Text style={{
-                                    fontSize: 16,
+                                    fontSize: 15,
                                     fontWeight: '600',
                                     color: colors.textSecondary
                                 }}>
@@ -278,14 +279,14 @@ export const FeedbackTutorialModal: React.FC<FeedbackTutorialModalProps> = ({
                             onPress={handleNext}
                             disabled={loading}
                             style={{
-                                flex: currentStep > 0 ? 1 : 2,
-                                paddingVertical: spacing.md,
-                                paddingHorizontal: spacing.lg,
+                                flex: currentStep > 0 ? 1 : 1,
+                                paddingVertical: 12,
+                                paddingHorizontal: spacing.md,
                                 borderRadius: borderRadius.md,
                                 backgroundColor: colors.primary,
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                minHeight: 48,
+                                height: 44,
                                 opacity: loading ? 0.7 : 1
                             }}
                         >
@@ -293,7 +294,7 @@ export const FeedbackTutorialModal: React.FC<FeedbackTutorialModalProps> = ({
                                 <ActivityIndicator size="small" color="#fff" />
                             ) : (
                                 <Text style={{
-                                    fontSize: 16,
+                                    fontSize: 15,
                                     fontWeight: '600',
                                     color: '#fff'
                                 }}>
