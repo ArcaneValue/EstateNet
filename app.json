@@ -33,6 +33,11 @@
       "@react-native-community/datetimepicker"
     ],
     "owner": "jaxrabbit",
-    "runtimeVersion": "1.0.0"
+    "runtimeVersion": "1.0.0",
+    "extra": {
+      "eas": {
+        "projectId": "37ccb684-7118-47a4-9282-64680a908487"
+      }
+    }
   }
 }
