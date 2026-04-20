@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import * as Updates from 'expo-updates';
 import { ThemeProvider } from './src/theme/ThemeContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { PropertyProvider } from './src/context/PropertyContext';
@@ -14,6 +15,24 @@ import { AdminSessionProvider } from './src/context/AdminSessionContext';
 import { Navigation } from './src/navigation';
 
 export default function App() {
+  useEffect(() => {
+    async function onFetchUpdateAsync() {
+      try {
+        const update = await Updates.checkForUpdateAsync();
+
+        if (update.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      } catch (error) {
+        // Handle error - updates will be checked again on next app launch
+        console.log('Update check failed:', error);
+      }
+    }
+
+    onFetchUpdateAsync();
+  }, []);
+
   return (
     <ThemeProvider>
       <AuthProvider>
