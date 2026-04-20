@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import { Alert } from 'react-native';
 import * as Updates from 'expo-updates';
 import { ThemeProvider } from './src/theme/ThemeContext';
 import { AuthProvider } from './src/context/AuthContext';
@@ -18,27 +19,44 @@ export default function App() {
   useEffect(() => {
     async function onFetchUpdateAsync() {
       try {
-        console.log('🔵 [OTA] Checking for updates...');
-        console.log('🔵 [OTA] Update URL:', Updates.updateUrl);
-        console.log('🔵 [OTA] Runtime Version:', Updates.runtimeVersion);
-        console.log('🔵 [OTA] Channel:', Updates.channel);
+        // Show checking alert after 2 seconds
+        setTimeout(() => {
+          Alert.alert(
+            '🔵 OTA Check',
+            `Checking updates...\n\nRuntime: ${Updates.runtimeVersion || 'Not set'}\nChannel: ${Updates.channel || 'Not set'}`,
+            [{ text: 'OK' }]
+          );
+        }, 2000);
 
         const update = await Updates.checkForUpdateAsync();
 
-        console.log('🔵 [OTA] Update check result:', JSON.stringify(update));
-        console.log('🔵 [OTA] Is update available?', update.isAvailable);
-
         if (update.isAvailable) {
-          console.log('🟢 [OTA] Update found! Downloading...');
+          Alert.alert(
+            '🟢 Update Found!',
+            'Downloading update now...',
+            [{ text: 'OK' }]
+          );
           await Updates.fetchUpdateAsync();
-          console.log('🟢 [OTA] Update downloaded! Reloading app...');
-          await Updates.reloadAsync();
+          Alert.alert(
+            '✅ Downloaded',
+            'App will reload now.',
+            [{ text: 'Reload', onPress: () => Updates.reloadAsync() }]
+          );
         } else {
-          console.log('🟡 [OTA] No update available. App is up to date.');
+          setTimeout(() => {
+            Alert.alert(
+              '🟡 No Update',
+              'App is up to date.',
+              [{ text: 'OK' }]
+            );
+          }, 3000);
         }
-      } catch (error) {
-        console.error('🔴 [OTA] Update check failed:', error);
-        console.error('🔴 [OTA] Error details:', JSON.stringify(error));
+      } catch (error: any) {
+        Alert.alert(
+          '🔴 Update Failed',
+          `Error: ${error?.message || 'Unknown'}\n\nCode: ${error?.code || 'N/A'}\n\nOTA updates not working.`,
+          [{ text: 'OK' }]
+        );
       }
     }
 
