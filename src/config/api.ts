@@ -30,7 +30,7 @@ const CURRENT_ENV: Environment = 'prod'; // Set to 'prod' for production server
 const NGROK_URL = 'https://nonstanzaic-unlovably-collin.ngrok-free.dev'; // ← Your ngrok URL
 
 // Production URL (when deployed to cloud)
-const PRODUCTION_URL = 'http://76.13.254.3';
+const PRODUCTION_URL = 'https://estatenet-production.up.railway.app';
 
 // ============================================
 
