@@ -272,7 +272,9 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
   overlayTouchable: {
     ...StyleSheet.absoluteFillObject,
@@ -283,13 +285,13 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     width: '100%',
-    maxHeight: SCREEN_HEIGHT * 0.7,
+    maxWidth: 400,
+    maxHeight: SCREEN_HEIGHT * 0.75,
     position: 'relative',
     zIndex: 2,
   },
   gradientContainer: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderRadius: 24,
     paddingTop: 24,
     paddingBottom: 32,
     paddingHorizontal: 24,
