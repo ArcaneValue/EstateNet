@@ -348,13 +348,6 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
             </View>
           </Card>
         </View>
-
-        {/* Thank You Message */}
-        <View style={{ padding: spacing.lg, alignItems: 'center' }}>
-          <Text style={[typography.body, { color: colors.textSecondary, textAlign: 'center', fontStyle: 'italic' }]}>
-            Thank you for using EstateNet
-          </Text>
-        </View>
       </ScrollView>
 
       {/* Settings Modal */}
