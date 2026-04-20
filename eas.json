@@ -21,7 +21,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://srv1586623.hstgr.cloud/api"
+        "EXPO_PUBLIC_API_URL": "http://76.13.254.3/api"
       },
       "channel": "preview"
     },
