@@ -32,15 +32,7 @@
     "plugins": [
       "@react-native-community/datetimepicker"
     ],
-    "extra": {
-      "eas": {
-        "projectId": "c176bd7c-58ed-4a4d-a0c7-4e664c976cd1"
-      }
-    },
     "owner": "jaxrabbit",
-    "updates": {
-      "url": "https://u.expo.dev/c176bd7c-58ed-4a4d-a0c7-4e664c976cd1"
-    },
     "runtimeVersion": "1.0.0"
   }
 }
