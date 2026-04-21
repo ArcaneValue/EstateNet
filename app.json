@@ -40,7 +40,10 @@
       }
     },
     "updates": {
-      "url": "https://u.expo.dev/37ccb684-7118-47a4-9282-64680a908487"
+      "url": "https://u.expo.dev/37ccb684-7118-47a4-9282-64680a908487",
+      "fallbackToCacheTimeout": 30000,
+      "checkAutomatically": "ON_APP_LAUNCH",
+      "enabled": true
     }
   }
 }
