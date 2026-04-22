@@ -1,4 +1,4 @@
-name: Deploy OTA Update to Production
+name: Deploy OTA Update to Preview
 
 on:
   push:
@@ -12,7 +12,7 @@ on:
 
 jobs:
   update:
-    name: EAS Update - Production
+    name: EAS Update - Preview
     runs-on: ubuntu-latest
     steps:
       - name: Check for EXPO_TOKEN
@@ -43,13 +43,13 @@ jobs:
 
       - name: Publish OTA Update
         run: |
-          eas update --auto --non-interactive --branch production --message "${{ github.event.head_commit.message }}"
+          eas update --auto --non-interactive --branch preview --message "${{ github.event.head_commit.message }}"
 
       - name: Update Summary
         run: |
           echo "✅ OTA Update Published Successfully!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Branch:** production" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** preview" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** ${{ github.event.head_commit.message }}" >> $GITHUB_STEP_SUMMARY
           echo "**Commit SHA:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
