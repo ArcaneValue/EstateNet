@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Alert } from 'react-native';
 import * as Updates from 'expo-updates';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemeProvider } from './src/theme/ThemeContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { PropertyProvider } from './src/context/PropertyContext';
@@ -15,52 +15,78 @@ import { FeedbackProvider } from './src/context/FeedbackContext';
 import { AdminSessionProvider } from './src/context/AdminSessionContext';
 import { Navigation } from './src/navigation';
 
+// OTA Constants
+const LAST_CHECK_KEY = '@ota_last_check';
+const CHECK_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
+const MAX_RETRIES = 3;
+
+// Utility delay function
+function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Frequency control check
+async function shouldCheckForUpdate() {
+  const lastCheck = await AsyncStorage.getItem(LAST_CHECK_KEY);
+  const now = Date.now();
+
+  if (!lastCheck) return true;
+
+  return now - parseInt(lastCheck, 10) > CHECK_INTERVAL;
+}
+
+// Core OTA Engine - Production Grade
+async function checkAndUpdateSilently() {
+  let attempt = 0;
+
+  while (attempt < MAX_RETRIES) {
+    try {
+      const shouldCheck = await shouldCheckForUpdate();
+      if (!shouldCheck) return;
+
+      const update = await Updates.checkForUpdateAsync();
+
+      if (update.isAvailable) {
+        await Updates.fetchUpdateAsync();
+        // Do NOT reload immediately - update is ready for next app restart
+        await AsyncStorage.setItem(LAST_CHECK_KEY, Date.now().toString());
+        console.log('OTA update downloaded successfully');
+        return;
+      }
+
+      await AsyncStorage.setItem(LAST_CHECK_KEY, Date.now().toString());
+      return;
+
+    } catch (error) {
+      attempt++;
+
+      if (attempt >= MAX_RETRIES) {
+        console.log('OTA failed after retries:', error);
+        return;
+      }
+
+      await delay(2000 * attempt);
+    }
+  }
+}
+
+// Optional manual update trigger
+async function manualUpdate() {
+  try {
+    const update = await Updates.checkForUpdateAsync();
+
+    if (update.isAvailable) {
+      await Updates.fetchUpdateAsync();
+      await Updates.reloadAsync();
+    }
+  } catch (e) {
+    console.log('Manual OTA failed', e);
+  }
+}
+
 export default function App() {
   useEffect(() => {
-    async function onFetchUpdateAsync() {
-      try {
-        // Show checking alert after 2 seconds
-        setTimeout(() => {
-          Alert.alert(
-            '🔵 OTA Check',
-            `Checking updates...\n\nRuntime: ${Updates.runtimeVersion || 'Not set'}\nChannel: ${Updates.channel || 'Not set'}`,
-            [{ text: 'OK' }]
-          );
-        }, 2000);
-
-        const update = await Updates.checkForUpdateAsync();
-
-        if (update.isAvailable) {
-          Alert.alert(
-            '🟢 Update Found!',
-            'Downloading update now...',
-            [{ text: 'OK' }]
-          );
-          await Updates.fetchUpdateAsync();
-          Alert.alert(
-            '✅ Downloaded',
-            'App will reload now.',
-            [{ text: 'Reload', onPress: () => Updates.reloadAsync() }]
-          );
-        } else {
-          setTimeout(() => {
-            Alert.alert(
-              '🟡 No Update',
-              'App is up to date.',
-              [{ text: 'OK' }]
-            );
-          }, 3000);
-        }
-      } catch (error: any) {
-        Alert.alert(
-          '🔴 Update Failed',
-          `Error: ${error?.message || 'Unknown'}\n\nCode: ${error?.code || 'N/A'}\n\nOTA updates not working.`,
-          [{ text: 'OK' }]
-        );
-      }
-    }
-
-    onFetchUpdateAsync();
+    checkAndUpdateSilently();
   }, []);
 
   return (
