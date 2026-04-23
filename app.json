@@ -2,7 +2,7 @@
   "expo": {
     "name": "EstateNet",
     "slug": "estatenet",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -33,7 +33,9 @@
       "@react-native-community/datetimepicker"
     ],
     "owner": "jaxrabbit",
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "extra": {
       "eas": {
         "projectId": "37ccb684-7118-47a4-9282-64680a908487"
