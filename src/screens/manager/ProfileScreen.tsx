@@ -121,7 +121,7 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
     const stats = [
         { label: 'Properties', value: properties.length.toString() },
         { label: 'Tenants', value: totalTenants.toString() },
-        { label: 'Rating', value: '5.0' }, // TODO: Implement real rating system
+        { label: 'Rating', value: '0.0' }, // TODO: Implement real rating system
     ];
 
     const sortedPayments = useMemo(() => {
