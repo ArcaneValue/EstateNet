@@ -37,13 +37,16 @@ async function shouldCheckForUpdate() {
 
 // Core OTA Engine - Production Grade
 async function checkAndUpdateSilently() {
+  // Throttle check happens ONCE before the retry loop.
+  // If inside the loop, retry attempts 2 and 3 would also hit the 24h guard
+  // (retries fire within seconds) and exit early — making retries useless.
+  const shouldCheck = await shouldCheckForUpdate();
+  if (!shouldCheck) return;
+
   let attempt = 0;
 
   while (attempt < MAX_RETRIES) {
     try {
-      const shouldCheck = await shouldCheckForUpdate();
-      if (!shouldCheck) return;
-
       const update = await Updates.checkForUpdateAsync();
 
       if (update.isAvailable) {
@@ -70,20 +73,6 @@ async function checkAndUpdateSilently() {
   }
 }
 
-// Optional manual update trigger
-async function manualUpdate() {
-  try {
-    const update = await Updates.checkForUpdateAsync();
-
-    if (update.isAvailable) {
-      await Updates.fetchUpdateAsync();
-      await Updates.reloadAsync();
-    }
-  } catch (e) {
-    console.log('Manual OTA failed', e);
-  }
-}
-
 export default function App() {
   useEffect(() => {
     checkAndUpdateSilently();
@@ -99,14 +88,12 @@ export default function App() {
                 <PaymentProvider>
                   <MessageProvider>
                     <NotificationProvider>
-                      <TutorialProvider>
-                        <AdminSessionProvider>
-                          <FeedbackProvider>
-                            <StatusBar style="auto" />
-                            <Navigation />
-                          </FeedbackProvider>
-                        </AdminSessionProvider>
-                      </TutorialProvider>
+                      <AdminSessionProvider>
+                        <FeedbackProvider>
+                          <StatusBar style="auto" />
+                          <Navigation />
+                        </FeedbackProvider>
+                      </AdminSessionProvider>
                     </NotificationProvider>
                   </MessageProvider>
                 </PaymentProvider>
