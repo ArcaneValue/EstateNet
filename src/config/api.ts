@@ -60,6 +60,10 @@ const ENV_CONFIG = {
   },
 };
 
+const isLocalOrDevApiUrl = (url: string): boolean => {
+  return /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2\d|3[0-1])\.)/i.test(url);
+};
+
 // Get API URL from environment or use configured environment
 const getApiBaseUrl = (): string => {
   // Check for environment variable (set in .env) - this overrides everything
@@ -67,6 +71,11 @@ const getApiBaseUrl = (): string => {
   const envApiUrl = process.env.EXPO_PUBLIC_API_URL;
 
   if (envApiUrl) {
+    // Prevent production/release OTA bundles from accidentally targeting localhost/LAN.
+    if (!__DEV__ && isLocalOrDevApiUrl(envApiUrl)) {
+      console.warn(`Ignoring local API URL in release build: ${envApiUrl}`);
+      return ENV_CONFIG.prod.getUrl();
+    }
     return envApiUrl;
   }
 
