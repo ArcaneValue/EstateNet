@@ -328,6 +328,18 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
                             </View>
                         </View>
                     </Card>
+
+                    <Text style={[
+                        typography.bodySmall,
+                        {
+                            color: colors.textTertiary,
+                            textAlign: 'center',
+                            marginTop: spacing.lg,
+                            fontStyle: 'italic'
+                        }
+                    ]}>
+                        Thank you for using EstateNet.
+                    </Text>
                 </View>
             </ScrollView>
 
