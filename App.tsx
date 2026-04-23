@@ -134,6 +134,16 @@ export default function App() {
   const [otaStatus, setOtaStatus] = useState<OTAStatus>('idle');
   const [otaMessage, setOtaMessage] = useState<string>('');
 
+  const finalizeOTAStatus = (status: OTAStatus, message: string) => {
+    setOtaStatus(status);
+    setOtaMessage(message);
+    // Keep diagnostics visible briefly, then continue into app.
+    setTimeout(() => {
+      setOtaStatus('idle');
+      setOtaMessage('');
+    }, 2200);
+  };
+
   // Diagnostic OTA Update Function
   async function runOTAUpdate() {
     try {
@@ -152,21 +162,16 @@ export default function App() {
         await Updates.fetchUpdateAsync();
 
         setOtaStatus('downloaded');
-        setOtaMessage('Update ready. Restart required.');
-
-        // Optional auto reload - commented out for manual control
-        // await Updates.reloadAsync();
+        setOtaMessage('Update downloaded. Restarting...');
+        await Updates.reloadAsync();
 
       } else {
-        setOtaStatus('no_update');
-        setOtaMessage('App is up to date.');
+        finalizeOTAStatus('no_update', 'App is up to date.');
       }
 
     } catch (error: any) {
-      setOtaStatus('error');
-
       const errorMessage = `Update failed\n\nMessage: ${error?.message || 'Unknown'}\nCode: ${error?.code || 'N/A'}`;
-      setOtaMessage(errorMessage);
+      finalizeOTAStatus('error', errorMessage);
 
       // Critical logging with full diagnostic information
       console.error({
@@ -184,8 +189,9 @@ export default function App() {
     runOTAUpdate();
   }, []);
 
-  // Show OTA diagnostic screen when not idle
-  if (otaStatus !== 'idle') {
+  // Only block app while update check/download is in progress.
+  const showOTAScreen = otaStatus === 'checking' || otaStatus === 'update_available' || otaStatus === 'downloading';
+  if (showOTAScreen) {
     return <OTAStatusScreen status={otaStatus} message={otaMessage} />;
   }
 
