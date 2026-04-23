@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import * as Updates from 'expo-updates';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemeProvider } from './src/theme/ThemeContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { PropertyProvider } from './src/context/PropertyContext';
@@ -15,68 +15,179 @@ import { FeedbackProvider } from './src/context/FeedbackContext';
 import { AdminSessionProvider } from './src/context/AdminSessionContext';
 import { Navigation } from './src/navigation';
 
-// OTA Constants
-const LAST_CHECK_KEY = '@ota_last_check';
-const CHECK_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
-const MAX_RETRIES = 3;
+// OTA Status Types
+type OTAStatus = 'idle' | 'checking' | 'update_available' | 'downloading' | 'downloaded' | 'no_update' | 'error';
 
-// Utility delay function
-function delay(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+// OTA Status Screen Component
+function OTAStatusScreen({ status, message }: { status: OTAStatus; message: string }) {
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  const getStatusText = () => {
+    switch (status) {
+      case 'checking':
+        return 'Scanning estate network...';
+      case 'update_available':
+        return 'New estate data found';
+      case 'downloading':
+        return 'Syncing property data...';
+      case 'downloaded':
+        return 'Update ready';
+      case 'no_update':
+        return 'Estate system up to date';
+      case 'error':
+        return 'Update failed';
+      default:
+        return 'Initializing...';
+    }
+  };
+
+  const getTimestamp = () => {
+    return new Date().toLocaleTimeString('en-US', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
+  return (
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+      <Text style={styles.title}>EstateNet System</Text>
+
+      <View style={styles.statusContainer}>
+        <Text style={styles.status}>{getStatusText()}</Text>
+        <Text style={styles.message}>{message}</Text>
+      </View>
+
+      <View style={styles.debugContainer}>
+        <Text style={styles.debugText}>Runtime: {Updates.runtimeVersion || 'Unknown'}</Text>
+        <Text style={styles.debugText}>Channel: {Updates.channel || 'Unknown'}</Text>
+        <Text style={styles.debugText}>Time: {getTimestamp()}</Text>
+      </View>
+    </Animated.View>
+  );
 }
 
-// Frequency control check
-async function shouldCheckForUpdate() {
-  const lastCheck = await AsyncStorage.getItem(LAST_CHECK_KEY);
-  const now = Date.now();
+// OTA Styles
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0B0F1A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#00D4FF',
+    marginBottom: 40,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+  },
+  statusContainer: {
+    backgroundColor: 'rgba(122, 95, 255, 0.1)',
+    padding: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(122, 95, 255, 0.3)',
+    marginBottom: 30,
+    minWidth: '80%',
+  },
+  status: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#7A5FFF',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  message: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  debugContainer: {
+    backgroundColor: 'rgba(0, 212, 255, 0.05)',
+    padding: 15,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 212, 255, 0.2)',
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#00D4FF',
+    fontFamily: 'monospace',
+    marginVertical: 2,
+  },
+});
 
-  if (!lastCheck) return true;
+export default function App() {
+  const [otaStatus, setOtaStatus] = useState<OTAStatus>('idle');
+  const [otaMessage, setOtaMessage] = useState<string>('');
 
-  return now - parseInt(lastCheck, 10) > CHECK_INTERVAL;
-}
-
-// Core OTA Engine - Production Grade
-async function checkAndUpdateSilently() {
-  // Throttle check happens ONCE before the retry loop.
-  // If inside the loop, retry attempts 2 and 3 would also hit the 24h guard
-  // (retries fire within seconds) and exit early — making retries useless.
-  const shouldCheck = await shouldCheckForUpdate();
-  if (!shouldCheck) return;
-
-  let attempt = 0;
-
-  while (attempt < MAX_RETRIES) {
+  // Diagnostic OTA Update Function
+  async function runOTAUpdate() {
     try {
+      setOtaStatus('checking');
+      setOtaMessage('Checking for updates...');
+
       const update = await Updates.checkForUpdateAsync();
 
       if (update.isAvailable) {
+        setOtaStatus('update_available');
+        setOtaMessage('Update detected. Preparing download...');
+
+        setOtaStatus('downloading');
+        setOtaMessage('Downloading update...');
+
         await Updates.fetchUpdateAsync();
-        // Do NOT reload immediately - update is ready for next app restart
-        await AsyncStorage.setItem(LAST_CHECK_KEY, Date.now().toString());
-        console.log('OTA update downloaded successfully');
-        return;
+
+        setOtaStatus('downloaded');
+        setOtaMessage('Update ready. Restart required.');
+
+        // Optional auto reload - commented out for manual control
+        // await Updates.reloadAsync();
+
+      } else {
+        setOtaStatus('no_update');
+        setOtaMessage('App is up to date.');
       }
 
-      await AsyncStorage.setItem(LAST_CHECK_KEY, Date.now().toString());
-      return;
+    } catch (error: any) {
+      setOtaStatus('error');
 
-    } catch (error) {
-      attempt++;
+      const errorMessage = `Update failed\n\nMessage: ${error?.message || 'Unknown'}\nCode: ${error?.code || 'N/A'}`;
+      setOtaMessage(errorMessage);
 
-      if (attempt >= MAX_RETRIES) {
-        console.log('OTA failed after retries:', error);
-        return;
-      }
-
-      await delay(2000 * attempt);
+      // Critical logging with full diagnostic information
+      console.error({
+        message: error?.message,
+        code: error?.code,
+        stack: error?.stack,
+        runtimeVersion: Updates.runtimeVersion,
+        channel: Updates.channel,
+        timestamp: new Date().toISOString(),
+      });
     }
   }
-}
 
-export default function App() {
   useEffect(() => {
-    checkAndUpdateSilently();
+    runOTAUpdate();
   }, []);
+
+  // Show OTA diagnostic screen when not idle
+  if (otaStatus !== 'idle') {
+    return <OTAStatusScreen status={otaStatus} message={otaMessage} />;
+  }
 
   return (
     <ThemeProvider>
@@ -88,12 +199,14 @@ export default function App() {
                 <PaymentProvider>
                   <MessageProvider>
                     <NotificationProvider>
-                      <AdminSessionProvider>
-                        <FeedbackProvider>
-                          <StatusBar style="auto" />
-                          <Navigation />
-                        </FeedbackProvider>
-                      </AdminSessionProvider>
+                      <TutorialProvider>
+                        <AdminSessionProvider>
+                          <FeedbackProvider>
+                            <StatusBar style="auto" />
+                            <Navigation />
+                          </FeedbackProvider>
+                        </AdminSessionProvider>
+                      </TutorialProvider>
                     </NotificationProvider>
                   </MessageProvider>
                 </PaymentProvider>
