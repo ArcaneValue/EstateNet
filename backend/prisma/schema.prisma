@@ -30,6 +30,9 @@ model User {
   billingStatus          BillingStatus? @default(CURRENT)
   billingGraceUntil      DateTime?
 
+  // Tutorial tracking
+  tutorialFlags Json? @default("{}")
+
   // Manager org linkage - links manager to their owning organization
   createdByOwnerId String? // Set when manager accepts owner invitation
 

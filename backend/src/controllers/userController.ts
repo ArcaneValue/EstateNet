@@ -74,6 +74,7 @@ export const getCurrentUser = async (req: AuthenticatedRequest, res: Response): 
         phoneNumber: true,
         profileImage: true,
         notificationPrefs: true,
+        tutorialFlags: true,
         createdAt: true,
         tenantId: true,
       },
@@ -112,7 +113,7 @@ export const updateCurrentUser = async (req: AuthenticatedRequest, res: Response
       return;
     }
 
-    const { name, phoneNumber, profileImageUrl, notificationPrefs, payoutPhoneNumber, payoutNetwork } = req.body;
+    const { name, phoneNumber, profileImageUrl, notificationPrefs, tutorialFlags, payoutPhoneNumber, payoutNetwork } = req.body;
     console.log('[updateCurrentUser] Request body:', JSON.stringify(req.body, null, 2));
 
     const data: any = {};
@@ -142,6 +143,19 @@ export const updateCurrentUser = async (req: AuthenticatedRequest, res: Response
         res.status(400).json({
           success: false,
           message: `Invalid notificationPrefs: ${error.message}`,
+        });
+        return;
+      }
+    }
+
+    // Tutorial flags - merge with existing flags
+    if (tutorialFlags !== undefined) {
+      if (typeof tutorialFlags === 'object' && !Array.isArray(tutorialFlags)) {
+        data.tutorialFlags = tutorialFlags;
+      } else {
+        res.status(400).json({
+          success: false,
+          message: 'Invalid tutorialFlags format. Must be an object',
         });
         return;
       }
@@ -200,6 +214,7 @@ export const updateCurrentUser = async (req: AuthenticatedRequest, res: Response
         phoneNumber: true,
         profileImage: true,
         notificationPrefs: true,
+        tutorialFlags: true,
         payoutPhoneNumber: true,
         payoutNetwork: true,
         createdAt: true,

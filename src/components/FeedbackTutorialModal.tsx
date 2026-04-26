@@ -102,23 +102,25 @@ export const FeedbackTutorialModal: React.FC<FeedbackTutorialModalProps> = ({
         <Modal
             visible={visible}
             transparent={true}
-            animationType="slide"
+            animationType="fade"
             onRequestClose={onClose}
         >
             <View style={{
                 flex: 1,
                 backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                justifyContent: 'flex-end',
+                justifyContent: 'center',
+                alignItems: 'center',
+                paddingHorizontal: spacing.lg,
                 paddingTop: 60
             }}>
                 <View style={{
                     backgroundColor: colors.surface,
-                    borderTopLeftRadius: 24,
-                    borderTopRightRadius: 24,
+                    borderRadius: 24,
                     paddingHorizontal: spacing.lg,
                     paddingTop: spacing.xl,
                     paddingBottom: spacing.lg,
                     width: '100%',
+                    maxWidth: 500,
                     maxHeight: '80%',
                     shadowColor: '#000',
                     shadowOffset: { width: 0, height: -4 },

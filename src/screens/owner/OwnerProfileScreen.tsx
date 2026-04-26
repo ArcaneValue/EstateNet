@@ -8,12 +8,14 @@ import {
   Image,
   Alert,
   Switch,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useOwnerApi } from '../../hooks/useOwnerApi';
 import { apiPatch } from '../../utils/apiClient';
+import { formatMemberSince } from '../../utils/formatters';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { Modal } from '../../components/Modal';
@@ -174,7 +176,7 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: spacing.xl }}
+        contentContainerStyle={{ paddingBottom: Platform.OS === 'android' ? 115 : 64 }}
       >
         {/* Header with Settings Icon */}
         <View style={{
@@ -342,7 +344,7 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
               <View style={{ flex: 1 }}>
                 <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Member Since</Text>
                 <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>
-                  {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'January 2024'}
+                  {formatMemberSince(user?.createdAt)}
                 </Text>
               </View>
             </View>

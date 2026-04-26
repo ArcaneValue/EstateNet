@@ -3,13 +3,13 @@ import {
     View,
     Text,
     StyleSheet,
-    ScrollView,
     TouchableOpacity,
     TextInput,
     ActivityIndicator,
     Alert,
     RefreshControl
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFeedback } from '../../context/FeedbackContext';
@@ -125,8 +125,11 @@ export const FeedbackPostDetailScreen = ({ route, navigation }: any) => {
                 <View style={{ width: 24 }} />
             </View>
 
-            <ScrollView
+            <KeyboardAwareScrollView
                 style={styles.content}
+                enableOnAndroid={true}
+                extraScrollHeight={20}
+                keyboardShouldPersistTaps="handled"
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
                 }
@@ -207,30 +210,31 @@ export const FeedbackPostDetailScreen = ({ route, navigation }: any) => {
                         </View>
                     )}
                 </View>
-            </ScrollView>
 
-            <View style={[styles.commentInputContainer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
-                <TextInput
-                    style={[styles.commentInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
-                    placeholder="Add a comment..."
-                    placeholderTextColor={colors.textTertiary}
-                    value={comment}
-                    onChangeText={setComment}
-                    multiline
-                    maxLength={500}
-                />
-                <TouchableOpacity
-                    style={[styles.sendButton, submitting && styles.sendButtonDisabled]}
-                    onPress={handleSubmitComment}
-                    disabled={submitting}
-                >
-                    {submitting ? (
-                        <ActivityIndicator size="small" color={colors.primary} />
-                    ) : (
-                        <Ionicons name="send" size={24} color={colors.primary} />
-                    )}
-                </TouchableOpacity>
-            </View>
+                {/* Comment Input - Inside ScrollView for keyboard awareness */}
+                <View style={[styles.commentInputContainer, { backgroundColor: colors.surface, borderTopColor: colors.border, marginBottom: insets.bottom }]}>
+                    <TextInput
+                        style={[styles.commentInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
+                        placeholder="Add a comment..."
+                        placeholderTextColor={colors.textTertiary}
+                        value={comment}
+                        onChangeText={setComment}
+                        multiline
+                        maxLength={500}
+                    />
+                    <TouchableOpacity
+                        style={[styles.sendButton, submitting && styles.sendButtonDisabled]}
+                        onPress={handleSubmitComment}
+                        disabled={submitting}
+                    >
+                        {submitting ? (
+                            <ActivityIndicator size="small" color={colors.primary} />
+                        ) : (
+                            <Ionicons name="send" size={24} color={colors.primary} />
+                        )}
+                    </TouchableOpacity>
+                </View>
+            </KeyboardAwareScrollView>
         </View>
     );
 };

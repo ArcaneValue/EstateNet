@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Alert, Switch } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Alert, Switch, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth, UserRole } from '../../context/AuthContext';
+import { formatUGX, formatMemberSince } from '../../utils/formatters';
 import { apiPatch } from '../../utils/apiClient';
 import { usePayments } from '../../context/PaymentContext';
 import { useTenants } from '../../context/TenantContext';
@@ -132,7 +133,10 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: Platform.OS === 'android' ? 115 : 64 }}
+            >
                 {/* Header with Settings Icon */}
                 <View style={{
                     flexDirection: 'row',
@@ -323,7 +327,7 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
                             <View style={{ flex: 1 }}>
                                 <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Member Since</Text>
                                 <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>
-                                    January 2024
+                                    {formatMemberSince(user?.createdAt)}
                                 </Text>
                             </View>
                         </View>

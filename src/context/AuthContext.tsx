@@ -34,6 +34,10 @@ interface User {
         messages?: boolean;
         invitations?: boolean;
     };
+    // Tutorial flags for persistent tutorial tracking
+    tutorialFlags?: {
+        [key: string]: boolean;
+    };
     // Admin fields
     isAdmin?: boolean;
     adminPermissions?: {

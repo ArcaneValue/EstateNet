@@ -101,3 +101,21 @@ export const formatPercentage = (value: number): string => {
 export const formatOccupancy = (occupied: number, total: number): string => {
     return `${occupied}/${total}`;
 };
+
+/**
+ * Format member since date from createdAt timestamp
+ * @example formatMemberSince("2024-01-15T10:30:00Z") => "January 2024"
+ */
+export const formatMemberSince = (createdAt?: string): string => {
+    if (!createdAt) {
+        // Log critical error if Sentry is available
+        if (typeof window !== 'undefined' && (window as any).Sentry) {
+            (window as any).Sentry.captureMessage('[Profile] Missing createdAt timestamp', 'error');
+        } else {
+            console.error('[Profile] Missing createdAt timestamp');
+        }
+        // Fallback to current month
+        return new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+    return new Date(createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+};

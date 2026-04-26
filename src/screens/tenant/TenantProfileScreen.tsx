@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, Alert, Switch, Clipboard } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, Alert, Switch, Clipboard, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -11,6 +11,7 @@ import { Button } from '../../components/Button';
 import { TopAppBar } from '../../components/TopAppBar';
 import { Ionicons } from '@expo/vector-icons';
 import { apiPatch } from '../../utils/apiClient';
+import { formatMemberSince } from '../../utils/formatters';
 import * as ImagePicker from 'expo-image-picker';
 
 interface TenantProfileScreenProps {
@@ -82,7 +83,10 @@ export const TenantProfileScreen: React.FC<TenantProfileScreenProps> = ({ naviga
     }
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: Platform.OS === 'android' ? 115 : 64 }}
+            >
                 {/* Header with Settings Icon */}
                 <View style={{
                     flexDirection: 'row',
@@ -297,7 +301,7 @@ export const TenantProfileScreen: React.FC<TenantProfileScreenProps> = ({ naviga
                             <View style={{ flex: 1 }}>
                                 <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Member Since</Text>
                                 <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>
-                                    {leaseStartDate}
+                                    {formatMemberSince(user?.createdAt)}
                                 </Text>
                             </View>
                         </View>

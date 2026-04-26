@@ -15,7 +15,7 @@ import {
     ActivityIndicator
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiPatch } from '../../utils/apiClient';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useFeedback } from '../../context/FeedbackContext';
@@ -73,13 +73,13 @@ export const FeedbackCommunityScreen = ({ navigation }: any) => {
         loadPosts({ category: selectedCategory, status: selectedStatus });
     }, [selectedCategory, selectedStatus]);
 
-    // Check if user should see tutorial on first visit
+    // Check if user should see tutorial based on backend flag
     useEffect(() => {
-        const checkFirstVisit = async () => {
+        const checkTutorialFlag = () => {
             try {
-                // Check if this is the first time visiting Feedback Community
-                const hasVisitedBefore = await AsyncStorage.getItem('@estatenet_feedback_tutorial_seen');
-                if (!hasVisitedBefore) {
+                // Check backend tutorialFlags instead of AsyncStorage
+                const hasViewedTutorial = user?.tutorialFlags?.hasViewedFeedbackTutorial;
+                if (!hasViewedTutorial) {
                     setShowTutorial(true);
                 }
             } catch (error) {
@@ -87,12 +87,23 @@ export const FeedbackCommunityScreen = ({ navigation }: any) => {
             }
         };
 
-        checkFirstVisit();
-    }, []);
+        checkTutorialFlag();
+    }, [user]);
 
     const handleTutorialComplete = async () => {
         try {
-            await AsyncStorage.setItem('@estatenet_feedback_tutorial_seen', 'true');
+            // Update backend tutorialFlags instead of AsyncStorage
+            const currentFlags = user?.tutorialFlags || {};
+            const updatedFlags = {
+                ...currentFlags,
+                hasViewedFeedbackTutorial: true
+            };
+
+            await apiPatch('/users/me', {
+                tutorialFlags: updatedFlags
+            });
+
+            console.log('Tutorial completion saved to backend');
         } catch (error) {
             console.log('Tutorial completion error:', error);
         }
