@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Updates from 'expo-updates';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemeProvider } from './src/theme/ThemeContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { PropertyProvider } from './src/context/PropertyContext';
@@ -14,127 +14,217 @@ import { TutorialProvider } from './src/context/TutorialContext';
 import { FeedbackProvider } from './src/context/FeedbackContext';
 import { AdminSessionProvider } from './src/context/AdminSessionContext';
 import { Navigation } from './src/navigation';
+import { OTAUpdateScreen } from './src/components/OTAUpdateScreen';
+import { logOTAError, extractErrorDetails } from './src/utils/otaErrorHandler';
+
+const SKIPPED_UPDATE_KEY = '@estatenet_skipped_update';
+
+interface SkippedUpdate {
+  version: string;
+  skippedAt: string;
+}
 
 export default function App() {
-  const [updateStatus, setUpdateStatus] = useState<string>('checking');
-  const [updateMessage, setUpdateMessage] = useState<string>('Checking for updates...');
+  const [updateStatus, setUpdateStatus] = useState<'checking' | 'available' | 'downloading' | 'ready' | 'success' | 'error' | 'current' | 'complete'>('checking');
+  const [errorDetails, setErrorDetails] = useState<any>(null);
+  const [updateInfo, setUpdateInfo] = useState<any>(null);
+  const [downloadProgress, setDownloadProgress] = useState(0);
 
-  // OTA Update Function with UI feedback
-  async function runOTAUpdate() {
+  // Check if update was previously skipped
+  const checkSkippedUpdate = async (updateId: string): Promise<boolean> => {
+    try {
+      const skippedData = await AsyncStorage.getItem(SKIPPED_UPDATE_KEY);
+      if (skippedData) {
+        const skipped: SkippedUpdate = JSON.parse(skippedData);
+        return skipped.version === updateId;
+      }
+    } catch (error) {
+      console.error('[OTA] Error checking skipped update:', error);
+    }
+    return false;
+  };
+
+  // Save skipped update
+  const saveSkippedUpdate = async (updateId: string) => {
+    try {
+      const skippedData: SkippedUpdate = {
+        version: updateId,
+        skippedAt: new Date().toISOString(),
+      };
+      await AsyncStorage.setItem(SKIPPED_UPDATE_KEY, JSON.stringify(skippedData));
+      console.log('[OTA] Saved skipped update:', updateId);
+    } catch (error) {
+      console.error('[OTA] Error saving skipped update:', error);
+    }
+  };
+
+  // Clear skipped update
+  const clearSkippedUpdate = async () => {
+    try {
+      await AsyncStorage.removeItem(SKIPPED_UPDATE_KEY);
+    } catch (error) {
+      console.error('[OTA] Error clearing skipped update:', error);
+    }
+  };
+
+  // Extract release notes from manifest metadata
+  const extractReleaseNotes = (manifest: any): string[] => {
+    try {
+      // Try to get release notes from manifest metadata
+      if (manifest?.metadata?.releaseNotes) {
+        if (Array.isArray(manifest.metadata.releaseNotes)) {
+          return manifest.metadata.releaseNotes;
+        }
+        if (typeof manifest.metadata.releaseNotes === 'string') {
+          return manifest.metadata.releaseNotes.split('\n').filter((note: string) => note.trim());
+        }
+      }
+      // Default release notes if none provided
+      return ['Bug fixes and improvements'];
+    } catch (error) {
+      console.error('[OTA] Error extracting release notes:', error);
+      return ['Bug fixes and improvements'];
+    }
+  };
+
+  // OTA Update Function with enhanced error handling
+  const runOTAUpdate = async () => {
     try {
       console.log('[OTA] Checking for updates...');
       setUpdateStatus('checking');
-      setUpdateMessage('Checking for updates...');
 
       const update = await Updates.checkForUpdateAsync();
 
       if (update.isAvailable) {
-        console.log('[OTA] Update available, downloading...');
-        setUpdateStatus('downloading');
-        setUpdateMessage('Downloading update...');
+        const updateId = update.manifest?.id || 'unknown';
 
-        await Updates.fetchUpdateAsync();
+        // Check if this update was previously skipped
+        const wasSkipped = await checkSkippedUpdate(updateId);
+        if (wasSkipped) {
+          console.log('[OTA] Update was previously skipped, showing again');
+        }
 
-        console.log('[OTA] Update downloaded successfully');
-        setUpdateStatus('ready');
-        setUpdateMessage('Update ready! Restarting app...');
+        // Extract update information
+        const currentVersion = Updates.manifest?.version || Updates.runtimeVersion;
+        const newVersion = update.manifest?.version || 'latest';
+        const releaseNotes = extractReleaseNotes(update.manifest);
 
-        // Show alert before reloading
-        Alert.alert(
-          'Update Downloaded',
-          'A new version is ready. The app will restart now.',
-          [
-            {
-              text: 'OK',
-              onPress: async () => {
-                await Updates.reloadAsync();
-              }
-            }
-          ]
-        );
+        setUpdateInfo({
+          currentVersion,
+          newVersion,
+          releaseNotes,
+          updateId,
+        });
 
-        // Auto-reload after 2 seconds if user doesn't respond
-        setTimeout(async () => {
-          await Updates.reloadAsync();
-        }, 2000);
+        setUpdateStatus('available');
       } else {
         console.log('[OTA] App is up to date');
         setUpdateStatus('current');
-        setUpdateMessage('App is up to date');
 
-        // Hide update screen after 1 second
+        // Clear any skipped update since we're current
+        await clearSkippedUpdate();
+
+        // Hide screen after 1 second
         setTimeout(() => {
           setUpdateStatus('complete');
         }, 1000);
       }
     } catch (error: any) {
-      console.error('[OTA] Update failed:', {
-        message: error?.message,
-        code: error?.code,
-        stack: error?.stack,
+      const errorData = extractErrorDetails(error);
+      setErrorDetails(errorData);
+
+      // Log to Sentry automatically
+      logOTAError(error, {
+        updateStage: 'checking',
         runtimeVersion: Updates.runtimeVersion,
         channel: Updates.channel,
         timestamp: new Date().toISOString(),
       });
 
       setUpdateStatus('error');
-      setUpdateMessage('Update check failed. Continuing with current version...');
 
-      // Hide error screen after 2 seconds
+      // Auto-continue after 3 seconds
       setTimeout(() => {
         setUpdateStatus('complete');
-      }, 2000);
+      }, 3000);
     }
-  }
+  };
+
+  // Handle update download
+  const handleUpdateNow = async () => {
+    try {
+      setUpdateStatus('downloading');
+      setDownloadProgress(0);
+
+      // Clear skipped update since user is proceeding
+      await clearSkippedUpdate();
+
+      await Updates.fetchUpdateAsync();
+
+      setUpdateStatus('success');
+
+      // Auto-reload after 3 seconds
+      setTimeout(async () => {
+        await Updates.reloadAsync();
+      }, 3000);
+    } catch (error: any) {
+      const errorData = extractErrorDetails(error);
+      setErrorDetails(errorData);
+
+      // Log to Sentry
+      logOTAError(error, {
+        updateStage: 'downloading',
+        runtimeVersion: Updates.runtimeVersion,
+        channel: Updates.channel,
+        timestamp: new Date().toISOString(),
+      });
+
+      setUpdateStatus('error');
+    }
+  };
+
+  // Handle skip update
+  const handleSkipUpdate = async () => {
+    if (updateInfo?.updateId) {
+      await saveSkippedUpdate(updateInfo.updateId);
+    }
+    setUpdateStatus('complete');
+  };
+
+  // Handle retry
+  const handleRetry = () => {
+    setErrorDetails(null);
+    runOTAUpdate();
+  };
+
+  // Handle continue (dismiss error or success screen)
+  const handleContinue = async () => {
+    if (updateStatus === 'success') {
+      await Updates.reloadAsync();
+    } else {
+      setUpdateStatus('complete');
+    }
+  };
 
   useEffect(() => {
     runOTAUpdate();
   }, []);
 
-  // Show update screen while checking/downloading
+  // Show OTA update screen
   if (updateStatus !== 'complete') {
     return (
-      <View style={styles.updateContainer}>
-        <View style={styles.updateContent}>
-          <Text style={styles.appName}>EstateNet</Text>
-
-          {updateStatus === 'checking' && (
-            <>
-              <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />
-              <Text style={styles.updateText}>{updateMessage}</Text>
-            </>
-          )}
-
-          {updateStatus === 'downloading' && (
-            <>
-              <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />
-              <Text style={styles.updateText}>{updateMessage}</Text>
-              <Text style={styles.subText}>Please wait...</Text>
-            </>
-          )}
-
-          {updateStatus === 'ready' && (
-            <>
-              <Text style={styles.successText}>✓</Text>
-              <Text style={styles.updateText}>{updateMessage}</Text>
-            </>
-          )}
-
-          {updateStatus === 'current' && (
-            <>
-              <Text style={styles.successText}>✓</Text>
-              <Text style={styles.updateText}>{updateMessage}</Text>
-            </>
-          )}
-
-          {updateStatus === 'error' && (
-            <>
-              <Text style={styles.errorText}>⚠</Text>
-              <Text style={styles.updateText}>{updateMessage}</Text>
-            </>
-          )}
-        </View>
-      </View>
+      <ThemeProvider>
+        <OTAUpdateScreen
+          status={updateStatus}
+          errorDetails={errorDetails}
+          updateInfo={updateInfo}
+          downloadProgress={downloadProgress}
+          onUpdateNow={handleUpdateNow}
+          onSkipUpdate={handleSkipUpdate}
+          onRetry={handleRetry}
+          onContinue={handleContinue}
+        />
+      </ThemeProvider>
     );
   }
 
@@ -167,47 +257,3 @@ export default function App() {
     </ThemeProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  updateContainer: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  updateContent: {
-    alignItems: 'center',
-    padding: 20,
-  },
-  appName: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#007AFF',
-    marginBottom: 40,
-  },
-  loader: {
-    marginVertical: 20,
-  },
-  updateText: {
-    fontSize: 16,
-    color: '#333333',
-    textAlign: 'center',
-    marginTop: 10,
-  },
-  subText: {
-    fontSize: 14,
-    color: '#666666',
-    textAlign: 'center',
-    marginTop: 5,
-  },
-  successText: {
-    fontSize: 48,
-    color: '#4CAF50',
-    marginVertical: 20,
-  },
-  errorText: {
-    fontSize: 48,
-    color: '#FF9800',
-    marginVertical: 20,
-  },
-});
