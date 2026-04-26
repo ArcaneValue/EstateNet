@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { Input } from './Input';
 import { Button } from './Button';
@@ -14,6 +15,7 @@ interface AddPropertyFormProps {
 
 export const AddPropertyForm: React.FC<AddPropertyFormProps> = ({ onSubmit, onCancel }) => {
     const { colors, spacing, typography, borderRadius, shadows } = useTheme();
+    const insets = useSafeAreaInsets();
 
     // Initial Form State
     const [formData, setFormData] = useState<Partial<Property>>({
@@ -457,8 +459,14 @@ export const AddPropertyForm: React.FC<AddPropertyFormProps> = ({ onSubmit, onCa
         <View style={{ flex: 1, backgroundColor: colors.background }}>
             {/* Header */}
             <View style={{
-                padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.border,
-                flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'
+                paddingTop: spacing.lg + insets.top,
+                paddingHorizontal: spacing.lg,
+                paddingBottom: spacing.lg,
+                borderBottomWidth: 1,
+                borderBottomColor: colors.border,
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center'
             }}>
                 <Text style={[typography.h2, { color: colors.text }]}>Property Details</Text>
                 <TouchableOpacity onPress={onCancel}>
@@ -502,8 +510,13 @@ export const AddPropertyForm: React.FC<AddPropertyFormProps> = ({ onSubmit, onCa
 
             {/* Footer */}
             <View style={{
-                padding: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border,
-                flexDirection: 'row', gap: spacing.md
+                paddingTop: spacing.lg,
+                paddingHorizontal: spacing.lg,
+                paddingBottom: spacing.lg + insets.bottom,
+                borderTopWidth: 1,
+                borderTopColor: colors.border,
+                flexDirection: 'row',
+                gap: spacing.md
             }}>
                 {currentStep > 0 ? (
                     <Button

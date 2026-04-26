@@ -14,6 +14,7 @@ import {
     RefreshControl,
     ActivityIndicator
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -41,7 +42,8 @@ const STATUSES = [
 export const FeedbackCommunityScreen = ({ navigation }: any) => {
     const { posts, loading, loadPosts, upvotePost } = useFeedback();
     const { user } = useAuth();
-    const { colors } = useTheme();
+    const { colors, spacing } = useTheme();
+    const insets = useSafeAreaInsets();
     const { isAdminAuthenticated, setAdminSession, validateAdminSession } = useAdminSession();
     const [selectedCategory, setSelectedCategory] = useState('ALL');
     const [selectedStatus, setSelectedStatus] = useState('ALL');
@@ -183,7 +185,7 @@ export const FeedbackCommunityScreen = ({ navigation }: any) => {
     );
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
             <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color={colors.primary} />
@@ -278,7 +280,7 @@ export const FeedbackCommunityScreen = ({ navigation }: any) => {
             )}
 
             <TouchableOpacity
-                style={[styles.fab, { backgroundColor: colors.primary }]}
+                style={[styles.fab, { backgroundColor: colors.primary, bottom: 16 + insets.bottom }]}
                 onPress={() => navigation.navigate('CreateFeedback')}
             >
                 <Ionicons name="add" size={28} color="#fff" />

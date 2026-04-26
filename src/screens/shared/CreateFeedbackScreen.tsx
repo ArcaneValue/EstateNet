@@ -9,6 +9,7 @@ import {
     Alert,
     ActivityIndicator
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFeedback } from '../../context/FeedbackContext';
 import { useTheme } from '../../theme/ThemeContext';
@@ -21,7 +22,8 @@ const CATEGORIES = [
 
 export const CreateFeedbackScreen = ({ navigation }: any) => {
     const { createPost } = useFeedback();
-    const { colors } = useTheme();
+    const { colors, spacing } = useTheme();
+    const insets = useSafeAreaInsets();
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
@@ -58,7 +60,7 @@ export const CreateFeedbackScreen = ({ navigation }: any) => {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
             <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()}>
                     <Ionicons name="arrow-back" size={24} color={colors.primary} />

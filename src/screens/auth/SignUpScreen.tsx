@@ -37,6 +37,8 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [passwordFocused, setPasswordFocused] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     // Password validation states
     const hasMinLength = password.length >= 8;
@@ -186,7 +188,16 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
                     onChangeText={setPassword}
                     onFocus={() => setPasswordFocused(true)}
                     onBlur={() => setPasswordFocused(false)}
-                    secureTextEntry
+                    secureTextEntry={!showPassword}
+                    rightIcon={
+                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                            <Ionicons
+                                name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                                size={20}
+                                color="#666"
+                            />
+                        </TouchableOpacity>
+                    }
                     error={errors.password}
                     {...(Platform.OS === 'ios' && {
                         textContentType: 'password',
@@ -250,7 +261,16 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
                     placeholder="Confirm your password"
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
-                    secureTextEntry
+                    secureTextEntry={!showConfirmPassword}
+                    rightIcon={
+                        <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                            <Ionicons
+                                name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                                size={20}
+                                color="#666"
+                            />
+                        </TouchableOpacity>
+                    }
                     error={errors.confirmPassword}
                     {...(Platform.OS === 'ios' && {
                         textContentType: 'password',

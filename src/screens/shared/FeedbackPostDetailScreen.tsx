@@ -10,6 +10,7 @@ import {
     Alert,
     RefreshControl
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFeedback } from '../../context/FeedbackContext';
 import { useAuth } from '../../context/AuthContext';
@@ -31,7 +32,8 @@ export const FeedbackPostDetailScreen = ({ route, navigation }: any) => {
     const { postId } = route.params;
     const { getPostById, upvotePost, addComment } = useFeedback();
     const { user } = useAuth();
-    const { colors } = useTheme();
+    const { colors, spacing } = useTheme();
+    const insets = useSafeAreaInsets();
     const [post, setPost] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -114,7 +116,7 @@ export const FeedbackPostDetailScreen = ({ route, navigation }: any) => {
     }
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
             <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()}>
                     <Ionicons name="arrow-back" size={24} color={colors.primary} />

@@ -9,6 +9,7 @@ interface NotificationContextType {
   loadNotifications: () => Promise<void>;
   markAsRead: (id: string) => Promise<boolean>;
   markAllAsRead: () => Promise<void>;
+  clearAll: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -111,6 +112,10 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     }
   };
 
+  const clearAll = (): void => {
+    setNotifications([]);
+  };
+
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const value: NotificationContextType = {
@@ -121,6 +126,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     loadNotifications,
     markAsRead,
     markAllAsRead,
+    clearAll,
   };
 
   return (

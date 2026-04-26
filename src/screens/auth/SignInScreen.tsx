@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { Input } from '../../components/Input';
@@ -19,6 +20,7 @@ export const SignInScreen: React.FC<SignInScreenProps> = ({ navigation }) => {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleSignIn = async () => {
         if (!email || !password) {
@@ -117,7 +119,16 @@ export const SignInScreen: React.FC<SignInScreenProps> = ({ navigation }) => {
                         placeholder="Enter your password"
                         value={password}
                         onChangeText={setPassword}
-                        secureTextEntry
+                        secureTextEntry={!showPassword}
+                        rightIcon={
+                            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                                <Ionicons
+                                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                                    size={20}
+                                    color="#666"
+                                />
+                            </TouchableOpacity>
+                        }
                         {...(Platform.OS === 'ios' && {
                             textContentType: 'password',
                             autoComplete: 'password',
