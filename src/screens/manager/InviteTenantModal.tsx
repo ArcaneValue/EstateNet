@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Modal } from '../../components';
+import { LeaseDisclaimerModal } from '../../components/LeaseDisclaimerModal';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
 import { useTheme } from '../../theme/ThemeContext';
@@ -38,6 +39,8 @@ export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, o
     const [isLoading, setIsLoading] = useState(false);
     const [tenantLookupLoading, setTenantLookupLoading] = useState(false);
     const [tenantData, setTenantData] = useState<{ name: string; email: string } | null>(null);
+    const [showDisclaimer, setShowDisclaimer] = useState(false);
+    const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
     const selectedProperty = properties.find(p => p.id === selectedPropertyId);
     const vacantUnits = selectedProperty?.units.filter(u => !u.isOccupied) || [];
 
@@ -119,6 +122,12 @@ export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, o
             return;
         }
 
+        // Show disclaimer if not accepted yet
+        if (!disclaimerAccepted) {
+            setShowDisclaimer(true);
+            return;
+        }
+
         setIsLoading(true);
         setError('');
 
@@ -174,128 +183,148 @@ export const InviteTenantModal: React.FC<InviteTenantModalProps> = ({ visible, o
         }
     };
 
+    const handleDisclaimerAccept = () => {
+        setDisclaimerAccepted(true);
+        setShowDisclaimer(false);
+        // Automatically proceed with invitation after accepting disclaimer
+        handleInvite();
+    };
+
+    const handleDisclaimerDecline = () => {
+        setShowDisclaimer(false);
+    };
+
     return (
-        <Modal visible={visible} onClose={onClose} title="Invite Tenant" size="medium">
-            {!success ? (
-                <>
-                    <Text style={[typography.body, { color: colors.textSecondary, marginBottom: spacing.lg }]}>
-                        Search for a tenant by their ID and assign them to a vacant unit
-                    </Text>
-
-                    <Input
-                        label="Tenant ID (starts with TN-)"
-                        placeholder="Enter Tenant ID (e.g., TN-0V6EMV1V)"
-                        value={tenantIdInput}
-                        onChangeText={handleTenantIdChange}
-                        maxLength={11}
-                        icon={<Ionicons name="card-outline" size={20} color={colors.textSecondary} />}
-                        rightIcon={tenantLookupLoading ? <ActivityIndicator size="small" color={colors.primary} /> : undefined}
-                    />
-                    <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.xs }]}>
-                        Tenant must be registered first. Ask them to copy it from Profile.
-                    </Text>
-
-                    {tenantData && (
-                        <View style={[styles.tenantFound, { backgroundColor: colors.successLight, padding: spacing.md, borderRadius: 8, marginTop: spacing.sm }]}>
-                            <Ionicons name="checkmark-circle" size={24} color={colors.success} />
-                            <View style={{ marginLeft: spacing.sm, flex: 1 }}>
-                                <Text style={[typography.h4, { color: colors.success }]}>Tenant Found</Text>
-                                <Text style={[typography.bodySmall, { color: colors.text, marginTop: 4 }]}>
-                                    {tenantData.name} - {tenantData.email}
-                                </Text>
-                            </View>
-                        </View>
-                    )}
-
-                    <View style={{ marginTop: spacing.base }}>
-                        <Text style={[typography.h4, { color: colors.text, marginBottom: spacing.sm }]}>
-                            Select Property
+        <>
+            <Modal visible={visible} onClose={onClose} title="Invite Tenant" size="medium">
+                {!success ? (
+                    <>
+                        <Text style={[typography.body, { color: colors.textSecondary, marginBottom: spacing.lg }]}>
+                            Search for a tenant by their ID and assign them to a vacant unit
                         </Text>
-                        {properties.map(property => (
-                            <Button
-                                key={property.id}
-                                title={`${property.name} (${property.units.filter(u => !u.isOccupied).length} vacant)`}
-                                onPress={() => setSelectedPropertyId(property.id)}
-                                variant={selectedPropertyId === property.id ? 'primary' : 'outline'}
-                                size="medium"
-                                style={{ marginBottom: spacing.sm }}
-                            />
-                        ))}
-                    </View>
 
-                    {selectedPropertyId && vacantUnits.length === 0 && (
+                        <Input
+                            label="Tenant ID (starts with TN-)"
+                            placeholder="Enter Tenant ID (e.g., TN-0V6EMV1V)"
+                            value={tenantIdInput}
+                            onChangeText={handleTenantIdChange}
+                            maxLength={11}
+                            icon={<Ionicons name="card-outline" size={20} color={colors.textSecondary} />}
+                            rightIcon={tenantLookupLoading ? <ActivityIndicator size="small" color={colors.primary} /> : undefined}
+                        />
+                        <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.xs }]}>
+                            Tenant must be registered first. Ask them to copy it from Profile.
+                        </Text>
+
+                        {tenantData && (
+                            <View style={[styles.tenantFound, { backgroundColor: colors.successLight, padding: spacing.md, borderRadius: 8, marginTop: spacing.sm }]}>
+                                <Ionicons name="checkmark-circle" size={24} color={colors.success} />
+                                <View style={{ marginLeft: spacing.sm, flex: 1 }}>
+                                    <Text style={[typography.h4, { color: colors.success }]}>Tenant Found</Text>
+                                    <Text style={[typography.bodySmall, { color: colors.text, marginTop: 4 }]}>
+                                        {tenantData.name} - {tenantData.email}
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
+
                         <View style={{ marginTop: spacing.base }}>
                             <Text style={[typography.h4, { color: colors.text, marginBottom: spacing.sm }]}>
-                                Select Unit
+                                Select Property
                             </Text>
-                            <Text style={[typography.body, { color: colors.textSecondary }]}>
-                                No vacant units available for this property. All units are currently occupied.
-                            </Text>
-                        </View>
-                    )}
-
-                    {vacantUnits.length > 0 && (
-                        <View style={{ marginTop: spacing.base }}>
-                            <Text style={[typography.h4, { color: colors.text, marginBottom: spacing.sm }]}>
-                                Select Unit
-                            </Text>
-                            {vacantUnits.map(unit => (
+                            {properties.map(property => (
                                 <Button
-                                    key={unit.id}
-                                    title={`Unit ${unit.unitNumber} - UGX ${unit.rentAmount.toLocaleString()}/month`}
-                                    onPress={() => {
-                                        setSelectedUnitId(unit.id);
-                                        setRentAmount(unit.rentAmount.toString());
-                                    }}
-                                    variant={selectedUnitId === unit.id ? 'primary' : 'outline'}
+                                    key={property.id}
+                                    title={`${property.name} (${property.units.filter(u => !u.isOccupied).length} vacant)`}
+                                    onPress={() => setSelectedPropertyId(property.id)}
+                                    variant={selectedPropertyId === property.id ? 'primary' : 'outline'}
                                     size="medium"
                                     style={{ marginBottom: spacing.sm }}
                                 />
                             ))}
                         </View>
-                    )}
 
-                    {selectedUnitId && (
-                        <Input
-                            label="Rent Amount (UGX)"
-                            placeholder="Enter monthly rent"
-                            value={rentAmount ? Number(rentAmount.replace(/,/g, '')).toLocaleString() : ''}
-                            onChangeText={(text) => setRentAmount(text.replace(/,/g, ''))}
-                            keyboardType="numeric"
-                            icon={<Ionicons name="cash-outline" size={20} color={colors.textSecondary} />}
+                        {selectedPropertyId && vacantUnits.length === 0 && (
+                            <View style={{ marginTop: spacing.base }}>
+                                <Text style={[typography.h4, { color: colors.text, marginBottom: spacing.sm }]}>
+                                    Select Unit
+                                </Text>
+                                <Text style={[typography.body, { color: colors.textSecondary }]}>
+                                    No vacant units available for this property. All units are currently occupied.
+                                </Text>
+                            </View>
+                        )}
+
+                        {vacantUnits.length > 0 && (
+                            <View style={{ marginTop: spacing.base }}>
+                                <Text style={[typography.h4, { color: colors.text, marginBottom: spacing.sm }]}>
+                                    Select Unit
+                                </Text>
+                                {vacantUnits.map(unit => (
+                                    <Button
+                                        key={unit.id}
+                                        title={`Unit ${unit.unitNumber} - UGX ${unit.rentAmount.toLocaleString()}/month`}
+                                        onPress={() => {
+                                            setSelectedUnitId(unit.id);
+                                            setRentAmount(unit.rentAmount.toString());
+                                        }}
+                                        variant={selectedUnitId === unit.id ? 'primary' : 'outline'}
+                                        size="medium"
+                                        style={{ marginBottom: spacing.sm }}
+                                    />
+                                ))}
+                            </View>
+                        )}
+
+                        {selectedUnitId && (
+                            <Input
+                                label="Rent Amount (UGX)"
+                                placeholder="Enter monthly rent"
+                                value={rentAmount ? Number(rentAmount.replace(/,/g, '')).toLocaleString() : ''}
+                                onChangeText={(text) => setRentAmount(text.replace(/,/g, ''))}
+                                keyboardType="numeric"
+                                icon={<Ionicons name="cash-outline" size={20} color={colors.textSecondary} />}
+                            />
+                        )}
+
+                        {error && (
+                            <Text style={[typography.bodySmall, { color: colors.error, marginTop: spacing.sm }]}>
+                                {error}
+                            </Text>
+                        )}
+
+                        <Button
+                            title={isLoading ? 'Sending...' : 'Send Invitation'}
+                            onPress={handleInvite}
+                            variant="primary"
+                            size="large"
+                            style={{ marginTop: spacing.lg }}
+                            disabled={!tenantIdInput || !selectedPropertyId || !selectedUnitId || !rentAmount || isLoading || !tenantData || tenantLookupLoading}
+                            loading={isLoading || tenantLookupLoading}
                         />
-                    )}
-
-                    {error && (
-                        <Text style={[typography.bodySmall, { color: colors.error, marginTop: spacing.sm }]}>
-                            {error}
+                    </>
+                ) : (
+                    <View style={{ alignItems: 'center', padding: spacing.xl }}>
+                        <View style={{ backgroundColor: colors.success + '20', width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center' }}>
+                            <Ionicons name="checkmark-circle" size={48} color={colors.success} />
+                        </View>
+                        <Text style={[typography.h3, { color: colors.text, marginTop: spacing.lg, textAlign: 'center' }]}>
+                            Invitation Sent!
                         </Text>
-                    )}
-
-                    <Button
-                        title={isLoading ? 'Sending...' : 'Send Invitation'}
-                        onPress={handleInvite}
-                        variant="primary"
-                        size="large"
-                        style={{ marginTop: spacing.lg }}
-                        disabled={!tenantIdInput || !selectedPropertyId || !selectedUnitId || !rentAmount || isLoading || !tenantData || tenantLookupLoading}
-                        loading={isLoading || tenantLookupLoading}
-                    />
-                </>
-            ) : (
-                <View style={{ alignItems: 'center', padding: spacing.xl }}>
-                    <View style={{ backgroundColor: colors.success + '20', width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name="checkmark-circle" size={48} color={colors.success} />
+                        <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}>
+                            {tenantData?.name} has been invited to {selectedProperty?.name}
+                        </Text>
                     </View>
-                    <Text style={[typography.h3, { color: colors.text, marginTop: spacing.lg, textAlign: 'center' }]}>
-                        Invitation Sent!
-                    </Text>
-                    <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}>
-                        {tenantData?.name} has been invited to {selectedProperty?.name}
-                    </Text>
-                </View>
-            )}
-        </Modal>
+                )}
+            </Modal>
+
+            {/* Lease Disclaimer Modal */}
+            <LeaseDisclaimerModal
+                visible={showDisclaimer}
+                onAccept={handleDisclaimerAccept}
+                onDecline={handleDisclaimerDecline}
+            />
+        </>
     );
 };
 

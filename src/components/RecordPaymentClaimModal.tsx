@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Modal } from './Modal';
+import { PaymentDisclaimerModal } from './PaymentDisclaimerModal';
 import { apiPost } from '../utils/apiClient';
 import { formatFullCurrency } from '../utils/currencyFormatter';
 import { useTheme } from '../theme/ThemeContext';
@@ -87,6 +88,8 @@ export const RecordPaymentClaimModal: React.FC<RecordPaymentClaimModalProps> = (
   const [claimedPaidAt, setClaimedPaidAt] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
 
   // Reset form when modal opens
   useEffect(() => {
@@ -163,6 +166,12 @@ export const RecordPaymentClaimModal: React.FC<RecordPaymentClaimModalProps> = (
   const handleSubmit = async () => {
     if (!isValidAmount() || !selectedMethod) return;
 
+    // Show disclaimer if not accepted yet
+    if (!disclaimerAccepted) {
+      setShowDisclaimer(true);
+      return;
+    }
+
     setLoading(true);
     try {
       const payload = {
@@ -191,6 +200,17 @@ export const RecordPaymentClaimModal: React.FC<RecordPaymentClaimModalProps> = (
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDisclaimerAccept = () => {
+    setDisclaimerAccepted(true);
+    setShowDisclaimer(false);
+    // Automatically proceed with submission after accepting disclaimer
+    handleSubmit();
+  };
+
+  const handleDisclaimerDecline = () => {
+    setShowDisclaimer(false);
   };
 
   const onDateChange = (event: any, selectedDate?: Date) => {
@@ -386,6 +406,13 @@ export const RecordPaymentClaimModal: React.FC<RecordPaymentClaimModalProps> = (
           />
         )}
       </View>
+
+      {/* Payment Disclaimer Modal */}
+      <PaymentDisclaimerModal
+        visible={showDisclaimer}
+        onAccept={handleDisclaimerAccept}
+        onDecline={handleDisclaimerDecline}
+      />
     </Modal>
   );
 };

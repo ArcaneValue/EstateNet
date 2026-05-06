@@ -1,17 +1,45 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { createApiUrl } from '../config/api';
+import * as SecureStore from 'expo-secure-store';
 
 let AsyncStorage: any;
 try {
     AsyncStorage = require('@react-native-async-storage/async-storage').default;
 } catch (e) {
-    // Fallback for development
     AsyncStorage = {
         getItem: async () => null,
         setItem: async () => { },
         removeItem: async () => { },
         multiRemove: async () => { },
     };
+}
+
+// Secure storage wrapper for sensitive data
+const SecureStorage = {
+    async setItem(key: string, value: string): Promise<void> {
+        try {
+            await SecureStore.setItemAsync(key, value);
+        } catch (error) {
+            console.error(`SecureStore setItem failed for ${key}:`, error);
+            await AsyncStorage.setItem(key, value);
+        }
+    },
+    async getItem(key: string): Promise<string | null> {
+        try {
+            return await SecureStore.getItemAsync(key);
+        } catch (error) {
+            console.error(`SecureStore getItem failed for ${key}:`, error);
+            return await AsyncStorage.getItem(key);
+        }
+    },
+    async removeItem(key: string): Promise<void> {
+        try {
+            await SecureStore.deleteItemAsync(key);
+        } catch (error) {
+            console.error(`SecureStore removeItem failed for ${key}:`, error);
+            await AsyncStorage.removeItem(key);
+        }
+    },
 }
 
 export type UserRole = 'OWNER' | 'MANAGER' | 'TENANT';
@@ -93,8 +121,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     useEffect(() => {
         const loadPersistedUser = async () => {
             try {
-                const storedUser = await AsyncStorage.getItem('user');
-                const storedToken = await AsyncStorage.getItem('authToken');
+                const storedUser = await SecureStorage.getItem('user');
+                const storedToken = await SecureStorage.getItem('authToken');
 
                 if (storedUser && storedToken) {
                     // Validate token by making a test API call
@@ -113,12 +141,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                             setToken(storedToken);
                         } else {
                             // Token is invalid, clear storage
-                            await AsyncStorage.multiRemove(['authToken', 'user']);
+                            await SecureStorage.removeItem('authToken');
+                            await SecureStorage.removeItem('user');
                         }
                     } catch (error) {
                         console.error('Token validation failed:', error);
                         // Clear invalid token
-                        await AsyncStorage.multiRemove(['authToken', 'user']);
+                        await SecureStorage.removeItem('authToken');
+                        await SecureStorage.removeItem('user');
                     }
                 }
             } catch (error) {
@@ -157,13 +187,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 role: userData.role as UserRole
             };
 
-            // Store token
-            await AsyncStorage.setItem('authToken', token);
+            // Store token securely
+            await SecureStorage.setItem('authToken', token);
             setToken(token);
 
             setUser(normalizedUser);
-            // Persist user to AsyncStorage
-            await AsyncStorage.setItem('user', JSON.stringify(normalizedUser));
+            // Persist user to SecureStorage
+            await SecureStorage.setItem('user', JSON.stringify(normalizedUser));
         } catch (error) {
             console.error('Login error:', error);
             throw error;
@@ -210,13 +240,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 role: newUser.role as UserRole
             };
 
-            // Store token
-            await AsyncStorage.setItem('authToken', token);
+            // Store token securely
+            await SecureStorage.setItem('authToken', token);
             setToken(token);
 
             setUser(normalizedUser);
-            // Persist user to AsyncStorage
-            await AsyncStorage.setItem('user', JSON.stringify(normalizedUser));
+            // Persist user to SecureStorage
+            await SecureStorage.setItem('user', JSON.stringify(normalizedUser));
         } catch (error) {
             console.error('Registration error:', error);
             throw error;
@@ -226,9 +256,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const signOut = async () => {
         setUser(null);
         setToken(null);
-        // Clear persisted user and token from AsyncStorage
-        await AsyncStorage.removeItem('user');
-        await AsyncStorage.removeItem('authToken');
+        // Clear persisted user and token from SecureStorage
+        await SecureStorage.removeItem('user');
+        await SecureStorage.removeItem('authToken');
         // Clear admin session to prevent it from persisting across account switches
         await AsyncStorage.removeItem('adminSession');
     };
@@ -239,10 +269,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const refreshMe = async () => {
         try {
-            const storedToken = await AsyncStorage.getItem('authToken');
+            const storedToken = await SecureStorage.getItem('authToken');
             if (!storedToken) {
                 setUser(null);
-                await AsyncStorage.removeItem('user');
+                await SecureStorage.removeItem('user');
                 return;
             }
 
@@ -267,7 +297,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             };
 
             setUser(normalizedUser);
-            await AsyncStorage.setItem('user', JSON.stringify(normalizedUser));
+            await SecureStorage.setItem('user', JSON.stringify(normalizedUser));
         } catch (error) {
             console.error('Failed to refresh current user:', error);
         }

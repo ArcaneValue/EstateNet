@@ -14,6 +14,15 @@ import { FeedbackProvider } from './src/context/FeedbackContext';
 import { AdminSessionProvider } from './src/context/AdminSessionContext';
 import { Navigation } from './src/navigation';
 
+// Disable console logs in production builds for security
+if (!__DEV__) {
+  console.log = () => { };
+  console.info = () => { };
+  console.warn = () => { };
+  console.error = () => { };
+  console.debug = () => { };
+}
+
 export default function App() {
   // Silent OTA Update - runs in background on app launch
   useEffect(() => {
