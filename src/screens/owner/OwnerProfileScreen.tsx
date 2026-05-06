@@ -655,13 +655,13 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
         visible={showPrivacyPolicy}
         onClose={() => setShowPrivacyPolicy(false)}
         title="Privacy Policy"
-        url="https://estatenet.app/privacy-policy"
+        url="https://arcanevalue.github.io/EstateNet/privacy-policy.html"
       />
       <LegalDocumentViewer
         visible={showTermsOfService}
         onClose={() => setShowTermsOfService(false)}
         title="Terms of Service"
-        url="https://estatenet.app/terms-of-service"
+        url="https://arcanevalue.github.io/EstateNet/terms-of-service.html"
       />
     </SafeAreaView>
   );
