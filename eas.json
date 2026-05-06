@@ -31,7 +31,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://76.13.254.3/api"
+        "EXPO_PUBLIC_API_URL": "https://estatenet-production.up.railway.app/api"
       },
       "channel": "production"
     },
@@ -40,7 +40,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://76.13.254.3/api"
+        "EXPO_PUBLIC_API_URL": "https://estatenet-production.up.railway.app/api"
       },
       "channel": "production"
     }
