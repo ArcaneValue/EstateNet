@@ -12,6 +12,7 @@ import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
 import { Card } from '../../components/Card';
 import { Modal } from '../../components/Modal';
+import { LegalDocumentViewer } from '../../components/LegalDocumentViewer';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -27,6 +28,8 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
     const [showAppearance, setShowAppearance] = useState(false);
     const [showRecordedPayments, setShowRecordedPayments] = useState(false);
     const [showReceiptHistory, setShowReceiptHistory] = useState(false);
+    const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
+    const [showTermsOfService, setShowTermsOfService] = useState(false);
     const [profileImage, setProfileImage] = useState<string | null>(null);
 
     // Settings state
@@ -405,6 +408,29 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
                         onPress={() => {
                             setShowSettings(false);
                             setTimeout(() => setShowReceiptHistory(true), 300);
+                        }}
+                        colors={colors}
+                        spacing={spacing}
+                        typography={typography}
+                    />
+                    <View style={{ height: 1, backgroundColor: colors.border, marginVertical: spacing.md }} />
+                    <SettingItem
+                        icon="shield-checkmark-outline"
+                        label="Privacy Policy"
+                        onPress={() => {
+                            setShowSettings(false);
+                            setTimeout(() => setShowPrivacyPolicy(true), 300);
+                        }}
+                        colors={colors}
+                        spacing={spacing}
+                        typography={typography}
+                    />
+                    <SettingItem
+                        icon="document-text-outline"
+                        label="Terms of Service"
+                        onPress={() => {
+                            setShowSettings(false);
+                            setTimeout(() => setShowTermsOfService(true), 300);
                         }}
                         colors={colors}
                         spacing={spacing}
@@ -880,6 +906,20 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
                     )}
                 </ScrollView>
             </Modal>
+
+            {/* Legal Document Viewers */}
+            <LegalDocumentViewer
+                visible={showPrivacyPolicy}
+                onClose={() => setShowPrivacyPolicy(false)}
+                title="Privacy Policy"
+                url="https://estatenet.app/privacy-policy"
+            />
+            <LegalDocumentViewer
+                visible={showTermsOfService}
+                onClose={() => setShowTermsOfService(false)}
+                title="Terms of Service"
+                url="https://estatenet.app/terms-of-service"
+            />
         </SafeAreaView>
     );
 };

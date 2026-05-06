@@ -13,6 +13,7 @@ import { TutorialProvider } from './src/context/TutorialContext';
 import { FeedbackProvider } from './src/context/FeedbackContext';
 import { AdminSessionProvider } from './src/context/AdminSessionContext';
 import { Navigation } from './src/navigation';
+import { useSessionTimeout } from './src/hooks/useSessionTimeout';
 
 // Disable console logs in production builds for security
 if (!__DEV__) {
@@ -22,6 +23,12 @@ if (!__DEV__) {
   console.error = () => { };
   console.debug = () => { };
 }
+
+// Session timeout wrapper component
+const AppWithSessionTimeout = () => {
+  useSessionTimeout();
+  return <Navigation />;
+};
 
 export default function App() {
   // Silent OTA Update - runs in background on app launch
@@ -55,7 +62,7 @@ export default function App() {
                         <AdminSessionProvider>
                           <FeedbackProvider>
                             <StatusBar style="auto" />
-                            <Navigation />
+                            <AppWithSessionTimeout />
                           </FeedbackProvider>
                         </AdminSessionProvider>
                       </TutorialProvider>

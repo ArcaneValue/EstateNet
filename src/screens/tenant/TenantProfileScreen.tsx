@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLease } from '../../context/LeaseContext';
 import { Card } from '../../components/Card';
 import { Modal } from '../../components/Modal';
+import { LegalDocumentViewer } from '../../components/LegalDocumentViewer';
 import { Input } from '../../components/Input';
 import { Button } from '../../components/Button';
 import { TopAppBar } from '../../components/TopAppBar';
@@ -27,6 +28,8 @@ export const TenantProfileScreen: React.FC<TenantProfileScreenProps> = ({ naviga
     const [showAccountInfo, setShowAccountInfo] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
     const [showAppearance, setShowAppearance] = useState(false);
+    const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
+    const [showTermsOfService, setShowTermsOfService] = useState(false);
     const [profileImage, setProfileImage] = useState<string | null>(user?.profileImage ?? null);
 
     // Settings state
@@ -351,6 +354,29 @@ export const TenantProfileScreen: React.FC<TenantProfileScreenProps> = ({ naviga
                         spacing={spacing}
                         typography={typography}
                     />
+                    <View style={{ height: 1, backgroundColor: colors.border, marginVertical: spacing.md }} />
+                    <SettingItem
+                        icon="shield-checkmark-outline"
+                        label="Privacy Policy"
+                        onPress={() => {
+                            setShowSettings(false);
+                            setTimeout(() => setShowPrivacyPolicy(true), 300);
+                        }}
+                        colors={colors}
+                        spacing={spacing}
+                        typography={typography}
+                    />
+                    <SettingItem
+                        icon="document-text-outline"
+                        label="Terms of Service"
+                        onPress={() => {
+                            setShowSettings(false);
+                            setTimeout(() => setShowTermsOfService(true), 300);
+                        }}
+                        colors={colors}
+                        spacing={spacing}
+                        typography={typography}
+                    />
                     <View style={{ marginTop: spacing.xl }}>
                         <Button
                             title="Sign Out"
@@ -638,6 +664,20 @@ export const TenantProfileScreen: React.FC<TenantProfileScreenProps> = ({ naviga
                     </Text>
                 </View>
             </Modal>
+
+            {/* Legal Document Viewers */}
+            <LegalDocumentViewer
+                visible={showPrivacyPolicy}
+                onClose={() => setShowPrivacyPolicy(false)}
+                title="Privacy Policy"
+                url="https://estatenet.app/privacy-policy"
+            />
+            <LegalDocumentViewer
+                visible={showTermsOfService}
+                onClose={() => setShowTermsOfService(false)}
+                title="Terms of Service"
+                url="https://estatenet.app/terms-of-service"
+            />
         </SafeAreaView>
     );
 };
