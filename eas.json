@@ -26,9 +26,21 @@
       },
       "channel": "preview"
     },
+    "production-test": {
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://76.13.254.3/api"
+      },
+      "channel": "production"
+    },
     "production": {
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://76.13.254.3/api"
       },
       "channel": "production"
     }
