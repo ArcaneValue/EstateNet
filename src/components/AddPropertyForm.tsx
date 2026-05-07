@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, Platform, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { Input } from './Input';
 import { Button } from './Button';
 import { KeyboardSafeContainer } from './KeyboardSafeContainer';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { Property, PropertyType, OwnershipType, MaintenanceCondition, Unit } from '../types/types';
 
 interface AddPropertyFormProps {
@@ -49,6 +50,8 @@ export const AddPropertyForm: React.FC<AddPropertyFormProps> = ({ onSubmit, onCa
     const [unitRate, setUnitRate] = useState<string>('');
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [currentStep, setCurrentStep] = useState(0); // 0: Basic, 1: Ownership, 2: Financial, 3: Maintenance, 4: Operational
+    const [propertyImage, setPropertyImage] = useState<string | null>(null);
+    const [propertyImageBase64, setPropertyImageBase64] = useState<string | null>(null);
 
     // Helper to update form data
     const updateField = (field: keyof Property, value: any) => {
@@ -108,6 +111,21 @@ export const AddPropertyForm: React.FC<AddPropertyFormProps> = ({ onSubmit, onCa
         setCurrentStep(prev => Math.max(prev - 1, 0));
     };
 
+    const pickPropertyImage = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [16, 9], // Landscape for property photos
+            quality: 0.8,
+            base64: true, // Get base64 for upload
+        });
+
+        if (!result.canceled && result.assets[0]) {
+            setPropertyImage(result.assets[0].uri);
+            setPropertyImageBase64(`data:image/jpeg;base64,${result.assets[0].base64}`);
+        }
+    };
+
     const handleSubmit = () => {
         if (validateStep(currentStep)) {
             // Final validation check
@@ -115,7 +133,7 @@ export const AddPropertyForm: React.FC<AddPropertyFormProps> = ({ onSubmit, onCa
                 Alert.alert('Error', 'Please complete all required fields');
                 return;
             }
-            onSubmit(formData as any);
+            onSubmit({ ...formData, imageBase64: propertyImageBase64 } as any);
         }
     };
 
@@ -255,6 +273,40 @@ export const AddPropertyForm: React.FC<AddPropertyFormProps> = ({ onSubmit, onCa
                 value={formData.ownership || 'personal'}
                 onChange={(val) => updateField('ownership', val)}
             />
+
+            {/* Property Image Upload */}
+            <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.md, marginBottom: spacing.xs, fontWeight: '600' }]}>
+                Property Image (Optional)
+            </Text>
+            <TouchableOpacity
+                onPress={pickPropertyImage}
+                style={{
+                    height: 150,
+                    borderWidth: 2,
+                    borderStyle: 'dashed',
+                    borderColor: colors.border,
+                    borderRadius: borderRadius.md,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginBottom: spacing.md,
+                    overflow: 'hidden',
+                }}
+            >
+                {propertyImage ? (
+                    <Image
+                        source={{ uri: propertyImage }}
+                        style={{ width: '100%', height: '100%' }}
+                        resizeMode="cover"
+                    />
+                ) : (
+                    <>
+                        <Ionicons name="image-outline" size={40} color={colors.textSecondary} />
+                        <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.xs }]}>
+                            Tap to upload property photo
+                        </Text>
+                    </>
+                )}
+            </TouchableOpacity>
         </View>
     );
 

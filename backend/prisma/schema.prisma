@@ -131,6 +131,7 @@ model Property {
   id           String   @id @default(cuid())
   name         String
   location     String
+  imageUrl     String? // Property main photo (optional)
   ownerId      String // Property owner (required)
   managerId    String? // Assigned manager (optional)
   billedUserId String // Who pays the service fee
@@ -156,6 +157,7 @@ model Unit {
   propertyId String
   unitNumber String
   rentAmount Int
+  imageUrl   String? // Unit photo (optional, Phase 2)
   isOccupied Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

@@ -30,6 +30,7 @@ import { webhookPaymentRoutes } from './routes/webhookPayments';
 import { ownerBillingRoutes } from './routes/ownerBilling';
 import feedbackRoutes from './routes/feedback';
 import adminFeedbackRoutes from './routes/adminFeedback';
+import imageRoutes from './routes/images';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
 import { PrismaClient } from '@prisma/client';
 import { cleanupDuplicateInvoices } from './scripts/cleanupDuplicateInvoices';
@@ -116,6 +117,7 @@ app.use('/api/manager', billingRoutes);
 app.use('/api/payments/webhook', webhookPaymentRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/admin/feedback', adminFeedbackRoutes);
+app.use('/api/images', imageRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

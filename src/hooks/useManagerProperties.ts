@@ -74,10 +74,27 @@ export const useManagerProperties = () => {
     fetchProperties();
   }, [fetchProperties]);
 
-  const createProperty = async (propertyData: CreatePropertyData): Promise<WriteResult> => {
+  const createProperty = async (propertyData: CreatePropertyData & { imageBase64?: string | null }): Promise<WriteResult> => {
     try {
-      const { status, json, enforcement } = await apiPost('/properties', propertyData);
+      // Extract image data before sending to property creation endpoint
+      const { imageBase64, ...propertyDataWithoutImage } = propertyData;
+
+      const { status, json, enforcement } = await apiPost('/properties', propertyDataWithoutImage);
       if (status === 201 && json?.success) {
+        const propertyId = json.data?.property?.id;
+
+        // Upload image if provided and property was created
+        if (imageBase64 && propertyId) {
+          try {
+            await apiPost(`/images/property/${propertyId}`, {
+              base64Image: imageBase64,
+            });
+          } catch (imageErr) {
+            console.error('Failed to upload property image:', imageErr);
+            // Don't fail property creation if image upload fails
+          }
+        }
+
         await fetchProperties(); // Refetch to update list
         return { ok: true };
       }

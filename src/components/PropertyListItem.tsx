@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Card } from './Card';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,7 @@ interface PropertyListItemProps {
     occupiedUnits: number;
     totalUnits: number;
     monthlyRent: number;
+    imageUrl?: string;
     onPress: () => void;
 }
 
@@ -20,6 +21,7 @@ export const PropertyListItem: React.FC<PropertyListItemProps> = ({
     occupiedUnits,
     totalUnits,
     monthlyRent,
+    imageUrl,
     onPress,
 }) => {
     const { colors, spacing, typography } = useTheme();
@@ -29,15 +31,26 @@ export const PropertyListItem: React.FC<PropertyListItemProps> = ({
         <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
             <Card style={{ marginBottom: spacing.md }}>
                 <View style={styles.container}>
-                    {/* Property Icon */}
-                    <View
-                        style={[
-                            styles.iconContainer,
-                            { backgroundColor: colors.primary + '20' },
-                        ]}
-                    >
-                        <Ionicons name="business" size={24} color={colors.primary} />
-                    </View>
+                    {/* Property Image or Icon */}
+                    {imageUrl ? (
+                        <Image
+                            source={{ uri: imageUrl }}
+                            style={[
+                                styles.iconContainer,
+                                { borderRadius: 24 }
+                            ]}
+                            resizeMode="cover"
+                        />
+                    ) : (
+                        <View
+                            style={[
+                                styles.iconContainer,
+                                { backgroundColor: colors.primary + '20' },
+                            ]}
+                        >
+                            <Ionicons name="business" size={24} color={colors.primary} />
+                        </View>
+                    )}
 
                     {/* Property Info */}
                     <View style={styles.infoContainer}>

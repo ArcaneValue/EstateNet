@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Alert, TouchableOpacity, Clipboard } from 'react-native';
+import { View, Text, ScrollView, Alert, TouchableOpacity, Clipboard, Image } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTenants } from '../../context/TenantContext';
@@ -323,6 +323,27 @@ export const TenantHomeScreen: React.FC<TenantHomeScreenProps> = ({ navigation }
                                     >
                                         <Ionicons name="copy-outline" size={16} color={colors.textOnPrimary} />
                                     </TouchableOpacity>
+                                </View>
+                            </Card>
+                        )}
+
+                        {/* Property Image Card */}
+                        {activeLease && (activeLease.property as any)?.imageUrl && (
+                            <Card style={{ marginBottom: spacing.lg }} padding={0}>
+                                <Image
+                                    source={{ uri: (activeLease.property as any).imageUrl }}
+                                    style={{
+                                        width: '100%',
+                                        height: 200,
+                                        borderTopLeftRadius: borderRadius.lg,
+                                        borderTopRightRadius: borderRadius.lg,
+                                    }}
+                                    resizeMode="cover"
+                                />
+                                <View style={{ padding: spacing.md }}>
+                                    <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                                        {propertyName}
+                                    </Text>
                                 </View>
                             </Card>
                         )}

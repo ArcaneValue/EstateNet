@@ -231,6 +231,7 @@ export const PropertiesScreen: React.FC<any> = ({ navigation }) => {
                             occupiedUnits={getOccupiedCount(item)}
                             totalUnits={item.units.length}
                             monthlyRent={getMonthlyRent(item)}
+                            imageUrl={(item as any).imageUrl}
                             onPress={() => setSelectedProperty(item)}
                         />
                     </View>
