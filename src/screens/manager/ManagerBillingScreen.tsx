@@ -628,6 +628,42 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                         );
                     })()}
 
+                    {/* ── Transparency Invoice: Projected Next Month Fee ── */}
+                    {billingStatus && (billingStatus as any).projectedFeeNextMonth > 0 && (
+                        <Card style={{
+                            backgroundColor: colors.info + '10',
+                            borderColor: colors.info,
+                            borderWidth: 1,
+                            marginBottom: spacing.lg,
+                        }}>
+                            <View style={{ padding: spacing.lg }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
+                                    <Ionicons name="bulb-outline" size={24} color={colors.info} />
+                                    <Text style={[typography.h4, { color: colors.info, marginLeft: spacing.sm }]}>
+                                        Next Month Projection
+                                    </Text>
+                                </View>
+                                <Text style={[typography.body, { color: colors.text, lineHeight: 22 }]}>
+                                    With your current tenants, you will be paying{' '}
+                                    <Text style={{ fontWeight: '700', color: colors.info }}>
+                                        {formatCompactCurrencyUGX((billingStatus as any).projectedFeeNextMonth)}
+                                    </Text>
+                                    {' '}on the 1st of next month.
+                                </Text>
+                                <View style={{
+                                    marginTop: spacing.md,
+                                    paddingTop: spacing.md,
+                                    borderTopWidth: 1,
+                                    borderTopColor: colors.border,
+                                }}>
+                                    <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                                        💡 This projection is based on your currently occupied units ({(billingStatus as any).occupiedUnitCount || 0} unit{((billingStatus as any).occupiedUnitCount || 0) !== 1 ? 's' : ''}) and updates automatically as tenants join or leave.
+                                    </Text>
+                                </View>
+                            </View>
+                        </Card>
+                    )}
+
                     {/* ── Current Invoice Hero Card ── */}
                     {billingStatus?.currentInvoice && (() => {
                         const inv = billingStatus.currentInvoice!;
