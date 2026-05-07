@@ -58,10 +58,7 @@ export const apiPatch = async (endpoint: string, body?: any): Promise<ApiResult>
     if (AsyncStorage) {
       await AsyncStorage.multiRemove(['authToken', 'user']);
     }
-    // Force reload to clear authentication state
-    if (typeof window !== 'undefined') {
-      window.location.reload();
-    }
+    // Note: AuthContext will handle navigation to login screen on next render
   }
 
   return { status: res.status, json, enforcement: extractEnforcement(res.status, json) };
@@ -99,10 +96,7 @@ export const apiGet = async (endpoint: string): Promise<ApiResult> => {
     if (AsyncStorage) {
       await AsyncStorage.multiRemove(['authToken', 'user']);
     }
-    // Force reload to clear authentication state
-    if (typeof window !== 'undefined') {
-      window.location.reload();
-    }
+    // Note: AuthContext will handle navigation to login screen on next render
   }
 
   return { status: res.status, json, enforcement: extractEnforcement(res.status, json) };
@@ -129,10 +123,7 @@ export const apiPost = async (endpoint: string, body?: any): Promise<ApiResult> 
     if (AsyncStorage) {
       await AsyncStorage.multiRemove(['authToken', 'user']);
     }
-    // Force reload to clear authentication state
-    if (typeof window !== 'undefined') {
-      window.location.reload();
-    }
+    // Note: AuthContext will handle navigation to login screen on next render
   }
 
   return { status: res.status, json, enforcement: extractEnforcement(res.status, json) };
@@ -155,10 +146,7 @@ export const apiDelete = async (endpoint: string): Promise<ApiResult> => {
     if (AsyncStorage) {
       await AsyncStorage.multiRemove(['authToken', 'user']);
     }
-    // Force reload to clear authentication state
-    if (typeof window !== 'undefined') {
-      window.location.reload();
-    }
+    // Note: AuthContext will handle navigation to login screen on next render
   }
 
   return { status: res.status, json, enforcement: extractEnforcement(res.status, json) };
