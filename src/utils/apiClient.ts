@@ -1,4 +1,5 @@
 import { createApiUrl } from '../config/api';
+import * as SecureStore from 'expo-secure-store';
 
 export type EnforcementAction = 'ACCEPT_TERMS' | 'PAY_INVOICE';
 
@@ -14,14 +15,45 @@ export type ApiResult<TJson = any> = {
   enforcement?: EnforcementInfo;
 };
 
-// Reuse AsyncStorage access pattern from PaymentContext
-const getAsyncStorage = () => {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    return require('@react-native-async-storage/async-storage').default;
-  } catch {
-    return null;
-  }
+// AsyncStorage fallback for SecureStore
+let AsyncStorage: any;
+try {
+  AsyncStorage = require('@react-native-async-storage/async-storage').default;
+} catch (e) {
+  AsyncStorage = {
+    getItem: async () => null,
+    setItem: async () => { },
+    removeItem: async () => { },
+    multiRemove: async () => { },
+  };
+}
+
+// Secure storage wrapper matching AuthContext implementation
+const SecureStorage = {
+  async setItem(key: string, value: string): Promise<void> {
+    try {
+      await SecureStore.setItemAsync(key, value);
+    } catch (error) {
+      console.error(`SecureStore setItem failed for ${key}:`, error);
+      await AsyncStorage.setItem(key, value);
+    }
+  },
+  async getItem(key: string): Promise<string | null> {
+    try {
+      return await SecureStore.getItemAsync(key);
+    } catch (error) {
+      console.error(`SecureStore getItem failed for ${key}:`, error);
+      return await AsyncStorage.getItem(key);
+    }
+  },
+  async removeItem(key: string): Promise<void> {
+    try {
+      await SecureStore.deleteItemAsync(key);
+    } catch (error) {
+      console.error(`SecureStore removeItem failed for ${key}:`, error);
+      await AsyncStorage.removeItem(key);
+    }
+  },
 };
 
 const extractEnforcement = (status: number, json: any): EnforcementInfo | undefined => {
@@ -54,10 +86,8 @@ export const apiPatch = async (endpoint: string, body?: any): Promise<ApiResult>
   // 403 (forbidden) might just mean user doesn't have permission for specific resource
   if (res.status === 401) {
     console.warn('Authentication error (401) - logging out');
-    const AsyncStorage = getAsyncStorage();
-    if (AsyncStorage) {
-      await AsyncStorage.multiRemove(['authToken', 'user']);
-    }
+    await SecureStorage.removeItem('authToken');
+    await SecureStorage.removeItem('user');
     // Note: AuthContext will handle navigation to login screen on next render
   }
 
@@ -65,11 +95,7 @@ export const apiPatch = async (endpoint: string, body?: any): Promise<ApiResult>
 };
 
 export const getAuthToken = async (): Promise<string | null> => {
-  const AsyncStorage = getAsyncStorage();
-  if (AsyncStorage) {
-    return await AsyncStorage.getItem('authToken');
-  }
-  return null;
+  return await SecureStorage.getItem('authToken');
 };
 
 const safeParseJson = (text: string) => {
@@ -92,10 +118,8 @@ export const apiGet = async (endpoint: string): Promise<ApiResult> => {
   // 403 (forbidden) might just mean user doesn't have permission for specific resource
   if (res.status === 401) {
     console.warn('Authentication error (401) - logging out');
-    const AsyncStorage = getAsyncStorage();
-    if (AsyncStorage) {
-      await AsyncStorage.multiRemove(['authToken', 'user']);
-    }
+    await SecureStorage.removeItem('authToken');
+    await SecureStorage.removeItem('user');
     // Note: AuthContext will handle navigation to login screen on next render
   }
 
@@ -119,10 +143,8 @@ export const apiPost = async (endpoint: string, body?: any): Promise<ApiResult> 
   // 403 (forbidden) might just mean user doesn't have permission for specific resource
   if (res.status === 401) {
     console.warn('Authentication error (401) - logging out');
-    const AsyncStorage = getAsyncStorage();
-    if (AsyncStorage) {
-      await AsyncStorage.multiRemove(['authToken', 'user']);
-    }
+    await SecureStorage.removeItem('authToken');
+    await SecureStorage.removeItem('user');
     // Note: AuthContext will handle navigation to login screen on next render
   }
 
@@ -142,10 +164,8 @@ export const apiDelete = async (endpoint: string): Promise<ApiResult> => {
   // 403 (forbidden) might just mean user doesn't have permission for specific resource
   if (res.status === 401) {
     console.warn('Authentication error (401) - logging out');
-    const AsyncStorage = getAsyncStorage();
-    if (AsyncStorage) {
-      await AsyncStorage.multiRemove(['authToken', 'user']);
-    }
+    await SecureStorage.removeItem('authToken');
+    await SecureStorage.removeItem('user');
     // Note: AuthContext will handle navigation to login screen on next render
   }
 
