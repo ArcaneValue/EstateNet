@@ -336,38 +336,6 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
                         </View>
                     </Card>
 
-                    {/* Thank You Message */}
-                    {user?.role === 'MANAGER' && (
-                        <Card style={{
-                            marginTop: spacing.md,
-                            backgroundColor: colors.primary + '10',
-                            borderColor: colors.primary,
-                            borderWidth: 1,
-                        }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <View style={{
-                                    width: 48,
-                                    height: 48,
-                                    borderRadius: 24,
-                                    backgroundColor: colors.primary + '20',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    marginRight: spacing.md,
-                                }}>
-                                    <Ionicons name="heart" size={24} color={colors.primary} />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={[typography.body, { color: colors.primary, fontWeight: '600' }]}>
-                                        Thank You!
-                                    </Text>
-                                    <Text style={[typography.bodySmall, { color: colors.text, marginTop: 2 }]}>
-                                        We appreciate you using EstateNet
-                                    </Text>
-                                </View>
-                            </View>
-                        </Card>
-                    )}
-
                 </View>
             </ScrollView>
 
