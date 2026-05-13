@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiPatch } from '../utils/apiClient';
 
 interface TutorialContextType {
   shouldShowTutorial: (tutorialId: string) => Promise<boolean>;
   markTutorialSeen: (tutorialId: string) => Promise<void>;
   resetTutorial: (tutorialId: string) => Promise<void>;
   resetAllTutorials: () => Promise<void>;
+  syncTutorialFlagsFromUser: (tutorialFlags?: { [key: string]: boolean }) => Promise<void>;
 }
 
 const TutorialContext = createContext<TutorialContextType | undefined>(undefined);
@@ -75,12 +77,25 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const markTutorialSeen = useCallback(async (tutorialId: string): Promise<void> => {
     try {
+      // Save to AsyncStorage first (fast, local)
       await AsyncStorage.setItem(tutorialId, 'true');
 
       // Update cache
       setTutorialCache(prev => new Map(prev).set(tutorialId, true));
 
       console.log(`[TutorialContext] Marked tutorial as seen: ${tutorialId}`);
+
+      // Sync to backend (non-blocking)
+      try {
+        await apiPatch('/users/me/tutorial-flags', {
+          tutorialKey: tutorialId,
+          completed: true
+        });
+        console.log(`[TutorialContext] Synced tutorial flag to backend: ${tutorialId}`);
+      } catch (backendError) {
+        console.error(`[TutorialContext] Failed to sync tutorial flag to backend:`, backendError);
+        // Don't throw - local storage is already updated
+      }
     } catch (error) {
       console.error(`[TutorialContext] Error marking tutorial ${tutorialId} as seen:`, error);
     }
@@ -117,11 +132,36 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, []);
 
+  const syncTutorialFlagsFromUser = useCallback(async (tutorialFlags?: { [key: string]: boolean }): Promise<void> => {
+    try {
+      if (!tutorialFlags || typeof tutorialFlags !== 'object') {
+        console.log('[TutorialContext] No tutorial flags to sync from user');
+        return;
+      }
+
+      console.log('[TutorialContext] Syncing tutorial flags from user profile:', tutorialFlags);
+
+      // Sync each flag from backend to AsyncStorage
+      const syncPromises = Object.entries(tutorialFlags).map(async ([key, value]) => {
+        if (value === true) {
+          await AsyncStorage.setItem(key, 'true');
+          setTutorialCache(prev => new Map(prev).set(key, true));
+        }
+      });
+
+      await Promise.all(syncPromises);
+      console.log('[TutorialContext] Tutorial flags synced successfully');
+    } catch (error) {
+      console.error('[TutorialContext] Error syncing tutorial flags:', error);
+    }
+  }, []);
+
   const value: TutorialContextType = {
     shouldShowTutorial,
     markTutorialSeen,
     resetTutorial,
     resetAllTutorials,
+    syncTutorialFlagsFromUser,
   };
 
   return (

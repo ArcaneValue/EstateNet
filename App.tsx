@@ -14,6 +14,7 @@ import { FeedbackProvider } from './src/context/FeedbackContext';
 import { AdminSessionProvider } from './src/context/AdminSessionContext';
 import { Navigation } from './src/navigation';
 import { useSessionTimeout } from './src/hooks/useSessionTimeout';
+import { useTutorialSync } from './src/hooks/useTutorialSync';
 
 // Disable console logs in production builds for security
 if (!__DEV__) {
@@ -27,6 +28,7 @@ if (!__DEV__) {
 // Session timeout wrapper component
 const AppWithSessionTimeout = () => {
   useSessionTimeout();
+  useTutorialSync(); // Sync tutorial flags from backend on login
   return <Navigation />;
 };
 
@@ -58,14 +60,12 @@ export default function App() {
                 <PaymentProvider>
                   <MessageProvider>
                     <NotificationProvider>
-                      <TutorialProvider>
-                        <AdminSessionProvider>
-                          <FeedbackProvider>
-                            <StatusBar style="auto" />
-                            <AppWithSessionTimeout />
-                          </FeedbackProvider>
-                        </AdminSessionProvider>
-                      </TutorialProvider>
+                      <AdminSessionProvider>
+                        <FeedbackProvider>
+                          <StatusBar style="auto" />
+                          <AppWithSessionTimeout />
+                        </FeedbackProvider>
+                      </AdminSessionProvider>
                     </NotificationProvider>
                   </MessageProvider>
                 </PaymentProvider>

@@ -8,11 +8,13 @@ export interface Property {
   managerId: string;
   createdAt: string;
   updatedAt: string;
+  imageUrl?: string;
   units: {
     id: string;
     unitNumber: string;
     rentAmount: number;
     isOccupied: boolean;
+    imageUrl?: string;
   }[];
   leases?: {
     id: string;

@@ -1,4 +1,5 @@
 ﻿import { prisma } from '../utils/database';
+import { RentService } from './rentService';
 
 export interface DashboardData {
     propertiesCount: number;
@@ -333,26 +334,44 @@ export const getAllTenants = async (managerId: string) => {
             },
         });
 
-        // Get payment status for each tenant
+        // Get payment status for each tenant using RentService
+        const rentService = new RentService();
         const tenantsWithPayments = await Promise.all(
             leases.map(async (lease) => {
-                const now = new Date();
+                // Get accurate rent status from RentService
+                let paymentStatus: 'current' | 'overdue' = 'current';
+                let amountOwed = 0;
 
-                // Get overdue payments
-                const overduePayments = await prisma.payment.findMany({
-                    where: {
-                        tenantId: lease.tenantId,
-                        status: 'OVERDUE',
-                        dueDate: {
-                            lt: now,
+                try {
+                    const rentStatus = await rentService.getTenantRentStatus(lease.tenantId);
+
+                    // Map RentService status to manager display status
+                    // PAID, NOT_DUE, PARTIAL -> 'current'
+                    // OVERDUE, DUE (if past due date) -> 'overdue'
+                    if (rentStatus.status === 'OVERDUE') {
+                        paymentStatus = 'overdue';
+                        amountOwed = rentStatus.amountDueForPeriod - rentStatus.totalPaidForPeriod + (rentStatus.arrearsTotal || 0);
+                    } else if (rentStatus.status === 'PARTIAL') {
+                        // Partial payment - show as current but with amount owed
+                        paymentStatus = 'current';
+                        amountOwed = rentStatus.amountDueForPeriod - rentStatus.totalPaidForPeriod;
+                    } else {
+                        // PAID, NOT_DUE, NO_LEASE
+                        paymentStatus = 'current';
+                        amountOwed = 0;
+                    }
+                } catch (error) {
+                    console.error(`Error getting rent status for tenant ${lease.tenantId}:`, error);
+                    // Fallback to simple check if RentService fails
+                    const overduePayments = await prisma.payment.findMany({
+                        where: {
+                            tenantId: lease.tenantId,
+                            status: 'OVERDUE',
                         },
-                    },
-                });
-
-                const amountOwed = overduePayments.reduce(
-                    (sum, p) => sum + p.amount,
-                    0,
-                );
+                    });
+                    paymentStatus = overduePayments.length > 0 ? 'overdue' : 'current';
+                    amountOwed = overduePayments.reduce((sum, p) => sum + p.amount, 0);
+                }
 
                 return {
                     id: lease.id,
@@ -365,8 +384,7 @@ export const getAllTenants = async (managerId: string) => {
                     unitId: lease.unitId,
                     unitNumber: lease.unit.unitNumber,
                     rentAmount: lease.rentAmount,
-                    paymentStatus:
-                        overduePayments.length > 0 ? 'overdue' : 'current',
+                    paymentStatus,
                     amountOwed,
                     leaseId: lease.id,
                 };
@@ -436,21 +454,36 @@ export const getTenantById = async (
             return null;
         }
 
-        // Get payment status
-        const overduePayments = await prisma.payment.findMany({
-            where: {
-                tenantId: lease.tenantId,
-                status: 'OVERDUE',
-                dueDate: {
-                    lt: new Date(),
-                },
-            },
-        });
+        // Get accurate payment status using RentService
+        const rentService = new RentService();
+        let paymentStatus: 'current' | 'overdue' = 'current';
+        let amountOwed = 0;
 
-        const amountOwed = overduePayments.reduce(
-            (sum, p) => sum + p.amount,
-            0,
-        );
+        try {
+            const rentStatus = await rentService.getTenantRentStatus(lease.tenantId);
+
+            if (rentStatus.status === 'OVERDUE') {
+                paymentStatus = 'overdue';
+                amountOwed = rentStatus.amountDueForPeriod - rentStatus.totalPaidForPeriod + (rentStatus.arrearsTotal || 0);
+            } else if (rentStatus.status === 'PARTIAL') {
+                paymentStatus = 'current';
+                amountOwed = rentStatus.amountDueForPeriod - rentStatus.totalPaidForPeriod;
+            } else {
+                paymentStatus = 'current';
+                amountOwed = 0;
+            }
+        } catch (error) {
+            console.error(`Error getting rent status for tenant ${lease.tenantId}:`, error);
+            // Fallback
+            const overduePayments = await prisma.payment.findMany({
+                where: {
+                    tenantId: lease.tenantId,
+                    status: 'OVERDUE',
+                },
+            });
+            paymentStatus = overduePayments.length > 0 ? 'overdue' : 'current';
+            amountOwed = overduePayments.reduce((sum, p) => sum + p.amount, 0);
+        }
 
         return {
             id: lease.id,
@@ -463,8 +496,7 @@ export const getTenantById = async (
             unitId: lease.unitId,
             unitNumber: lease.unit.unitNumber,
             rentAmount: lease.rentAmount,
-            paymentStatus:
-                overduePayments.length > 0 ? 'overdue' : 'current',
+            paymentStatus,
             amountOwed,
             leaseId: lease.id,
         };
@@ -522,22 +554,36 @@ export const getTenantsByProperty = async (
             },
         });
 
+        const rentService = new RentService();
         const tenantsWithPayments = await Promise.all(
             leases.map(async (lease) => {
-                const overduePayments = await prisma.payment.findMany({
-                    where: {
-                        tenantId: lease.tenantId,
-                        status: 'OVERDUE',
-                        dueDate: {
-                            lt: new Date(),
-                        },
-                    },
-                });
+                let paymentStatus: 'current' | 'overdue' = 'current';
+                let amountOwed = 0;
 
-                const amountOwed = overduePayments.reduce(
-                    (sum, p) => sum + p.amount,
-                    0,
-                );
+                try {
+                    const rentStatus = await rentService.getTenantRentStatus(lease.tenantId);
+
+                    if (rentStatus.status === 'OVERDUE') {
+                        paymentStatus = 'overdue';
+                        amountOwed = rentStatus.amountDueForPeriod - rentStatus.totalPaidForPeriod + (rentStatus.arrearsTotal || 0);
+                    } else if (rentStatus.status === 'PARTIAL') {
+                        paymentStatus = 'current';
+                        amountOwed = rentStatus.amountDueForPeriod - rentStatus.totalPaidForPeriod;
+                    } else {
+                        paymentStatus = 'current';
+                        amountOwed = 0;
+                    }
+                } catch (error) {
+                    console.error(`Error getting rent status for tenant ${lease.tenantId}:`, error);
+                    const overduePayments = await prisma.payment.findMany({
+                        where: {
+                            tenantId: lease.tenantId,
+                            status: 'OVERDUE',
+                        },
+                    });
+                    paymentStatus = overduePayments.length > 0 ? 'overdue' : 'current';
+                    amountOwed = overduePayments.reduce((sum, p) => sum + p.amount, 0);
+                }
 
                 return {
                     id: lease.id,
@@ -550,8 +596,7 @@ export const getTenantsByProperty = async (
                     unitId: lease.unitId,
                     unitNumber: lease.unit.unitNumber,
                     rentAmount: lease.rentAmount,
-                    paymentStatus:
-                        overduePayments.length > 0 ? 'overdue' : 'current',
+                    paymentStatus,
                     amountOwed,
                     leaseId: lease.id,
                 };

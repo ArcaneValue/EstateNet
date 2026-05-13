@@ -15,6 +15,7 @@ import { Modal } from '../../components/Modal';
 import { ScreenWrapper } from '../../components/ScreenWrapper';
 import { TutorialModal } from '../../components/TutorialModal';
 import { OccupiedUnitsModal } from './OccupiedUnitsModal';
+import { VacanciesModal } from './VacanciesModal';
 import { InviteTenantModal } from './InviteTenantModal';
 import { RecordPaymentModal } from './RecordPaymentModal';
 import { SendReminderModal } from './SendReminderModal';
@@ -39,6 +40,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation, 
     const { checkEnforcement, checking: checkingEnforcement } = useManagerEnforcement();
 
     const [showOccupiedModal, setShowOccupiedModal] = useState(false);
+    const [showVacanciesModal, setShowVacanciesModal] = useState(false);
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [showRecordPaymentModal, setShowRecordPaymentModal] = useState(false);
     const [showSendReminderModal, setShowSendReminderModal] = useState(false);
@@ -316,7 +318,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation, 
                                     color={colors.success}
                                 />
                             </TouchableOpacity>
-                            <TouchableOpacity onPress={() => setShowOccupiedModal(true)}>
+                            <TouchableOpacity onPress={() => setShowVacanciesModal(true)}>
                                 <MetricCard
                                     variant="compact"
                                     value={vacancies.toString()}
@@ -491,6 +493,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation, 
 
                 {/* Modals */}
                 <OccupiedUnitsModal visible={showOccupiedModal} onClose={() => setShowOccupiedModal(false)} />
+                <VacanciesModal visible={showVacanciesModal} onClose={() => setShowVacanciesModal(false)} />
                 <InviteTenantModal visible={showInviteModal} onClose={() => setShowInviteModal(false)} onSuccess={refetch} />
                 <RecordPaymentModal visible={showRecordPaymentModal} onClose={() => setShowRecordPaymentModal(false)} onSuccess={refetch} />
                 <SendReminderModal visible={showSendReminderModal} onClose={() => setShowSendReminderModal(false)} />

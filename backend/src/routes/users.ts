@@ -101,4 +101,52 @@ router.post(
   }
 );
 
+// PATCH /api/users/me/tutorial-flags - Update tutorial completion flags
+router.patch(
+  '/me/tutorial-flags',
+  authenticateToken,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.id;
+      const { tutorialKey, completed } = req.body;
+
+      if (!tutorialKey || typeof tutorialKey !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'Tutorial key is required'
+        });
+      }
+
+      // Get current user's tutorial flags
+      const user = await (prisma.user as any).findUnique({
+        where: { id: userId },
+        select: { tutorialFlags: true }
+      });
+
+      const currentFlags = user?.tutorialFlags || {};
+      const updatedFlags = {
+        ...currentFlags,
+        [tutorialKey]: completed !== false // Default to true if not specified
+      };
+
+      await (prisma.user as any).update({
+        where: { id: userId },
+        data: { tutorialFlags: updatedFlags }
+      });
+
+      return res.json({
+        success: true,
+        message: 'Tutorial flag updated successfully',
+        data: { tutorialFlags: updatedFlags }
+      });
+    } catch (error) {
+      console.error('Update tutorial flags error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to update tutorial flags'
+      });
+    }
+  }
+);
+
 export { router as userRoutes };

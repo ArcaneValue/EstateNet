@@ -8,13 +8,14 @@ import { Modal } from '../../components/Modal';
 import { Button } from '../../components/Button';
 import { TenantListItem } from '../../components/TenantListItem';
 import { AddPropertyForm } from '../../components/AddPropertyForm';
+import { PropertyImageGallery } from '../../components/PropertyImageGallery';
 import { TutorialModal } from '../../components/TutorialModal';
 import { TopAppBar } from '../../components/TopAppBar';
 import { useManagerProperties, Property } from '../../hooks/useManagerProperties';
 import { useManagerEnforcement } from '../../hooks/useManagerEnforcement';
 import { useAuth } from '../../context/AuthContext';
 import { formatCompactCurrencyUGX } from '../../utils/formatters';
-import { apiGet } from '../../utils/apiClient';
+import { apiGet, apiPost } from '../../utils/apiClient';
 import { Ionicons } from '@expo/vector-icons';
 import { handleEnforcement } from '../../utils/enforcementNavigation';
 
@@ -165,6 +166,32 @@ export const PropertiesScreen: React.FC<any> = ({ navigation }) => {
         return property.units.reduce((sum, u) => sum + u.rentAmount, 0);
     };
 
+    const handleUploadUnitImage = async (unitId: string, imageBase64: string) => {
+        try {
+            const { status, json } = await apiPost(`/images/unit/${unitId}`, {
+                imageBase64
+            });
+
+            if (status === 200 && json?.success) {
+                // Refresh properties to get updated unit with image
+                await refetch();
+
+                // Update selected property with new image
+                if (selectedProperty) {
+                    const updatedProperty = properties.find(p => p.id === selectedProperty.id);
+                    if (updatedProperty) {
+                        setSelectedProperty(updatedProperty);
+                    }
+                }
+            } else {
+                throw new Error(json?.message || 'Failed to upload image');
+            }
+        } catch (error) {
+            console.error('Error uploading unit image:', error);
+            throw error;
+        }
+    };
+
     if (loading && properties.length === 0) {
         return (
             <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
@@ -274,8 +301,15 @@ export const PropertiesScreen: React.FC<any> = ({ navigation }) => {
                     size="full"
                 >
                     <View>
+                        {/* Property & Unit Images */}
+                        <PropertyImageGallery
+                            property={selectedProperty}
+                            onUploadUnitImage={handleUploadUnitImage}
+                            editable={true}
+                        />
+
                         {/* Property Info */}
-                        <View style={{ backgroundColor: colors.surface, padding: spacing.base, borderRadius: 12, marginBottom: spacing.lg }}>
+                        <View style={{ backgroundColor: colors.surface, padding: spacing.base, borderRadius: 12, marginBottom: spacing.lg, marginTop: spacing.lg }}>
                             <Text style={[typography.h3, { color: colors.text, marginBottom: spacing.md }]}>
                                 Property Details
                             </Text>

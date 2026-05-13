@@ -36,6 +36,7 @@ export interface Unit {
     squareFootage: number;
     rentAmount: number;
     isOccupied: boolean;
+    imageUrl?: string; // Unit image URL
     tenantId?: string;
     leases?: any[]; // Lease relation from database
 }
@@ -47,6 +48,7 @@ export interface Property {
     location: string;
     propertyType: PropertyType;
     units: Unit[];
+    imageUrl?: string; // Property main image
 
     // Financial
     ownership: OwnershipType;
