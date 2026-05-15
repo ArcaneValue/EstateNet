@@ -16,6 +16,7 @@ interface PropertyForGallery {
 
 interface PropertyImageGalleryProps {
     property: PropertyForGallery;
+    onUploadPropertyImage?: (imageBase64: string) => Promise<void>;
     onUploadUnitImage?: (unitId: string, imageBase64: string) => Promise<void>;
     editable?: boolean;
 }
@@ -25,12 +26,42 @@ const IMAGE_SIZE = (SCREEN_WIDTH - 48) / 3; // 3 images per row with spacing
 
 export const PropertyImageGallery: React.FC<PropertyImageGalleryProps> = ({
     property,
+    onUploadPropertyImage,
     onUploadUnitImage,
     editable = false
 }) => {
     const { colors, spacing, typography, borderRadius } = useTheme();
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [uploadingUnitId, setUploadingUnitId] = useState<string | null>(null);
+    const [uploadingProperty, setUploadingProperty] = useState(false);
+
+    const pickImageForProperty = async () => {
+        try {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+                alert('Permission to access media library is required!');
+                return;
+            }
+
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [4, 3],
+                quality: 0.8,
+                base64: true,
+            });
+
+            if (!result.canceled && result.assets[0].base64 && onUploadPropertyImage) {
+                setUploadingProperty(true);
+                const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
+                await onUploadPropertyImage(base64Image);
+                setUploadingProperty(false);
+            }
+        } catch (error) {
+            console.error('Error picking property image:', error);
+            setUploadingProperty(false);
+        }
+    };
 
     const pickImageForUnit = async (unitId: string) => {
         try {
@@ -55,14 +86,14 @@ export const PropertyImageGallery: React.FC<PropertyImageGalleryProps> = ({
                 setUploadingUnitId(null);
             }
         } catch (error) {
-            console.error('Error picking image:', error);
+            console.error('Error picking unit image:', error);
             setUploadingUnitId(null);
         }
     };
 
-    const renderImageTile = (imageUrl: string | undefined, label: string, unitId?: string) => {
+    const renderImageTile = (imageUrl: string | undefined, label: string, unitId?: string, isPropertyImage?: boolean) => {
         const hasImage = !!imageUrl;
-        const isUploading = unitId && uploadingUnitId === unitId;
+        const isUploading = isPropertyImage ? uploadingProperty : (unitId && uploadingUnitId === unitId);
 
         return (
             <TouchableOpacity
@@ -70,6 +101,8 @@ export const PropertyImageGallery: React.FC<PropertyImageGalleryProps> = ({
                 onPress={() => {
                     if (hasImage) {
                         setSelectedImage(imageUrl);
+                    } else if (editable && isPropertyImage && onUploadPropertyImage) {
+                        pickImageForProperty();
                     } else if (editable && unitId && onUploadUnitImage) {
                         pickImageForUnit(unitId);
                     }
@@ -114,7 +147,7 @@ export const PropertyImageGallery: React.FC<PropertyImageGalleryProps> = ({
                             <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
                                 Uploading...
                             </Text>
-                        ) : editable && unitId ? (
+                        ) : editable && (isPropertyImage || unitId) ? (
                             <>
                                 <Ionicons name="camera-outline" size={24} color={colors.textSecondary} />
                                 <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.xs, textAlign: 'center', paddingHorizontal: spacing.xs }]} numberOfLines={2}>
@@ -133,11 +166,12 @@ export const PropertyImageGallery: React.FC<PropertyImageGalleryProps> = ({
     };
 
     const allImages = [
-        { url: property.imageUrl, label: 'Property', unitId: undefined },
+        { url: property.imageUrl, label: 'Property', unitId: undefined, isPropertyImage: true },
         ...property.units.map(unit => ({
             url: unit.imageUrl,
             label: unit.unitNumber,
-            unitId: unit.id
+            unitId: unit.id,
+            isPropertyImage: false
         }))
     ];
 
@@ -165,7 +199,7 @@ export const PropertyImageGallery: React.FC<PropertyImageGalleryProps> = ({
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{ paddingRight: spacing.md }}
             >
-                {allImages.map((img, index) => renderImageTile(img.url, img.label, img.unitId))}
+                {allImages.map((img, index) => renderImageTile(img.url, img.label, img.unitId, img.isPropertyImage))}
             </ScrollView>
 
             {/* Full Screen Image Modal */}

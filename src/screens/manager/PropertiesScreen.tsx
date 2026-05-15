@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Modal as RNModal, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, Modal as RNModal, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useTutorial, TUTORIAL_KEYS } from '../../context/TutorialContext';
@@ -166,10 +166,39 @@ export const PropertiesScreen: React.FC<any> = ({ navigation }) => {
         return property.units.reduce((sum, u) => sum + u.rentAmount, 0);
     };
 
+    const handleUploadPropertyImage = async (imageBase64: string) => {
+        if (!selectedProperty) return;
+
+        try {
+            const { status, json } = await apiPost(`/images/property/${selectedProperty.id}`, {
+                base64Image: imageBase64
+            });
+
+            if (status === 200 && json?.success) {
+                // Refresh properties to get updated property with image
+                await refetch();
+
+                // Update selected property with new image
+                const updatedProperty = properties.find(p => p.id === selectedProperty.id);
+                if (updatedProperty) {
+                    setSelectedProperty(updatedProperty);
+                }
+
+                Alert.alert('Success', 'Property image uploaded successfully');
+            } else {
+                throw new Error(json?.message || 'Failed to upload property image');
+            }
+        } catch (error: any) {
+            console.error('Error uploading property image:', error);
+            Alert.alert('Upload Failed', error.message || 'Failed to upload property image. Please try again.');
+            throw error;
+        }
+    };
+
     const handleUploadUnitImage = async (unitId: string, imageBase64: string) => {
         try {
             const { status, json } = await apiPost(`/images/unit/${unitId}`, {
-                imageBase64
+                base64Image: imageBase64
             });
 
             if (status === 200 && json?.success) {
@@ -183,11 +212,14 @@ export const PropertiesScreen: React.FC<any> = ({ navigation }) => {
                         setSelectedProperty(updatedProperty);
                     }
                 }
+
+                Alert.alert('Success', 'Unit image uploaded successfully');
             } else {
-                throw new Error(json?.message || 'Failed to upload image');
+                throw new Error(json?.message || 'Failed to upload unit image');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error uploading unit image:', error);
+            Alert.alert('Upload Failed', error.message || 'Failed to upload unit image. Please try again.');
             throw error;
         }
     };
@@ -304,6 +336,7 @@ export const PropertiesScreen: React.FC<any> = ({ navigation }) => {
                         {/* Property & Unit Images */}
                         <PropertyImageGallery
                             property={selectedProperty}
+                            onUploadPropertyImage={handleUploadPropertyImage}
                             onUploadUnitImage={handleUploadUnitImage}
                             editable={true}
                         />
