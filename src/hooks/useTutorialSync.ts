@@ -11,9 +11,9 @@ export const useTutorialSync = () => {
     const { syncTutorialFlagsFromUser } = useTutorial();
 
     useEffect(() => {
-        if (user?.tutorialFlags) {
+        if (user?.id) {
             console.log('[useTutorialSync] Syncing tutorial flags from user profile');
-            syncTutorialFlagsFromUser(user.tutorialFlags);
+            syncTutorialFlagsFromUser(user.tutorialFlags || {});
         }
-    }, [user?.id, user?.tutorialFlags, syncTutorialFlagsFromUser]);
+    }, [user?.id, syncTutorialFlagsFromUser]);
 };

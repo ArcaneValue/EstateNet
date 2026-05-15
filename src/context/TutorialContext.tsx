@@ -44,6 +44,9 @@ export const TUTORIAL_KEYS = {
   TENANT_INVITATIONS: 'tutorial_seen_tenant_invitations',
   TENANT_PROFILE: 'tutorial_seen_tenant_profile',
 
+  // Shared screens
+  FEEDBACK_COMMUNITY: 'tutorial_seen_feedback_community',
+
   // Legacy keys (keep for backward compatibility)
   PAYMENT_CLAIMS: 'tutorial_seen_payment_claims',
   BILLING: 'tutorial_seen_billing',

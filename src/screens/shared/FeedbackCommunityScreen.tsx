@@ -24,6 +24,7 @@ import { useTheme } from '../../theme/ThemeContext';
 import { useAdminSession } from '../../context/AdminSessionContext';
 import { AdminLoginModal } from './AdminLoginModal';
 import { FeedbackTutorialModal } from '../../components/FeedbackTutorialModal';
+import { useTutorial, TUTORIAL_KEYS } from '../../context/TutorialContext';
 
 const CATEGORIES = [
     { value: 'ALL', label: 'All' },
@@ -45,6 +46,7 @@ export const FeedbackCommunityScreen = ({ navigation }: any) => {
     const { colors, spacing } = useTheme();
     const insets = useSafeAreaInsets();
     const { isAdminAuthenticated, setAdminSession, validateAdminSession } = useAdminSession();
+    const { shouldShowTutorial, markTutorialSeen } = useTutorial();
     const [selectedCategory, setSelectedCategory] = useState('ALL');
     const [selectedStatus, setSelectedStatus] = useState('ALL');
     const [refreshing, setRefreshing] = useState(false);
@@ -73,37 +75,25 @@ export const FeedbackCommunityScreen = ({ navigation }: any) => {
         loadPosts({ category: selectedCategory, status: selectedStatus });
     }, [selectedCategory, selectedStatus]);
 
-    // Check if user should see tutorial based on backend flag
+    // Check if user should see tutorial using TutorialContext
     useEffect(() => {
-        const checkTutorialFlag = () => {
+        const checkTutorial = async () => {
             try {
-                // Check backend tutorialFlags instead of AsyncStorage
-                const hasViewedTutorial = user?.tutorialFlags?.hasViewedFeedbackTutorial;
-                if (!hasViewedTutorial) {
-                    setShowTutorial(true);
-                }
+                const shouldShow = await shouldShowTutorial(TUTORIAL_KEYS.FEEDBACK_COMMUNITY);
+                setShowTutorial(shouldShow);
             } catch (error) {
                 console.log('Tutorial check error:', error);
             }
         };
 
-        checkTutorialFlag();
-    }, [user]);
+        checkTutorial();
+    }, [shouldShowTutorial]);
 
     const handleTutorialComplete = async () => {
         try {
-            // Update backend tutorialFlags instead of AsyncStorage
-            const currentFlags = user?.tutorialFlags || {};
-            const updatedFlags = {
-                ...currentFlags,
-                hasViewedFeedbackTutorial: true
-            };
-
-            await apiPatch('/users/me', {
-                tutorialFlags: updatedFlags
-            });
-
-            console.log('Tutorial completion saved to backend');
+            await markTutorialSeen(TUTORIAL_KEYS.FEEDBACK_COMMUNITY);
+            setShowTutorial(false);
+            console.log('Tutorial completion saved');
         } catch (error) {
             console.log('Tutorial completion error:', error);
         }

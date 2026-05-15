@@ -88,9 +88,15 @@ export const getCurrentUser = async (req: AuthenticatedRequest, res: Response): 
       return;
     }
 
+    // Ensure tutorialFlags is always an object, never null
+    const userWithDefaults = {
+      ...user,
+      tutorialFlags: user.tutorialFlags || {},
+    };
+
     res.status(200).json({
       success: true,
-      data: { user },
+      data: { user: userWithDefaults },
     });
     console.log('[getCurrentUser] Returning user notificationPrefs:', user.notificationPrefs);
   } catch (error) {
