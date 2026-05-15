@@ -8,6 +8,7 @@ interface TutorialContextType {
   resetTutorial: (tutorialId: string) => Promise<void>;
   resetAllTutorials: () => Promise<void>;
   syncTutorialFlagsFromUser: (tutorialFlags?: { [key: string]: boolean }) => Promise<void>;
+  isSyncComplete: boolean;
 }
 
 const TutorialContext = createContext<TutorialContextType | undefined>(undefined);
@@ -56,9 +57,22 @@ export const TUTORIAL_KEYS = {
 
 export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [tutorialCache, setTutorialCache] = useState<Map<string, boolean>>(new Map());
+  const [isSyncComplete, setIsSyncComplete] = useState(false);
 
   const shouldShowTutorial = useCallback(async (tutorialId: string): Promise<boolean> => {
     try {
+      // Wait for initial sync to complete to avoid race condition
+      // This prevents tutorials from showing before backend flags are loaded
+      if (!isSyncComplete) {
+        console.log(`[TutorialContext] Waiting for sync to complete before checking ${tutorialId}`);
+        // Wait up to 2 seconds for sync to complete
+        let waitTime = 0;
+        while (!isSyncComplete && waitTime < 2000) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          waitTime += 100;
+        }
+      }
+
       // Check cache first
       if (tutorialCache.has(tutorialId)) {
         return !tutorialCache.get(tutorialId);
@@ -76,7 +90,7 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.error(`[TutorialContext] Error checking tutorial ${tutorialId}:`, error);
       return false; // Don't show tutorial if there's an error
     }
-  }, [tutorialCache]);
+  }, [tutorialCache, isSyncComplete]);
 
   const markTutorialSeen = useCallback(async (tutorialId: string): Promise<void> => {
     try {
@@ -139,6 +153,7 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       if (!tutorialFlags || typeof tutorialFlags !== 'object') {
         console.log('[TutorialContext] No tutorial flags to sync from user');
+        setIsSyncComplete(true);
         return;
       }
 
@@ -153,9 +168,11 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       });
 
       await Promise.all(syncPromises);
+      setIsSyncComplete(true);
       console.log('[TutorialContext] Tutorial flags synced successfully');
     } catch (error) {
       console.error('[TutorialContext] Error syncing tutorial flags:', error);
+      setIsSyncComplete(true); // Mark complete even on error to prevent infinite waiting
     }
   }, []);
 
@@ -165,6 +182,7 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     resetTutorial,
     resetAllTutorials,
     syncTutorialFlagsFromUser,
+    isSyncComplete,
   };
 
   return (
