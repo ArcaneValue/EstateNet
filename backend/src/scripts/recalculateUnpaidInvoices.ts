@@ -13,19 +13,19 @@ function calculateCyclicalBillingFee(occupiedUnitCount: number): number {
   let totalFee = 0;
   let remainingUnits = occupiedUnitCount;
   let blockNumber = 1;
-  
+
   while (remainingUnits > 0) {
     const unitsInBlock = Math.min(remainingUnits, BILLING_BLOCK_SIZE);
     const isPaidBlock = blockNumber % 2 === 1; // Odd blocks are paid
-    
+
     if (isPaidBlock) {
       totalFee += unitsInBlock * PAID_BLOCK_FEE_PER_UNIT;
     }
-    
+
     remainingUnits -= unitsInBlock;
     blockNumber++;
   }
-  
+
   return totalFee;
 }
 
@@ -34,7 +34,7 @@ function calculateCyclicalBillingFee(occupiedUnitCount: number): number {
  */
 async function recalculateUnpaidInvoices() {
   console.log('[RecalculateInvoices] Starting recalculation of unpaid invoices...');
-  
+
   try {
     // Get all unpaid invoices
     const unpaidInvoices = await prisma.invoice.findMany({
@@ -45,34 +45,34 @@ async function recalculateUnpaidInvoices() {
         lines: true
       }
     });
-    
+
     console.log(`[RecalculateInvoices] Found ${unpaidInvoices.length} unpaid invoices to recalculate`);
-    
+
     let updatedCount = 0;
     let skippedCount = 0;
-    
+
     for (const invoice of unpaidInvoices) {
       const occupiedUnitCount = invoice.lines.length;
       const newFeeAmount = calculateCyclicalBillingFee(occupiedUnitCount);
       const oldFeeAmount = invoice.feeAmount;
-      
+
       // Update invoice with new fee amount and occupied unit count
-      await prisma.invoice.update({
+      await (prisma.invoice as any).update({
         where: { id: invoice.id },
         data: {
           occupiedUnitCount,
           feeAmount: newFeeAmount
         }
       });
-      
+
       console.log(`[RecalculateInvoices] Invoice ${invoice.id}: ${occupiedUnitCount} units, ${oldFeeAmount} UGX → ${newFeeAmount} UGX`);
       updatedCount++;
     }
-    
+
     console.log(`[RecalculateInvoices] Recalculation complete:`);
     console.log(`  - Updated: ${updatedCount} invoices`);
     console.log(`  - Skipped: ${skippedCount} invoices`);
-    
+
   } catch (error) {
     console.error('[RecalculateInvoices] Error recalculating invoices:', error);
     throw error;
