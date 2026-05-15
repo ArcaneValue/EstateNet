@@ -304,18 +304,19 @@ model OwnerManagerInvitation {
 }
 
 model Invoice {
-  id             String    @id @default(cuid())
-  billedUserId   String
-  periodStart    DateTime
-  periodEnd      DateTime
-  subtotalAmount Int
-  feeRateBps     Int // 150 = 1.5%
-  feeAmount      Int
-  status         String // 'DUE' | 'PAID' | 'OVERDUE'
-  dueDate        DateTime
-  paidAt         DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  billedUserId       String
+  periodStart        DateTime
+  periodEnd          DateTime
+  subtotalAmount     Int
+  feeRateBps         Int? // 150 = 1.5% (legacy field, nullable for new billing model)
+  occupiedUnitCount  Int? // Number of occupied units for block-based billing
+  feeAmount          Int
+  status             String // 'DUE' | 'PAID' | 'OVERDUE'
+  dueDate            DateTime
+  paidAt             DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   // Relations
   billedUser      User             @relation(fields: [billedUserId], references: [id])

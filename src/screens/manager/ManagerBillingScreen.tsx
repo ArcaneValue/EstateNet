@@ -570,7 +570,8 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                                         Key Terms:
                                     </Text>
                                     <Text style={[typography.bodySmall, { color: colors.text }]}>
-                                        {'•'} 1.5% fee per occupied unit per month{'\n'}
+                                        {'•'} 10,000 UGX per occupied unit in paid blocks{'\n'}
+                                        {'•'} Every 2nd block of 10 units is FREE{'\n'}
                                         {'\u2022'} Monthly billing for manager services{'\n'}
                                         {'\u2022'} Payment via MTN Mobile Money or Airtel Money{'\n'}
                                         {'\u2022'} Grace period for overdue payments
@@ -623,6 +624,72 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                                             Your account is in good standing. All features are available.
                                         </Text>
                                     )}
+                                </View>
+                            </Card>
+                        );
+                    })()}
+
+                    {/* ── Free Tier Unlocked Banner ── */}
+                    {billingStatus && (() => {
+                        const occupiedCount = (billingStatus as any).occupiedUnitCount || 0;
+                        const currentTier = Math.floor(occupiedCount / 20);
+                        const hasUnlockedFreeTier = occupiedCount >= 10 && occupiedCount % 20 >= 10 && occupiedCount % 20 < 20;
+
+                        const [showFreeTierBanner, setShowFreeTierBanner] = useState(false);
+
+                        useEffect(() => {
+                            const checkFreeTierMessage = async () => {
+                                if (!hasUnlockedFreeTier) {
+                                    setShowFreeTierBanner(false);
+                                    return;
+                                }
+
+                                try {
+                                    const shownTiersJson = await AsyncStorage.getItem('free_tier_messages_shown');
+                                    const shownTiers = shownTiersJson ? JSON.parse(shownTiersJson) : [];
+
+                                    if (!shownTiers.includes(currentTier)) {
+                                        setShowFreeTierBanner(true);
+                                        await AsyncStorage.setItem('free_tier_messages_shown', JSON.stringify([...shownTiers, currentTier]));
+                                    }
+                                } catch (error) {
+                                    console.error('Error checking free tier message:', error);
+                                }
+                            };
+
+                            checkFreeTierMessage();
+                        }, [occupiedCount, currentTier, hasUnlockedFreeTier]);
+
+                        if (!showFreeTierBanner) return null;
+
+                        return (
+                            <Card style={{
+                                backgroundColor: colors.success + '15',
+                                borderColor: colors.success,
+                                borderWidth: 1.5,
+                                marginBottom: spacing.lg,
+                            }}>
+                                <View style={{ padding: spacing.lg }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
+                                        <Ionicons name="gift" size={28} color={colors.success} />
+                                        <Text style={[typography.h4, { color: colors.success, marginLeft: spacing.sm }]}>
+                                            Congratulations! 🎉
+                                        </Text>
+                                    </View>
+                                    <Text style={[typography.body, { color: colors.text, marginBottom: spacing.sm }]}>
+                                        You have unlocked a FREE billing tier!
+                                    </Text>
+                                    <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                                        Your next 10 occupied units (units {occupiedCount + 1}-{occupiedCount + 10}) will not be charged by EstateNet.
+                                    </Text>
+                                    <TouchableOpacity
+                                        onPress={() => setShowFreeTierBanner(false)}
+                                        style={{ marginTop: spacing.md }}
+                                    >
+                                        <Text style={[typography.bodySmall, { color: colors.success, fontWeight: '600' }]}>
+                                            Dismiss
+                                        </Text>
+                                    </TouchableOpacity>
                                 </View>
                             </Card>
                         );
@@ -749,7 +816,7 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                                                 </Text>
                                             </View>
                                             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                                                <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>Service Fee (1.5%)</Text>
+                                                <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>Service Fee (Block-Based)</Text>
                                                 <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>
                                                     {formatCompactCurrencyUGX(inv.feeAmount)}
                                                 </Text>
@@ -788,7 +855,13 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                                             marginBottom: spacing.lg,
                                         }}>
                                             <Text style={[typography.bodySmall, { color: colors.text, lineHeight: 20 }]}>
-                                                Invoices are calculated based on occupied units at the start of the billing period. We charge a 1.5% service fee per occupied unit per month. New units added during the month are billed in the next cycle.
+                                                EstateNet charges 10,000 UGX per occupied unit for every first block of 10 units. The next block of 10 units is completely free.{'\n\n'}
+                                                Example:{'\n'}
+                                                • 1-10 units → charged (100,000 UGX){'\n'}
+                                                • 11-20 units → FREE{'\n'}
+                                                • 21-30 units → charged (100,000 UGX){'\n'}
+                                                • 31-40 units → FREE{'\n\n'}
+                                                Invoices are calculated at the start of each billing period based on occupied units at that time.
                                             </Text>
                                         </View>
                                     )}
@@ -1444,7 +1517,7 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                                         </View>
                                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
                                             <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
-                                                Fee ({(invoiceDetail.feeRateBps / 100).toFixed(2)}%)
+                                                Service Fee (Block-Based)
                                             </Text>
                                             <Text style={[typography.body, { color: colors.text }]}>UGX {formatNumber(invoiceDetail.feeAmount)}</Text>
                                         </View>
@@ -1530,11 +1603,11 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                 visible={showTutorial}
                 onClose={handleTutorialClose}
                 title="Service Fee Billing"
-                description="EstateNet charges a small percentage based on your occupied units. Here's how billing works."
+                description="EstateNet charges a small fee based on your occupied units. Here's how billing works."
                 steps={[
                     {
-                        title: 'Service Fee (1.5%)',
-                        description: 'You pay 1.5% of the total value of your occupied units each month. For example, if you have occupied units worth UGX 1,000,000/month, your service fee is UGX 15,000.',
+                        title: 'Block-Based Billing',
+                        description: 'EstateNet charges 10,000 UGX per occupied unit in paid blocks. Every 1st block of 10 units is charged, and every 2nd block of 10 units is FREE. Example: 25 units = 150,000 UGX (10 paid + 10 free + 5 paid).',
                         icon: 'cash-outline'
                     },
                     {

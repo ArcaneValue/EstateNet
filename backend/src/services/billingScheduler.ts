@@ -1,7 +1,11 @@
 import { prisma } from '../utils/database';
 import { UserRole } from '../types/prisma';
 
-// Fee rate: 1.5% = 150 basis points
+// Cyclical block-based billing: 10,000 UGX per unit in paid blocks
+const BILLING_BLOCK_SIZE = 10;
+const PAID_BLOCK_FEE_PER_UNIT = 10000; // UGX
+
+// Legacy constants (kept for backward compatibility)
 const FEE_RATE_BPS = 150;
 const FEE_RATE = 0.015;
 
@@ -59,6 +63,46 @@ export const acquireLock = async (jobName: string, ttlMs: number): Promise<boole
     return false;
   }
 };
+
+/**
+ * Calculate billing fee using cyclical block model
+ * - Blocks 1, 3, 5... (odd): PAID (10,000 UGX per unit)
+ * - Blocks 2, 4, 6... (even): FREE
+ */
+function calculateCyclicalBillingFee(occupiedUnitCount: number): {
+  feeAmount: number;
+  breakdown: Array<{
+    blockNumber: number;
+    blockType: 'PAID' | 'FREE';
+    unitsInBlock: number;
+    feeForBlock: number;
+  }>;
+} {
+  const breakdown = [];
+  let totalFee = 0;
+  let remainingUnits = occupiedUnitCount;
+  let blockNumber = 1;
+
+  while (remainingUnits > 0) {
+    const unitsInBlock = Math.min(remainingUnits, BILLING_BLOCK_SIZE);
+    const isPaidBlock = blockNumber % 2 === 1; // Odd blocks are paid
+    const blockType: 'PAID' | 'FREE' = isPaidBlock ? 'PAID' : 'FREE';
+    const feeForBlock = isPaidBlock ? unitsInBlock * PAID_BLOCK_FEE_PER_UNIT : 0;
+
+    breakdown.push({
+      blockNumber,
+      blockType,
+      unitsInBlock,
+      feeForBlock
+    });
+
+    totalFee += feeForBlock;
+    remainingUnits -= unitsInBlock;
+    blockNumber++;
+  }
+
+  return { feeAmount: totalFee, breakdown };
+}
 
 /**
  * Get billing period string in YYYY-MM format (Africa/Kampala timezone)
@@ -242,9 +286,10 @@ export const ensureBackfillInvoicesForAllManagers = async (now: Date = new Date(
           continue;
         }
 
-        // Calculate subtotal
+        // Calculate subtotal and fee using cyclical block model
+        const occupiedUnitCount = occupiedUnits.length;
+        const { feeAmount, breakdown } = calculateCyclicalBillingFee(occupiedUnitCount);
         const subtotalAmount = occupiedUnits.reduce((sum: number, lease: any) => sum + lease.rentAmount, 0);
-        const feeAmount = Math.round(subtotalAmount * FEE_RATE);
 
         try {
           // Create invoice with DB uniqueness protection
@@ -254,7 +299,7 @@ export const ensureBackfillInvoicesForAllManagers = async (now: Date = new Date(
               periodStart,
               periodEnd,
               subtotalAmount,
-              feeRateBps: FEE_RATE_BPS,
+              occupiedUnitCount,
               feeAmount,
               status: 'DUE',
               dueDate: new Date(periodEnd.getTime() + 7 * 24 * 60 * 60 * 1000), // 7 days after period end
@@ -379,9 +424,10 @@ export const ensureMonthlyInvoicesForAllManagers = async (now: Date = new Date()
         continue;
       }
 
-      // Calculate subtotal
+      // Calculate subtotal and fee using cyclical block model
+      const occupiedUnitCount = occupiedUnits.length;
+      const { feeAmount, breakdown } = calculateCyclicalBillingFee(occupiedUnitCount);
       const subtotalAmount = occupiedUnits.reduce((sum: number, lease: any) => sum + lease.rentAmount, 0);
-      const feeAmount = Math.round(subtotalAmount * FEE_RATE);
 
       try {
         // Create invoice for this user (Option A: immutable snapshot at period start)
@@ -392,7 +438,7 @@ export const ensureMonthlyInvoicesForAllManagers = async (now: Date = new Date()
             periodStart,
             periodEnd,
             subtotalAmount,
-            feeRateBps: FEE_RATE_BPS,
+            occupiedUnitCount,
             feeAmount,
             status: 'DUE',
             dueDate: new Date(periodEnd.getTime() + 7 * 24 * 60 * 60 * 1000), // 7 days after period end
@@ -487,6 +533,67 @@ export const markOverdueInvoices = async (now: Date = new Date()): Promise<{ inv
   }
 
   return { invoicesMarkedOverdueCount };
+};
+
+/**
+ * Transition overdue managers to RESTRICTED/SUSPENDED based on days overdue
+ * - Day 8-14: RESTRICTED (creation operations blocked)
+ * - Day 15+: SUSPENDED (all operations blocked except billing)
+ */
+export const transitionBillingStatuses = async (now: Date = new Date()): Promise<{ managersUpdatedCount: number }> => {
+  console.log(`[BillingScheduler] Starting billing status transitions for ${now.toISOString()}`);
+
+  let managersUpdatedCount = 0;
+
+  try {
+    // Get all managers with OVERDUE or RESTRICTED status
+    const overdueManagers = await prisma.user.findMany({
+      where: {
+        billingStatus: { in: ['OVERDUE', 'RESTRICTED'] },
+        role: { in: [UserRole.MANAGER, UserRole.OWNER] }
+      },
+      include: {
+        invoices: {
+          where: { status: 'OVERDUE' },
+          orderBy: { dueDate: 'asc' }
+        }
+      }
+    });
+
+    for (const manager of overdueManagers) {
+      if (manager.invoices.length === 0) continue;
+
+      const oldestOverdueInvoice = manager.invoices[0];
+      const daysOverdue = Math.floor((now.getTime() - new Date(oldestOverdueInvoice.dueDate).getTime()) / (24 * 60 * 60 * 1000));
+
+      let newStatus: 'OVERDUE' | 'RESTRICTED' | 'SUSPENDED' = 'OVERDUE';
+
+      if (daysOverdue >= 15) {
+        newStatus = 'SUSPENDED'; // 15+ days: full suspension
+      } else if (daysOverdue >= 8) {
+        newStatus = 'RESTRICTED'; // 8-14 days: restricted operations
+      }
+      // 0-7 days: remain OVERDUE (grace period)
+
+      if (manager.billingStatus !== newStatus) {
+        await prisma.user.update({
+          where: { id: manager.id },
+          data: { billingStatus: newStatus }
+        });
+
+        console.log(`[BillingScheduler] Transitioned manager ${manager.id}: ${manager.billingStatus} → ${newStatus} (${daysOverdue} days overdue)`);
+        managersUpdatedCount++;
+      }
+    }
+
+    console.log(`[BillingScheduler] Status transitions complete. Updated ${managersUpdatedCount} managers`);
+
+  } catch (error) {
+    console.error('[BillingScheduler] Error transitioning billing statuses:', error);
+    throw error;
+  }
+
+  return { managersUpdatedCount };
 };
 
 /**
@@ -598,9 +705,13 @@ export const runDailyBillingTasks = async (now: Date = new Date()): Promise<{
     const overdueResults = await markOverdueInvoices(now);
     results.invoicesMarkedOverdueCount = overdueResults.invoicesMarkedOverdueCount;
 
+    // Task 3.5: Transition billing statuses (OVERDUE → RESTRICTED → SUSPENDED)
+    const transitionResults = await transitionBillingStatuses(now);
+    results.managersUpdatedCount += transitionResults.managersUpdatedCount;
+
     // Task 4: Sync manager billing status (DB-grounded enforcement)
     const syncResults = await syncManagerBillingStatus(now);
-    results.managersUpdatedCount = syncResults.managersUpdatedCount;
+    results.managersUpdatedCount += syncResults.managersUpdatedCount;
 
     console.log(`[BillingScheduler] Daily billing tasks completed:`, results);
 

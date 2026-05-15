@@ -3,9 +3,38 @@ import { AuthenticatedRequest } from '../middlewares/auth';
 import { prisma } from '../utils/database';
 import { UserRole } from '../types/prisma';
 
-// Fee rate: 1.5% = 150 basis points
+// Cyclical block-based billing: 10,000 UGX per unit in paid blocks
+const BILLING_BLOCK_SIZE = 10;
+const PAID_BLOCK_FEE_PER_UNIT = 10000; // UGX
+
+// Legacy constants (kept for backward compatibility)
 const FEE_RATE_BPS = 150;
 const FEE_RATE = 0.015;
+
+/**
+ * Calculate billing fee using cyclical block model
+ * - Blocks 1, 3, 5... (odd): PAID (10,000 UGX per unit)
+ * - Blocks 2, 4, 6... (even): FREE
+ */
+function calculateCyclicalBillingFee(occupiedUnitCount: number): number {
+  let totalFee = 0;
+  let remainingUnits = occupiedUnitCount;
+  let blockNumber = 1;
+
+  while (remainingUnits > 0) {
+    const unitsInBlock = Math.min(remainingUnits, BILLING_BLOCK_SIZE);
+    const isPaidBlock = blockNumber % 2 === 1; // Odd blocks are paid
+
+    if (isPaidBlock) {
+      totalFee += unitsInBlock * PAID_BLOCK_FEE_PER_UNIT;
+    }
+
+    remainingUnits -= unitsInBlock;
+    blockNumber++;
+  }
+
+  return totalFee;
+}
 
 export const getBillingStatus = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
@@ -507,9 +536,10 @@ export const generateInvoice = async (req: AuthenticatedRequest, res: Response):
       return;
     }
 
-    // Calculate subtotal
+    // Calculate subtotal and fee using cyclical block model
+    const occupiedUnitCount = occupiedUnits.length;
+    const feeAmount = calculateCyclicalBillingFee(occupiedUnitCount);
     const subtotalAmount = occupiedUnits.reduce((sum, lease) => sum + lease.rentAmount, 0);
-    const feeAmount = Math.round(subtotalAmount * FEE_RATE);
 
     // Create invoice
     const invoice = await (prisma.invoice as any).create({
@@ -518,7 +548,7 @@ export const generateInvoice = async (req: AuthenticatedRequest, res: Response):
         periodStart: new Date(periodStart),
         periodEnd: new Date(periodEnd),
         subtotalAmount,
-        feeRateBps: FEE_RATE_BPS,
+        occupiedUnitCount,
         feeAmount,
         status: 'DUE',
         dueDate: new Date(new Date(periodEnd).getTime() + 7 * 24 * 60 * 60 * 1000), // 7 days after period end
