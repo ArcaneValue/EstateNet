@@ -42,5 +42,17 @@ async function main() {
 }
 
 if (require.main === module) {
-  main();
+  main()
+    .then(() => {
+      console.log('[RunCleanup] Script finished successfully');
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error('[RunCleanup] Script failed with unhandled error:', error);
+      if (error instanceof Error) {
+        console.error('[RunCleanup] Error message:', error.message);
+        console.error('[RunCleanup] Error stack:', error.stack);
+      }
+      process.exit(1);
+    });
 }
