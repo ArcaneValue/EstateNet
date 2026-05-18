@@ -92,13 +92,14 @@ export async function recalculateUnpaidInvoices() {
   }
 }
 
-// Run the script
-recalculateUnpaidInvoices()
-  .then(() => {
-    console.log('[RecalculateInvoices] Script completed successfully');
-    process.exit(0);
-  })
-  .catch((error) => {
-    console.error('[RecalculateInvoices] Script failed:', error);
-    process.exit(1);
-  });
+// Run the script only when executed directly (not when imported as a module)
+if (require.main === module) {
+  recalculateUnpaidInvoices()
+    .then(() => {
+      console.log('[RecalculateInvoices] Script completed successfully');
+    })
+    .catch((error) => {
+      console.error('[RecalculateInvoices] Script failed:', error);
+      process.exit(1);
+    });
+}

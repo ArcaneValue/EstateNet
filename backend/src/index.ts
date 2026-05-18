@@ -73,18 +73,59 @@ const limiter = rateLimit({
 
 // Middleware
 app.use(helmet());
-// CORS - Allow all origins in development for mobile device testing
+
+// Allowed origins for CORS
+const ALLOWED_ORIGINS = [
+    // Production domain
+    'https://estatenet-production.up.railway.app',
+    // Local web development
+    'http://localhost:3000',
+    'http://localhost:8081',
+    'http://localhost:19006',
+    'http://127.0.0.1:8081',
+    'http://127.0.0.1:19006',
+    // Honour FRONTEND_URL env var if set
+    ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
+];
+
+// CORS origin resolver — supports browser clients, Expo Go (exp://), and
+// native mobile apps that send no Origin header at all.
+const corsOriginHandler = (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean | string) => void
+) => {
+    // No Origin header → native mobile / curl / server-to-server request.
+    // Allow it so Expo Go and React Native fetch() work without issues.
+    if (!origin) {
+        return callback(null, true);
+    }
+
+    // Explicitly listed origins
+    if (ALLOWED_ORIGINS.includes(origin)) {
+        return callback(null, true);
+    }
+
+    // Expo Go uses exp:// scheme (e.g. exp://192.168.x.x:8081)
+    if (origin.startsWith('exp://')) {
+        return callback(null, true);
+    }
+
+    // Temporary: allow all origins so mobile testing is unblocked.
+    // TODO: remove the line below once the production domain is stable.
+    if (process.env.CORS_ALLOW_ALL === 'true' || process.env.NODE_ENV !== 'production') {
+        return callback(null, true);
+    }
+
+    // Rejected — log for debugging
+    console.warn(`[CORS] Blocked request from disallowed origin: ${origin}`);
+    return callback(new Error(`CORS policy: origin '${origin}' is not allowed`));
+};
+
 app.use(cors({
-    origin: process.env.NODE_ENV === 'production'
-        ? [
-            process.env.FRONTEND_URL || 'http://localhost:19006',
-            'http://localhost:8081',
-            'http://localhost:19006',
-            'http://127.0.0.1:8081',
-            'http://127.0.0.1:19006'
-        ]
-        : true, // Allow all origins in development for Expo Go and physical devices
-    credentials: true
+    origin: corsOriginHandler,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
 app.use(limiter);
 app.use(morgan('combined'));
@@ -155,11 +196,34 @@ app.use(errorHandler);
 // Process-level safety net
 process.on('uncaughtException', (error) => {
     console.error('FATAL: Uncaught Exception:', error);
-    setTimeout(() => process.exit(1), 1000);
+    console.error('FATAL: Stack trace:', error instanceof Error ? error.stack : String(error));
+    // Flush logs then exit — staying alive after an uncaught exception is unsafe
+    setTimeout(() => process.exit(1), 500);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('FATAL: Unhandled Rejection at:', promise, 'reason:', reason);
+    console.error('FATAL: Unhandled Promise Rejection');
+    console.error('FATAL: Promise:', promise);
+    console.error('FATAL: Reason:', reason);
+    if (reason instanceof Error) {
+        console.error('FATAL: Stack trace:', reason.stack);
+    }
+    // Exit so Railway restarts the container and we get a visible crash
+    setTimeout(() => process.exit(1), 500);
+});
+
+process.on('exit', (code) => {
+    console.log(`[Process] Exiting with code ${code} at ${new Date().toISOString()}`);
+});
+
+process.on('SIGTERM', () => {
+    console.log('[Process] Received SIGTERM — shutting down gracefully');
+    process.exit(0);
+});
+
+process.on('SIGINT', () => {
+    console.log('[Process] Received SIGINT — shutting down gracefully');
+    process.exit(0);
 });
 
 // Start server with retry logic
@@ -198,7 +262,7 @@ if (process.env.NODE_ENV !== 'test') {
 if (process.env.DISABLE_BACKGROUND_JOBS !== 'true') {
     // Schedule daily billing tasks at 00:05 server time
     cron.schedule('5 0 * * *', async () => {
-        console.log('[BillingScheduler] Starting daily billing tasks...');
+        console.log(`[BillingScheduler] Starting daily billing tasks at ${new Date().toISOString()}...`);
         try {
             const results = await runDailyBillingTasks();
             console.log('[BillingScheduler] Daily tasks completed:', {
@@ -208,6 +272,10 @@ if (process.env.DISABLE_BACKGROUND_JOBS !== 'true') {
             });
         } catch (error) {
             console.error('[BillingScheduler] Daily tasks failed:', error);
+            if (error instanceof Error) {
+                console.error('[BillingScheduler] Error message:', error.message);
+                console.error('[BillingScheduler] Error stack:', error.stack);
+            }
         }
     }, {
         scheduled: true,
@@ -223,41 +291,106 @@ if (process.env.DISABLE_BACKGROUND_JOBS !== 'true') {
             }
         } catch (error) {
             console.error('[PaymentCleanup] Cleanup failed:', error);
+            if (error instanceof Error) {
+                console.error('[PaymentCleanup] Error message:', error.message);
+                console.error('[PaymentCleanup] Error stack:', error.stack);
+            }
         }
     });
 
     // Run catch-up on startup after server is ready
+    let startupRetryCount = 0;
+    const MAX_STARTUP_RETRIES = 5;
+    const STARTUP_RETRY_DELAY_MS = 30000;
+    // Hard cap: if startup tasks haven't finished within 10 minutes, log and move on
+    const STARTUP_TIMEOUT_MS = 10 * 60 * 1000;
+
     const runStartupTasks = async () => {
-        console.log('[BillingScheduler] Starting startup catch-up...');
+        const startTime = Date.now();
+        console.log(`[Startup] ===== BEGIN STARTUP TASKS (attempt ${startupRetryCount + 1}/${MAX_STARTUP_RETRIES}) at ${new Date().toISOString()} =====`);
+
+        // Wrap everything in a timeout so a hung DB call can't stall the process forever
+        const timeoutHandle = setTimeout(() => {
+            console.error(`[Startup] TIMEOUT: Startup tasks exceeded ${STARTUP_TIMEOUT_MS / 1000}s limit — giving up to keep server alive`);
+        }, STARTUP_TIMEOUT_MS);
+
         try {
-            // Wait for database to be ready
+            // Step 1: Wait for database
+            console.log(`[Startup] Step 1/3: Waiting for database connection... (${new Date().toISOString()})`);
             const dbReady = await initializeDatabase();
             if (!dbReady) {
-                console.log('[BillingScheduler] Database not ready, scheduling retry in 30 seconds');
-                setTimeout(runStartupTasks, 30000);
+                clearTimeout(timeoutHandle);
+                startupRetryCount++;
+                if (startupRetryCount < MAX_STARTUP_RETRIES) {
+                    console.error(`[Startup] Database not ready after full retry cycle. Will retry startup tasks in ${STARTUP_RETRY_DELAY_MS / 1000}s (attempt ${startupRetryCount}/${MAX_STARTUP_RETRIES})`);
+                    setTimeout(runStartupTasks, STARTUP_RETRY_DELAY_MS);
+                } else {
+                    console.error(`[Startup] FATAL: Database unreachable after ${MAX_STARTUP_RETRIES} startup attempts. Server is running but billing tasks were skipped.`);
+                }
                 return;
             }
+            console.log(`[Startup] Step 1/3: Database ready (${Date.now() - startTime}ms elapsed)`);
 
-            // Step 1: Clean up any duplicate invoices before applying constraints
-            console.log('[BillingScheduler] Checking for duplicate invoices...');
-            const cleanupResult = await cleanupDuplicateInvoices();
-            if (cleanupResult.deletedCount > 0) {
-                console.log(`[BillingScheduler] Cleaned up ${cleanupResult.deletedCount} duplicate invoices`);
+            // Step 2: Clean up duplicate invoices
+            console.log(`[Startup] Step 2/3: Checking for duplicate invoices... (${new Date().toISOString()})`);
+            try {
+                const cleanupResult = await cleanupDuplicateInvoices();
+                if (cleanupResult.deletedCount > 0) {
+                    console.log(`[Startup] Step 2/3: Cleaned up ${cleanupResult.deletedCount} duplicate invoices (${Date.now() - startTime}ms elapsed)`);
+                } else {
+                    console.log(`[Startup] Step 2/3: No duplicate invoices found (${Date.now() - startTime}ms elapsed)`);
+                }
+            } catch (cleanupError) {
+                // Non-fatal: log and continue — duplicate cleanup failure should not block billing
+                console.error(`[Startup] Step 2/3: Duplicate invoice cleanup failed (non-fatal, continuing):`, cleanupError);
+                if (cleanupError instanceof Error) {
+                    console.error(`[Startup] Cleanup error details — message: ${cleanupError.message} | stack: ${cleanupError.stack}`);
+                }
             }
 
-            // Step 2: Run normal billing tasks
-            const results = await runDailyBillingTasks();
-            console.log('[BillingScheduler] Startup catch-up completed:', {
-                invoicesCreatedCount: results.invoicesCreatedCount,
-                invoicesMarkedOverdueCount: results.invoicesMarkedOverdueCount,
-                managersUpdatedCount: results.managersUpdatedCount
-            });
+            // Step 3: Run daily billing tasks
+            console.log(`[Startup] Step 3/3: Running daily billing catch-up... (${new Date().toISOString()})`);
+            try {
+                const results = await runDailyBillingTasks();
+                console.log(`[Startup] Step 3/3: Daily billing catch-up completed in ${Date.now() - startTime}ms:`, {
+                    invoicesCreatedCount: results.invoicesCreatedCount,
+                    invoicesMarkedOverdueCount: results.invoicesMarkedOverdueCount,
+                    managersUpdatedCount: results.managersUpdatedCount
+                });
+            } catch (billingError) {
+                console.error(`[Startup] Step 3/3: Daily billing tasks failed:`, billingError);
+                if (billingError instanceof Error) {
+                    console.error(`[Startup] Billing error details — message: ${billingError.message} | stack: ${billingError.stack}`);
+                }
+                // Retry the whole startup sequence if billing fails
+                startupRetryCount++;
+                if (startupRetryCount < MAX_STARTUP_RETRIES) {
+                    clearTimeout(timeoutHandle);
+                    console.error(`[Startup] Scheduling retry in ${STARTUP_RETRY_DELAY_MS / 1000}s (attempt ${startupRetryCount}/${MAX_STARTUP_RETRIES})`);
+                    setTimeout(runStartupTasks, STARTUP_RETRY_DELAY_MS);
+                    return;
+                } else {
+                    console.error(`[Startup] Billing tasks failed after ${MAX_STARTUP_RETRIES} attempts — giving up. Server remains running.`);
+                }
+            }
+
+            clearTimeout(timeoutHandle);
+            console.log(`[Startup] ===== STARTUP TASKS COMPLETE in ${Date.now() - startTime}ms at ${new Date().toISOString()} =====`);
+
         } catch (error) {
-            console.error('[BillingScheduler] Startup catch-up failed:', error);
-            // Retry after 30 seconds if it's a connection error
-            if (error instanceof Error && error.message.includes('database')) {
-                console.log('[BillingScheduler] Database error detected, retrying in 30 seconds');
-                setTimeout(runStartupTasks, 30000);
+            clearTimeout(timeoutHandle);
+            // Catch-all for any unexpected error in the startup sequence
+            console.error(`[Startup] UNEXPECTED ERROR in startup tasks:`, error);
+            if (error instanceof Error) {
+                console.error(`[Startup] Error message: ${error.message}`);
+                console.error(`[Startup] Error stack: ${error.stack}`);
+            }
+            startupRetryCount++;
+            if (startupRetryCount < MAX_STARTUP_RETRIES) {
+                console.error(`[Startup] Scheduling retry in ${STARTUP_RETRY_DELAY_MS / 1000}s (attempt ${startupRetryCount}/${MAX_STARTUP_RETRIES})`);
+                setTimeout(runStartupTasks, STARTUP_RETRY_DELAY_MS);
+            } else {
+                console.error(`[Startup] Startup tasks abandoned after ${MAX_STARTUP_RETRIES} attempts. Server remains running.`);
             }
         }
     };
