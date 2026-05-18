@@ -73,18 +73,59 @@ const limiter = rateLimit({
 
 // Middleware
 app.use(helmet());
-// CORS - Allow all origins in development for mobile device testing
+
+// Allowed origins for CORS
+const ALLOWED_ORIGINS = [
+    // Production domain
+    'https://estatenet-production.up.railway.app',
+    // Local web development
+    'http://localhost:3000',
+    'http://localhost:8081',
+    'http://localhost:19006',
+    'http://127.0.0.1:8081',
+    'http://127.0.0.1:19006',
+    // Honour FRONTEND_URL env var if set
+    ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
+];
+
+// CORS origin resolver — supports browser clients, Expo Go (exp://), and
+// native mobile apps that send no Origin header at all.
+const corsOriginHandler = (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean | string) => void
+) => {
+    // No Origin header → native mobile / curl / server-to-server request.
+    // Allow it so Expo Go and React Native fetch() work without issues.
+    if (!origin) {
+        return callback(null, true);
+    }
+
+    // Explicitly listed origins
+    if (ALLOWED_ORIGINS.includes(origin)) {
+        return callback(null, true);
+    }
+
+    // Expo Go uses exp:// scheme (e.g. exp://192.168.x.x:8081)
+    if (origin.startsWith('exp://')) {
+        return callback(null, true);
+    }
+
+    // Temporary: allow all origins so mobile testing is unblocked.
+    // TODO: remove the line below once the production domain is stable.
+    if (process.env.CORS_ALLOW_ALL === 'true' || process.env.NODE_ENV !== 'production') {
+        return callback(null, true);
+    }
+
+    // Rejected — log for debugging
+    console.warn(`[CORS] Blocked request from disallowed origin: ${origin}`);
+    return callback(new Error(`CORS policy: origin '${origin}' is not allowed`));
+};
+
 app.use(cors({
-    origin: process.env.NODE_ENV === 'production'
-        ? [
-            process.env.FRONTEND_URL || 'http://localhost:19006',
-            'http://localhost:8081',
-            'http://localhost:19006',
-            'http://127.0.0.1:8081',
-            'http://127.0.0.1:19006'
-        ]
-        : true, // Allow all origins in development for Expo Go and physical devices
-    credentials: true
+    origin: corsOriginHandler,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
 app.use(limiter);
 app.use(morgan('combined'));
