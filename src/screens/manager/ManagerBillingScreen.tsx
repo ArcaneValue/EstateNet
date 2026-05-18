@@ -195,6 +195,9 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
     const [showTutorial, setShowTutorial] = useState(false);
     const { shouldShowTutorial, markTutorialSeen } = useTutorial();
 
+    // Free tier banner state
+    const [showFreeTierBanner, setShowFreeTierBanner] = useState(false);
+
     // Enforcement route params
     const enforcementBanner: string | undefined = route?.params?.enforcementBanner;
     const blockedFeature: string | undefined = route?.params?.blockedFeature;
@@ -285,6 +288,36 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
         });
         return unsubscribe;
     }, [navigation, loadData]);
+
+    // ── Check for free tier unlock ──────────────────────────────────────────
+    useEffect(() => {
+        const checkFreeTierMessage = async () => {
+            if (!billingStatus) return;
+
+            const occupiedCount = (billingStatus as any).occupiedUnitCount || 0;
+            const currentTier = Math.floor(occupiedCount / 20);
+            const hasUnlockedFreeTier = occupiedCount >= 10 && occupiedCount % 20 >= 10 && occupiedCount % 20 < 20;
+
+            if (!hasUnlockedFreeTier) {
+                setShowFreeTierBanner(false);
+                return;
+            }
+
+            try {
+                const shownTiersJson = await AsyncStorage.getItem('free_tier_messages_shown');
+                const shownTiers = shownTiersJson ? JSON.parse(shownTiersJson) : [];
+
+                if (!shownTiers.includes(currentTier)) {
+                    setShowFreeTierBanner(true);
+                    await AsyncStorage.setItem('free_tier_messages_shown', JSON.stringify([...shownTiers, currentTier]));
+                }
+            } catch (error) {
+                console.error('Error checking free tier message:', error);
+            }
+        };
+
+        checkFreeTierMessage();
+    }, [billingStatus]);
 
     // ── Pull-to-refresh handler ─────────────────────────────────────────────
     const onRefresh = useCallback(() => {
@@ -630,37 +663,8 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                     })()}
 
                     {/* ── Free Tier Unlocked Banner ── */}
-                    {billingStatus && (() => {
+                    {showFreeTierBanner && billingStatus && (() => {
                         const occupiedCount = (billingStatus as any).occupiedUnitCount || 0;
-                        const currentTier = Math.floor(occupiedCount / 20);
-                        const hasUnlockedFreeTier = occupiedCount >= 10 && occupiedCount % 20 >= 10 && occupiedCount % 20 < 20;
-
-                        const [showFreeTierBanner, setShowFreeTierBanner] = useState(false);
-
-                        useEffect(() => {
-                            const checkFreeTierMessage = async () => {
-                                if (!hasUnlockedFreeTier) {
-                                    setShowFreeTierBanner(false);
-                                    return;
-                                }
-
-                                try {
-                                    const shownTiersJson = await AsyncStorage.getItem('free_tier_messages_shown');
-                                    const shownTiers = shownTiersJson ? JSON.parse(shownTiersJson) : [];
-
-                                    if (!shownTiers.includes(currentTier)) {
-                                        setShowFreeTierBanner(true);
-                                        await AsyncStorage.setItem('free_tier_messages_shown', JSON.stringify([...shownTiers, currentTier]));
-                                    }
-                                } catch (error) {
-                                    console.error('Error checking free tier message:', error);
-                                }
-                            };
-
-                            checkFreeTierMessage();
-                        }, [occupiedCount, currentTier, hasUnlockedFreeTier]);
-
-                        if (!showFreeTierBanner) return null;
 
                         return (
                             <Card style={{
@@ -1596,42 +1600,43 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                         </View>
                     </View>
                 </Modal>
-            </ScrollView>
+            </ScrollView >
 
             {/* Billing Tutorial */}
-            <TutorialModal
+            < TutorialModal
                 visible={showTutorial}
                 onClose={handleTutorialClose}
                 title="Service Fee Billing"
                 description="EstateNet charges a small fee based on your occupied units. Here's how billing works."
-                steps={[
-                    {
-                        title: 'Block-Based Billing',
-                        description: 'EstateNet charges 10,000 UGX per occupied unit in paid blocks. Every 1st block of 10 units is charged, and every 2nd block of 10 units is FREE. Example: 25 units = 150,000 UGX (10 paid + 10 free + 5 paid).',
-                        icon: 'cash-outline'
-                    },
-                    {
-                        title: 'Payment Methods',
-                        description: 'Pay via Mobile Money (MTN or Airtel). Payments are processed securely through our payment gateway.',
-                        icon: 'card-outline'
-                    },
-                    {
-                        title: 'Billing Cycle',
-                        description: 'Your billing period starts when you add your first property. Invoices are generated monthly based on the rental value of occupied units.',
-                        icon: 'calendar-outline'
-                    },
-                    {
-                        title: 'Due Dates & Grace Period',
-                        description: 'Pay before the due date to avoid service interruption. A grace period may apply for late payments.',
-                        icon: 'time-outline'
-                    },
-                    {
-                        title: 'View Invoices & Receipts',
-                        description: 'All invoices and payment receipts are available here. Download them anytime for your records.',
-                        icon: 'document-text-outline'
-                    }
-                ]}
+                steps={
+                    [
+                        {
+                            title: 'Block-Based Billing',
+                            description: 'EstateNet charges 10,000 UGX per occupied unit in paid blocks. Every 1st block of 10 units is charged, and every 2nd block of 10 units is FREE. Example: 25 units = 150,000 UGX (10 paid + 10 free + 5 paid).',
+                            icon: 'cash-outline'
+                        },
+                        {
+                            title: 'Payment Methods',
+                            description: 'Pay via Mobile Money (MTN or Airtel). Payments are processed securely through our payment gateway.',
+                            icon: 'card-outline'
+                        },
+                        {
+                            title: 'Billing Cycle',
+                            description: 'Your billing period starts when you add your first property. Invoices are generated monthly based on the rental value of occupied units.',
+                            icon: 'calendar-outline'
+                        },
+                        {
+                            title: 'Due Dates & Grace Period',
+                            description: 'Pay before the due date to avoid service interruption. A grace period may apply for late payments.',
+                            icon: 'time-outline'
+                        },
+                        {
+                            title: 'View Invoices & Receipts',
+                            description: 'All invoices and payment receipts are available here. Download them anytime for your records.',
+                            icon: 'document-text-outline'
+                        }
+                    ]}
             />
-        </View>
+        </View >
     );
 };
