@@ -8,7 +8,8 @@ import {
   markInvoicePaid,
   forceManagerBillingOverdue,
   clearManagerBillingOverdue,
-  runScheduler
+  runScheduler,
+  recalculateInvoices
 } from '../controllers/billingController';
 import { authenticateToken, AuthenticatedRequest } from '../middlewares/auth';
 import { requireUserRole } from '../middlewares/requireUserRole';
@@ -106,6 +107,13 @@ router.post('/billing/scheduler/run',
   authenticateToken,
   requireUserRole(UserRole.OWNER),
   runScheduler
+);
+
+// POST /api/billing/recalculate-invoices - Recalculate unpaid invoices with new formula (OWNER only)
+router.post('/billing/recalculate-invoices',
+  authenticateToken,
+  requireUserRole(UserRole.OWNER),
+  recalculateInvoices
 );
 
 // GET /api/billing/my-invoices - Get invoices for current user (OWNER/MANAGER)

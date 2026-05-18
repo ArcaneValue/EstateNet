@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthenticatedRequest } from '../middlewares/auth';
 import { prisma } from '../utils/database';
 import { UserRole } from '../types/prisma';
+import { recalculateUnpaidInvoices } from '../scripts/recalculateUnpaidInvoices';
 
 // Cyclical block-based billing: 10,000 UGX per unit in paid blocks
 const BILLING_BLOCK_SIZE = 10;
@@ -683,6 +684,36 @@ export const runScheduler = async (req: AuthenticatedRequest, res: Response): Pr
     res.status(500).json({
       success: false,
       message: 'Internal server error'
+    });
+  }
+};
+
+export const recalculateInvoices = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    // Only allow owners to run recalculation
+    if (req.user?.role !== UserRole.OWNER) {
+      res.status(403).json({
+        success: false,
+        message: 'Access denied. Owner role required.'
+      });
+      return;
+    }
+
+    console.log('[RecalculateInvoices] Starting recalculation via API...');
+    const results = await recalculateUnpaidInvoices();
+
+    res.status(200).json({
+      success: true,
+      message: 'Invoice recalculation completed successfully',
+      data: results
+    });
+
+  } catch (error) {
+    console.error('Recalculate invoices error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };

@@ -32,7 +32,7 @@ function calculateCyclicalBillingFee(occupiedUnitCount: number): number {
 /**
  * Recalculate all unpaid invoices (DUE and OVERDUE) with new cyclical billing formula
  */
-async function recalculateUnpaidInvoices() {
+export async function recalculateUnpaidInvoices() {
   console.log('[RecalculateInvoices] Starting recalculation of unpaid invoices...');
 
   try {
@@ -50,6 +50,7 @@ async function recalculateUnpaidInvoices() {
 
     let updatedCount = 0;
     let skippedCount = 0;
+    const updates: any[] = [];
 
     for (const invoice of unpaidInvoices) {
       const occupiedUnitCount = invoice.lines.length;
@@ -66,6 +67,12 @@ async function recalculateUnpaidInvoices() {
       });
 
       console.log(`[RecalculateInvoices] Invoice ${invoice.id}: ${occupiedUnitCount} units, ${oldFeeAmount} UGX → ${newFeeAmount} UGX`);
+      updates.push({
+        invoiceId: invoice.id,
+        occupiedUnitCount,
+        oldFeeAmount,
+        newFeeAmount
+      });
       updatedCount++;
     }
 
@@ -73,11 +80,15 @@ async function recalculateUnpaidInvoices() {
     console.log(`  - Updated: ${updatedCount} invoices`);
     console.log(`  - Skipped: ${skippedCount} invoices`);
 
+    return {
+      updatedCount,
+      skippedCount,
+      updates
+    };
+
   } catch (error) {
     console.error('[RecalculateInvoices] Error recalculating invoices:', error);
     throw error;
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
