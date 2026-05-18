@@ -37,7 +37,10 @@ async function main() {
     
   } catch (error) {
     console.error('❌ Cleanup failed:', error);
-    process.exit(1);
+    if (require.main === module) {
+      process.exit(1);
+    }
+    throw error;
   }
 }
 
@@ -45,7 +48,6 @@ if (require.main === module) {
   main()
     .then(() => {
       console.log('[RunCleanup] Script finished successfully');
-      process.exit(0);
     })
     .catch((error) => {
       console.error('[RunCleanup] Script failed with unhandled error:', error);
