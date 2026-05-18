@@ -513,11 +513,11 @@ export const generateInvoice = async (req: AuthenticatedRequest, res: Response):
           billedUserId: managerId
         },
         startDate: {
-          lte: new Date(periodStart)  // Option A: only leases active AT periodStart
+          lte: new Date(periodEnd)  // Lease started before or during the period
         },
         OR: [
           { endDate: null },
-          { endDate: { gte: new Date(periodStart) } }
+          { endDate: { gte: new Date(periodStart) } }  // Lease didn't end before period started
         ]
       },
       include: {
