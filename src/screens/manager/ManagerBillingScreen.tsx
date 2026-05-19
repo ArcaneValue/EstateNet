@@ -1059,16 +1059,13 @@ export const ManagerBillingScreen: React.FC<ManagerBillingScreenProps> = ({
                                     <Text style={[typography.h4, { color: colors.info, marginLeft: spacing.sm }]}>How to Pay</Text>
                                 </View>
                                 <Text style={[typography.body, { color: colors.text, marginBottom: spacing.sm }]}>
-                                    <Text style={{ fontWeight: '600' }}>MTN Mobile Money: </Text>
-                                    Dial *165*3# → Pay Bill → EstateNet
+                                    <Text style={{ fontWeight: '600' }}>MTN/Airtel Mobile Money: </Text>
+                                    Click the Pay Now button and enter in the Phone number making the Transaction.{'\n\n'}
+                                    Then when the prompt appears, put in your pin and leave the rest to us.
                                 </Text>
                                 <Text style={[typography.body, { color: colors.text, marginBottom: spacing.sm }]}>
-                                    <Text style={{ fontWeight: '600' }}>Airtel Money: </Text>
-                                    Dial *185*9# → Pay Bill → EstateNet
-                                </Text>
-                                <Text style={[typography.body, { color: colors.text, marginBottom: spacing.sm }]}>
-                                    <Text style={{ fontWeight: '600' }}>Bank Transfer: </Text>
-                                    Contact support for bank details
+                                    <Text style={{ fontWeight: '600' }}>Bank Transfers: </Text>
+                                    Coming Soon.
                                 </Text>
                                 {billingStatus?.currentInvoice && (
                                     <View style={{
