@@ -4,8 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useMessages } from '../../context/MessageContext';
+import { useProperties } from '../../context/PropertyContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../../components/Card';
+import { Modal } from '../../components/Modal';
+import { apiGet } from '../../utils/apiClient';
 
 interface ManagerMessagesScreenProps {
     navigation: any;
@@ -20,21 +23,36 @@ interface TenantConversation {
     unitNumber: string;
     leaseId: string;
     messages: any[];
-    lastMessage: any;
+    lastMessage?: any;
     unreadCount: number;
+}
+
+interface OnboardedTenant {
+    tenantId: string;
+    tenantName: string;
+    tenantUserId: string;
+    tenantEmail: string;
+    propertyName: string;
+    unitNumber: string;
+    leaseId: string;
 }
 
 export const ManagerMessagesScreen: React.FC<ManagerMessagesScreenProps> = ({ navigation }) => {
     const { colors, spacing, typography, borderRadius } = useTheme();
     const { user } = useAuth();
     const { inbox, sent, loading, sendMessage, markAsRead, loadInbox, loadSent } = useMessages();
+    const { properties } = useProperties();
 
     const [selectedConversation, setSelectedConversation] = useState<TenantConversation | null>(null);
     const [messageText, setMessageText] = useState('');
     const [isSending, setIsSending] = useState(false);
+    const [showNewMessageModal, setShowNewMessageModal] = useState(false);
+    const [onboardedTenants, setOnboardedTenants] = useState<OnboardedTenant[]>([]);
+    const [loadingTenants, setLoadingTenants] = useState(false);
 
     useEffect(() => {
         loadMessages();
+        loadOnboardedTenants();
     }, []);
 
     useEffect(() => {
@@ -49,10 +67,68 @@ export const ManagerMessagesScreen: React.FC<ManagerMessagesScreenProps> = ({ na
         await loadSent();
     };
 
+    const loadOnboardedTenants = async () => {
+        setLoadingTenants(true);
+        try {
+            const tenantsList: OnboardedTenant[] = [];
+
+            for (const property of properties) {
+                for (const unit of property.units) {
+                    if (unit.isOccupied) {
+                        const { status, json } = await apiGet(`/leases?propertyId=${property.id}&unitId=${unit.id}&status=ACTIVE`);
+                        const payload: any = json;
+
+                        if (status === 200 && payload?.success && payload.data?.length > 0) {
+                            const lease = payload.data[0];
+
+                            const identityResponse = await apiGet(`/identities/${lease.tenantId}`);
+                            const identityPayload: any = identityResponse.json;
+
+                            if (identityResponse.status === 200 && identityPayload?.success && identityPayload.data?.user) {
+                                tenantsList.push({
+                                    tenantId: lease.tenantId,
+                                    tenantName: identityPayload.data.user.name || identityPayload.data.user.email,
+                                    tenantUserId: identityPayload.data.user.id,
+                                    tenantEmail: identityPayload.data.user.email,
+                                    propertyName: property.name,
+                                    unitNumber: unit.unitNumber,
+                                    leaseId: lease.id,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            setOnboardedTenants(tenantsList);
+        } catch (error) {
+            console.error('Error loading onboarded tenants:', error);
+        } finally {
+            setLoadingTenants(false);
+        }
+    };
+
     const groupMessagesByTenant = (): TenantConversation[] => {
         const allMessages = [...inbox, ...sent];
         const conversationMap = new Map<string, TenantConversation>();
 
+        // First, add all onboarded tenants (even without messages)
+        onboardedTenants.forEach(tenant => {
+            conversationMap.set(tenant.tenantUserId, {
+                tenantId: tenant.tenantId,
+                tenantName: tenant.tenantName,
+                tenantUserId: tenant.tenantUserId,
+                tenantEmail: tenant.tenantEmail,
+                propertyName: tenant.propertyName,
+                unitNumber: tenant.unitNumber,
+                leaseId: tenant.leaseId,
+                messages: [],
+                lastMessage: undefined,
+                unreadCount: 0,
+            });
+        });
+
+        // Then, add messages to existing conversations
         allMessages.forEach((msg: any) => {
             const isIncoming = msg.toUserId === user?.id;
             const otherUser = isIncoming ? msg.fromUser : msg.toUser;
@@ -81,7 +157,7 @@ export const ManagerMessagesScreen: React.FC<ManagerMessagesScreenProps> = ({ na
             const conversation = conversationMap.get(key)!;
             conversation.messages.push(msg);
 
-            if (new Date(msg.createdAt) > new Date(conversation.lastMessage.createdAt)) {
+            if (!conversation.lastMessage || new Date(msg.createdAt) > new Date(conversation.lastMessage.createdAt)) {
                 conversation.lastMessage = msg;
             }
 
@@ -95,23 +171,43 @@ export const ManagerMessagesScreen: React.FC<ManagerMessagesScreenProps> = ({ na
             conv.messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
         });
 
-        conversations.sort((a, b) => 
-            new Date(b.lastMessage.createdAt).getTime() - new Date(a.lastMessage.createdAt).getTime()
-        );
+        conversations.sort((a, b) => {
+            if (!a.lastMessage && !b.lastMessage) return 0;
+            if (!a.lastMessage) return 1;
+            if (!b.lastMessage) return -1;
+            return new Date(b.lastMessage.createdAt).getTime() - new Date(a.lastMessage.createdAt).getTime();
+        });
 
         return conversations;
     };
 
     const handleConversationPress = async (conversation: TenantConversation) => {
         setSelectedConversation(conversation);
-        
+
         const unreadMessages = conversation.messages.filter(
             msg => msg.toUserId === user?.id && !msg.readAt
         );
-        
+
         for (const msg of unreadMessages) {
             await markAsRead(msg.id);
         }
+    };
+
+    const handleSelectTenant = (tenant: OnboardedTenant) => {
+        const conversation: TenantConversation = {
+            tenantId: tenant.tenantId,
+            tenantName: tenant.tenantName,
+            tenantUserId: tenant.tenantUserId,
+            tenantEmail: tenant.tenantEmail,
+            propertyName: tenant.propertyName,
+            unitNumber: tenant.unitNumber,
+            leaseId: tenant.leaseId,
+            messages: [],
+            lastMessage: undefined,
+            unreadCount: 0,
+        };
+        setShowNewMessageModal(false);
+        setSelectedConversation(conversation);
     };
 
     const handleSendMessage = async () => {
@@ -161,7 +257,7 @@ export const ManagerMessagesScreen: React.FC<ManagerMessagesScreenProps> = ({ na
     if (selectedConversation) {
         return (
             <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-                <KeyboardAvoidingView 
+                <KeyboardAvoidingView
                     style={{ flex: 1 }}
                     behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                     keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
@@ -291,10 +387,10 @@ export const ManagerMessagesScreen: React.FC<ManagerMessagesScreenProps> = ({ na
                                 justifyContent: 'center',
                             }}
                         >
-                            <Ionicons 
-                                name="send" 
-                                size={20} 
-                                color={messageText.trim() && !isSending ? '#FFFFFF' : colors.textSecondary} 
+                            <Ionicons
+                                name="send"
+                                size={20}
+                                color={messageText.trim() && !isSending ? '#FFFFFF' : colors.textSecondary}
                             />
                         </TouchableOpacity>
                     </View>
@@ -322,9 +418,14 @@ export const ManagerMessagesScreen: React.FC<ManagerMessagesScreenProps> = ({ na
                         Tenant communications
                     </Text>
                 </View>
-                <TouchableOpacity onPress={loadMessages}>
-                    <Ionicons name="refresh" size={24} color={colors.primary} />
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                    <TouchableOpacity onPress={() => setShowNewMessageModal(true)}>
+                        <Ionicons name="create-outline" size={24} color={colors.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={loadMessages}>
+                        <Ionicons name="refresh" size={24} color={colors.primary} />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             {/* Conversations List */}
@@ -400,27 +501,104 @@ export const ManagerMessagesScreen: React.FC<ManagerMessagesScreenProps> = ({ na
                                     <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.xs }]}>
                                         {item.propertyName} • Unit {item.unitNumber}
                                     </Text>
-                                    <Text
-                                        style={[
-                                            typography.body,
-                                            {
-                                                color: item.unreadCount > 0 ? colors.text : colors.textSecondary,
-                                                fontWeight: item.unreadCount > 0 ? '600' : '400',
-                                            }
-                                        ]}
-                                        numberOfLines={2}
-                                    >
-                                        {item.lastMessage.body}
-                                    </Text>
-                                    <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.xs }]}>
-                                        {formatTime(item.lastMessage.createdAt)}
-                                    </Text>
+                                    {item.lastMessage ? (
+                                        <>
+                                            <Text
+                                                style={[
+                                                    typography.body,
+                                                    {
+                                                        color: item.unreadCount > 0 ? colors.text : colors.textSecondary,
+                                                        fontWeight: item.unreadCount > 0 ? '600' : '400',
+                                                    }
+                                                ]}
+                                                numberOfLines={2}
+                                            >
+                                                {item.lastMessage.body}
+                                            </Text>
+                                            <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.xs }]}>
+                                                {formatTime(item.lastMessage.createdAt)}
+                                            </Text>
+                                        </>
+                                    ) : (
+                                        <Text style={[typography.body, { color: colors.textSecondary, fontStyle: 'italic' }]}>
+                                            No messages yet - tap to start conversation
+                                        </Text>
+                                    )}
                                 </View>
                             </View>
                         </TouchableOpacity>
                     )}
                 />
             )}
+
+            {/* New Message Modal - Tenant Selection */}
+            <Modal
+                visible={showNewMessageModal}
+                onClose={() => setShowNewMessageModal(false)}
+                title="Select Tenant"
+                size="large"
+            >
+                <View>
+                    <Text style={[typography.body, { color: colors.textSecondary, marginBottom: spacing.lg }]}>
+                        Choose a tenant to start a conversation
+                    </Text>
+                    {loadingTenants ? (
+                        <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+                            <Text style={[typography.body, { color: colors.text }]}>Loading tenants...</Text>
+                        </View>
+                    ) : onboardedTenants.length === 0 ? (
+                        <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+                            <Ionicons name="people-outline" size={48} color={colors.textSecondary} />
+                            <Text style={[typography.h4, { color: colors.text, marginTop: spacing.md, textAlign: 'center' }]}>
+                                No Tenants Found
+                            </Text>
+                            <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}>
+                                Invite tenants to your properties first
+                            </Text>
+                        </View>
+                    ) : (
+                        <ScrollView style={{ maxHeight: 400 }}>
+                            {onboardedTenants.map((tenant) => (
+                                <TouchableOpacity
+                                    key={tenant.tenantUserId}
+                                    onPress={() => handleSelectTenant(tenant)}
+                                    style={{
+                                        backgroundColor: colors.surface,
+                                        padding: spacing.md,
+                                        borderRadius: borderRadius.md,
+                                        marginBottom: spacing.sm,
+                                        borderWidth: 1,
+                                        borderColor: colors.border,
+                                    }}
+                                >
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <View style={{
+                                            backgroundColor: colors.primary + '20',
+                                            width: 40,
+                                            height: 40,
+                                            borderRadius: 20,
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            marginRight: spacing.md,
+                                        }}>
+                                            <Ionicons name="person" size={20} color={colors.primary} />
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={[typography.h4, { color: colors.text }]}>
+                                                {tenant.tenantName}
+                                            </Text>
+                                            <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                                                {tenant.propertyName} • Unit {tenant.unitNumber}
+                                            </Text>
+                                        </View>
+                                        <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                                    </View>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    )}
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 };
