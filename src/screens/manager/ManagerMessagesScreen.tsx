@@ -52,15 +52,20 @@ export const ManagerMessagesScreen: React.FC<ManagerMessagesScreenProps> = ({ na
 
     useEffect(() => {
         loadMessages();
-        loadOnboardedTenants();
-    }, []);
+        if (properties.length > 0) {
+            loadOnboardedTenants();
+        }
+    }, [properties]);
 
     useEffect(() => {
         const unsubscribe = navigation.addListener('focus', () => {
             loadMessages();
+            if (properties.length > 0) {
+                loadOnboardedTenants();
+            }
         });
         return unsubscribe;
-    }, [navigation]);
+    }, [navigation, properties]);
 
     const loadMessages = async () => {
         await loadInbox();
