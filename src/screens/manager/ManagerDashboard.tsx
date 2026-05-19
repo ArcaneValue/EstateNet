@@ -17,7 +17,6 @@ import { TutorialModal } from '../../components/TutorialModal';
 import { OccupiedUnitsModal } from './OccupiedUnitsModal';
 import { VacanciesModal } from './VacanciesModal';
 import { InviteTenantModal } from './InviteTenantModal';
-import { RecordPaymentModal } from './RecordPaymentModal';
 import { SendReminderModal } from './SendReminderModal';
 import { ActivityDetailsModal } from './ActivityDetailsModal';
 import { OwnerCenter } from '../../components/OwnerCenter';
@@ -42,7 +41,6 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation, 
     const [showOccupiedModal, setShowOccupiedModal] = useState(false);
     const [showVacanciesModal, setShowVacanciesModal] = useState(false);
     const [showInviteModal, setShowInviteModal] = useState(false);
-    const [showRecordPaymentModal, setShowRecordPaymentModal] = useState(false);
     const [showSendReminderModal, setShowSendReminderModal] = useState(false);
     const [showActivityModal, setShowActivityModal] = useState(false);
     const [selectedActivity, setSelectedActivity] = useState<any>(null);
@@ -395,9 +393,9 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation, 
                                 disabled={checkingEnforcement}
                             />
                             <ActionButton
-                                icon="card"
-                                label="Record Payment"
-                                onPress={() => setShowRecordPaymentModal(true)}
+                                icon="chatbubble-outline"
+                                label="Messages"
+                                onPress={() => navigation.navigate('ManagerMessages')}
                                 colors={colors}
                                 spacing={spacing}
                                 borderRadius={borderRadius}
@@ -495,7 +493,6 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ navigation, 
                 <OccupiedUnitsModal visible={showOccupiedModal} onClose={() => setShowOccupiedModal(false)} />
                 <VacanciesModal visible={showVacanciesModal} onClose={() => setShowVacanciesModal(false)} />
                 <InviteTenantModal visible={showInviteModal} onClose={() => setShowInviteModal(false)} onSuccess={refetch} />
-                <RecordPaymentModal visible={showRecordPaymentModal} onClose={() => setShowRecordPaymentModal(false)} onSuccess={refetch} />
                 <SendReminderModal visible={showSendReminderModal} onClose={() => setShowSendReminderModal(false)} />
                 <ActivityDetailsModal
                     visible={showActivityModal}
