@@ -261,44 +261,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         await SecureStorage.removeItem('authToken');
         // Clear admin session to prevent it from persisting across account switches
         await AsyncStorage.removeItem('adminSession');
-
-        // Clear all tutorial flags from AsyncStorage to prevent stale data
-        try {
-            const tutorialKeys = [
-                'tutorial_seen_welcome_owner',
-                'tutorial_seen_welcome_manager',
-                'tutorial_seen_welcome_tenant',
-                'tutorial_seen_owner_dashboard',
-                'tutorial_seen_owner_properties',
-                'tutorial_seen_owner_managers',
-                'tutorial_seen_owner_financial',
-                'tutorial_seen_owner_registry',
-                'tutorial_seen_owner_outstanding',
-                'tutorial_seen_manager_dashboard',
-                'tutorial_seen_manager_billing',
-                'tutorial_seen_manager_properties',
-                'tutorial_seen_manager_tenants',
-                'tutorial_seen_manager_payment_claims',
-                'tutorial_seen_manager_approvals',
-                'tutorial_seen_manager_outstanding_rent',
-                'tutorial_seen_manager_payments',
-                'tutorial_seen_manager_rent_collection',
-                'tutorial_seen_tenant_dashboard',
-                'tutorial_seen_tenant_payments',
-                'tutorial_seen_tenant_messages',
-                'tutorial_seen_tenant_invitations',
-                'tutorial_seen_tenant_profile',
-                'tutorial_seen_feedback_community',
-                'tutorial_seen_payment_claims',
-                'tutorial_seen_billing',
-                'tutorial_seen_add_property',
-                'tutorial_seen_verify_payments',
-            ];
-            await AsyncStorage.multiRemove(tutorialKeys);
-            console.log('[AuthContext] Cleared tutorial flags on logout');
-        } catch (error) {
-            console.error('[AuthContext] Error clearing tutorial flags:', error);
-        }
     };
 
     const setUserRole = (role: UserRole) => {

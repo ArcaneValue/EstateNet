@@ -8,12 +8,13 @@ import { useTutorial } from '../context/TutorialContext';
  */
 export const useTutorialSync = () => {
     const { user } = useAuth();
-    const { syncTutorialFlagsFromUser } = useTutorial();
+    const { syncTutorialFlagsFromUser, resetSyncState } = useTutorial();
 
     useEffect(() => {
         if (user?.id) {
-            console.log('[useTutorialSync] Syncing tutorial flags from user profile');
+            console.log('[useTutorialSync] Resetting sync state and syncing tutorial flags for user:', user.id);
+            resetSyncState();
             syncTutorialFlagsFromUser(user.tutorialFlags || {});
         }
-    }, [user?.id, syncTutorialFlagsFromUser]);
+    }, [user?.id]);
 };

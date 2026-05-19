@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiPatch } from '../utils/apiClient';
 
@@ -8,6 +8,7 @@ interface TutorialContextType {
   resetTutorial: (tutorialId: string) => Promise<void>;
   resetAllTutorials: () => Promise<void>;
   syncTutorialFlagsFromUser: (tutorialFlags?: { [key: string]: boolean }) => Promise<void>;
+  resetSyncState: () => void;
   isSyncComplete: boolean;
 }
 
@@ -58,16 +59,18 @@ export const TUTORIAL_KEYS = {
 export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [tutorialCache, setTutorialCache] = useState<Map<string, boolean>>(new Map());
   const [isSyncComplete, setIsSyncComplete] = useState(false);
+  // useRef mirrors isSyncComplete so the wait loop in shouldShowTutorial always
+  // reads the live value and is not subject to stale closure capture.
+  const isSyncCompleteRef = useRef(false);
 
   const shouldShowTutorial = useCallback(async (tutorialId: string): Promise<boolean> => {
     try {
-      // Wait for initial sync to complete to avoid race condition
-      // This prevents tutorials from showing before backend flags are loaded
-      if (!isSyncComplete) {
+      // Wait for initial sync to complete to avoid race condition.
+      // Read from isSyncCompleteRef (not state) so the loop sees live updates.
+      if (!isSyncCompleteRef.current) {
         console.log(`[TutorialContext] Waiting for sync to complete before checking ${tutorialId}`);
-        // Wait up to 2 seconds for sync to complete
         let waitTime = 0;
-        while (!isSyncComplete && waitTime < 2000) {
+        while (!isSyncCompleteRef.current && waitTime < 5000) {
           await new Promise(resolve => setTimeout(resolve, 100));
           waitTime += 100;
         }
@@ -149,10 +152,18 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, []);
 
+  const resetSyncState = useCallback((): void => {
+    isSyncCompleteRef.current = false;
+    setIsSyncComplete(false);
+    setTutorialCache(new Map());
+    console.log('[TutorialContext] Sync state reset — waiting for new user flags');
+  }, []);
+
   const syncTutorialFlagsFromUser = useCallback(async (tutorialFlags?: { [key: string]: boolean }): Promise<void> => {
     try {
       if (!tutorialFlags || typeof tutorialFlags !== 'object') {
         console.log('[TutorialContext] No tutorial flags to sync from user');
+        isSyncCompleteRef.current = true;
         setIsSyncComplete(true);
         return;
       }
@@ -168,10 +179,12 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       });
 
       await Promise.all(syncPromises);
+      isSyncCompleteRef.current = true;
       setIsSyncComplete(true);
       console.log('[TutorialContext] Tutorial flags synced successfully');
     } catch (error) {
       console.error('[TutorialContext] Error syncing tutorial flags:', error);
+      isSyncCompleteRef.current = true;
       setIsSyncComplete(true); // Mark complete even on error to prevent infinite waiting
     }
   }, []);
@@ -182,6 +195,7 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     resetTutorial,
     resetAllTutorials,
     syncTutorialFlagsFromUser,
+    resetSyncState,
     isSyncComplete,
   };
 
