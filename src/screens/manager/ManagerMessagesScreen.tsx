@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useMessages } from '../../context/MessageContext';
-import { useProperties } from '../../context/PropertyContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../../components/Card';
 import { Modal } from '../../components/Modal';
@@ -41,7 +40,6 @@ export const ManagerMessagesScreen: React.FC<ManagerMessagesScreenProps> = ({ na
     const { colors, spacing, typography, borderRadius } = useTheme();
     const { user } = useAuth();
     const { inbox, sent, loading, sendMessage, markAsRead, loadInbox, loadSent } = useMessages();
-    const { properties } = useProperties();
 
     const [selectedConversation, setSelectedConversation] = useState<TenantConversation | null>(null);
     const [messageText, setMessageText] = useState('');
@@ -52,20 +50,16 @@ export const ManagerMessagesScreen: React.FC<ManagerMessagesScreenProps> = ({ na
 
     useEffect(() => {
         loadMessages();
-        if (properties.length > 0) {
-            loadOnboardedTenants();
-        }
-    }, [properties]);
+        loadOnboardedTenants();
+    }, []);
 
     useEffect(() => {
         const unsubscribe = navigation.addListener('focus', () => {
             loadMessages();
-            if (properties.length > 0) {
-                loadOnboardedTenants();
-            }
+            loadOnboardedTenants();
         });
         return unsubscribe;
-    }, [navigation, properties]);
+    }, [navigation]);
 
     const loadMessages = async () => {
         await loadInbox();
@@ -75,39 +69,26 @@ export const ManagerMessagesScreen: React.FC<ManagerMessagesScreenProps> = ({ na
     const loadOnboardedTenants = async () => {
         setLoadingTenants(true);
         try {
-            const tenantsList: OnboardedTenant[] = [];
+            const { status, json } = await apiGet('/manager/tenants');
+            const payload: any = json;
 
-            for (const property of properties) {
-                for (const unit of property.units) {
-                    if (unit.isOccupied) {
-                        const { status, json } = await apiGet(`/leases?propertyId=${property.id}&unitId=${unit.id}&status=ACTIVE`);
-                        const payload: any = json;
-
-                        if (status === 200 && payload?.success && payload.data?.length > 0) {
-                            const lease = payload.data[0];
-
-                            const identityResponse = await apiGet(`/identities/${lease.tenantId}`);
-                            const identityPayload: any = identityResponse.json;
-
-                            if (identityResponse.status === 200 && identityPayload?.success && identityPayload.data?.user) {
-                                tenantsList.push({
-                                    tenantId: lease.tenantId,
-                                    tenantName: identityPayload.data.user.name || identityPayload.data.user.email,
-                                    tenantUserId: identityPayload.data.user.id,
-                                    tenantEmail: identityPayload.data.user.email,
-                                    propertyName: property.name,
-                                    unitNumber: unit.unitNumber,
-                                    leaseId: lease.id,
-                                });
-                            }
-                        }
-                    }
-                }
+            if (status === 200 && payload?.success && Array.isArray(payload.data)) {
+                const tenantsList: OnboardedTenant[] = payload.data.map((tenant: any) => ({
+                    tenantId: tenant.tenantId,
+                    tenantName: tenant.name,
+                    tenantUserId: tenant.id,
+                    tenantEmail: tenant.email,
+                    propertyName: tenant.propertyName,
+                    unitNumber: tenant.unitNumber,
+                    leaseId: tenant.leaseId,
+                }));
+                setOnboardedTenants(tenantsList);
+            } else {
+                setOnboardedTenants([]);
             }
-
-            setOnboardedTenants(tenantsList);
         } catch (error) {
             console.error('Error loading onboarded tenants:', error);
+            setOnboardedTenants([]);
         } finally {
             setLoadingTenants(false);
         }
