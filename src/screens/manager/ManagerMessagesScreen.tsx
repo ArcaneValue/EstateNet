@@ -73,15 +73,29 @@ export const ManagerMessagesScreen: React.FC<ManagerMessagesScreenProps> = ({ na
             const payload: any = json;
 
             if (status === 200 && payload?.success && Array.isArray(payload.data)) {
-                const tenantsList: OnboardedTenant[] = payload.data.map((tenant: any) => ({
-                    tenantId: tenant.tenantId,
-                    tenantName: tenant.name,
-                    tenantUserId: tenant.id,
-                    tenantEmail: tenant.email,
-                    propertyName: tenant.propertyName,
-                    unitNumber: tenant.unitNumber,
-                    leaseId: tenant.leaseId,
-                }));
+                const tenantsList: OnboardedTenant[] = [];
+
+                for (const tenant of payload.data) {
+                    try {
+                        const identityResponse = await apiGet(`/identities/${tenant.tenantId}`);
+                        const identityPayload: any = identityResponse.json;
+
+                        if (identityResponse.status === 200 && identityPayload?.success && identityPayload.data?.user) {
+                            tenantsList.push({
+                                tenantId: tenant.tenantId,
+                                tenantName: tenant.name,
+                                tenantUserId: identityPayload.data.user.id,
+                                tenantEmail: tenant.email,
+                                propertyName: tenant.propertyName,
+                                unitNumber: tenant.unitNumber,
+                                leaseId: tenant.leaseId,
+                            });
+                        }
+                    } catch (error) {
+                        console.error(`Error fetching user ID for tenant ${tenant.tenantId}:`, error);
+                    }
+                }
+
                 setOnboardedTenants(tenantsList);
             } else {
                 setOnboardedTenants([]);
@@ -121,13 +135,13 @@ export const ManagerMessagesScreen: React.FC<ManagerMessagesScreenProps> = ({ na
             const tenantUserId = otherUser?.id;
             const tenantId = otherUser?.tenantId;
 
-            if (!tenantUserId || !tenantId) return;
+            if (!tenantUserId) return;
 
             const key = tenantUserId;
 
             if (!conversationMap.has(key)) {
                 conversationMap.set(key, {
-                    tenantId: tenantId,
+                    tenantId: tenantId || '',
                     tenantName: otherUser.name || otherUser.email,
                     tenantUserId: tenantUserId,
                     tenantEmail: otherUser.email,
@@ -199,6 +213,16 @@ export const ManagerMessagesScreen: React.FC<ManagerMessagesScreenProps> = ({ na
     const handleSendMessage = async () => {
         if (!selectedConversation || !messageText.trim()) return;
 
+        if (!selectedConversation.tenantUserId) {
+            Alert.alert('Error', 'Invalid tenant user ID. Please try selecting the tenant again.');
+            return;
+        }
+
+        if (!selectedConversation.leaseId) {
+            Alert.alert('Error', 'Invalid lease ID. Please try selecting the tenant again.');
+            return;
+        }
+
         setIsSending(true);
         try {
             const success = await sendMessage({
@@ -211,10 +235,12 @@ export const ManagerMessagesScreen: React.FC<ManagerMessagesScreenProps> = ({ na
             if (success) {
                 setMessageText('');
                 await loadMessages();
+                await loadOnboardedTenants();
             } else {
                 Alert.alert('Error', 'Failed to send message. Please try again.');
             }
         } catch (error: any) {
+            console.error('Send message error:', error);
             Alert.alert('Error', error?.message || 'Failed to send message.');
         } finally {
             setIsSending(false);
