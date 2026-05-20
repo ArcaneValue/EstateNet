@@ -38,6 +38,7 @@ export class MessageService {
             name: true,
             email: true,
             role: true,
+            tenantId: true,
           },
         },
         toUser: {
@@ -46,6 +47,7 @@ export class MessageService {
             name: true,
             email: true,
             role: true,
+            tenantId: true,
           },
         },
         lease: {
@@ -53,6 +55,18 @@ export class MessageService {
             id: true,
             propertyId: true,
             unitId: true,
+            property: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            unit: {
+              select: {
+                id: true,
+                unitNumber: true,
+              },
+            },
           },
         },
       },
@@ -75,6 +89,7 @@ export class MessageService {
             name: true,
             email: true,
             role: true,
+            tenantId: true,
           },
         },
         toUser: {
@@ -83,6 +98,7 @@ export class MessageService {
             name: true,
             email: true,
             role: true,
+            tenantId: true,
           },
         },
         lease: {
@@ -90,6 +106,18 @@ export class MessageService {
             id: true,
             propertyId: true,
             unitId: true,
+            property: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            unit: {
+              select: {
+                id: true,
+                unitNumber: true,
+              },
+            },
           },
         },
       },
