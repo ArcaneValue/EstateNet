@@ -74,6 +74,41 @@ router.get(
   }
 );
 
+// POST /api/users/push-token - Register push notification token
+router.post(
+  '/push-token',
+  authenticateToken,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.id;
+      const { pushToken } = req.body;
+
+      if (!pushToken || typeof pushToken !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'Push token is required'
+        });
+      }
+
+      await (prisma.user as any).update({
+        where: { id: userId },
+        data: { pushToken }
+      });
+
+      return res.json({
+        success: true,
+        message: 'Push token registered successfully'
+      });
+    } catch (error) {
+      console.error('Register push token error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to register push token'
+      });
+    }
+  }
+);
+
 // POST /api/users/accept-billing-terms - Accept billing terms and conditions
 router.post(
   '/accept-billing-terms',

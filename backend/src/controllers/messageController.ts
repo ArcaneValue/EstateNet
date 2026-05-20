@@ -2,10 +2,12 @@ import { Response } from 'express';
 import { AuthenticatedRequest } from '../middlewares/auth';
 import { MessageService, MessageBox } from '../services/messageService';
 import { NotificationService } from '../services/notificationService';
+import { PushNotificationService } from '../services/pushNotificationService';
 import { prisma } from '../utils/database';
 
 const messageService = new MessageService();
 const notificationService = new NotificationService();
+const pushNotificationService = new PushNotificationService();
 
 export const getMessages = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
@@ -200,6 +202,21 @@ export const createMessage = async (req: AuthenticatedRequest, res: Response): P
         leaseId: validatedLeaseId || null,
       },
     });
+
+    // Send push notification with badge count
+    const unreadCount = await pushNotificationService.getUnreadMessageCount(toUserId);
+    await pushNotificationService.sendPushNotification(
+      toUserId,
+      subject && subject.trim() ? subject : 'New message',
+      body.length > 120 ? `${body.substring(0, 117)}...` : body,
+      {
+        messageId: message.id,
+        fromUserId: req.user.id,
+        leaseId: validatedLeaseId || null,
+        type: 'MESSAGE',
+      },
+      unreadCount
+    );
 
     res.status(201).json({
       success: true,

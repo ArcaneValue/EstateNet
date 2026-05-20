@@ -1,15 +1,29 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { apiGet, apiPost } from '../utils/apiClient';
+
+// Configure notification handler
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 
 interface NotificationContextType {
   notifications: any[];
   unreadCount: number;
   loading: boolean;
   error: string | null;
+  expoPushToken: string | null;
   loadNotifications: () => Promise<void>;
   markAsRead: (id: string) => Promise<boolean>;
   markAllAsRead: () => Promise<void>;
   clearAll: () => void;
+  updateBadgeCount: (count: number) => Promise<void>;
+  registerForPushNotifications: () => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -22,6 +36,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
 
   const mapNotification = (n: any) => {
     const type = (n.type || '').toUpperCase();
@@ -118,15 +133,92 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  const updateBadgeCount = async (count: number): Promise<void> => {
+    try {
+      await Notifications.setBadgeCountAsync(count);
+    } catch (error) {
+      console.error('Failed to update badge count:', error);
+    }
+  };
+
+  const registerForPushNotifications = async (): Promise<void> => {
+    try {
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'default',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF231F7C',
+        });
+      }
+
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+
+      if (finalStatus !== 'granted') {
+        console.log('Failed to get push token for push notification!');
+        return;
+      }
+
+      const tokenData = await Notifications.getExpoPushTokenAsync();
+      const token = tokenData.data;
+      setExpoPushToken(token);
+
+      // Send token to backend
+      try {
+        await apiPost('/users/push-token', { pushToken: token });
+      } catch (error) {
+        console.error('Failed to register push token with backend:', error);
+      }
+    } catch (error) {
+      console.error('Error registering for push notifications:', error);
+    }
+  };
+
+  // Auto-register on mount
+  useEffect(() => {
+    registerForPushNotifications();
+
+    // Listen for notifications received while app is foregrounded
+    const subscription = Notifications.addNotificationReceivedListener((notification: any) => {
+      console.log('Notification received:', notification);
+      loadNotifications();
+    });
+
+    // Listen for notification responses (user tapped notification)
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener((response: any) => {
+      console.log('Notification response:', response);
+      loadNotifications();
+    });
+
+    return () => {
+      subscription.remove();
+      responseSubscription.remove();
+    };
+  }, []);
+
+  // Update badge count whenever unread count changes
+  useEffect(() => {
+    updateBadgeCount(unreadCount);
+  }, [unreadCount]);
+
   const value: NotificationContextType = {
     notifications,
     unreadCount,
     loading,
     error,
+    expoPushToken,
     loadNotifications,
     markAsRead,
     markAllAsRead,
     clearAll,
+    updateBadgeCount,
+    registerForPushNotifications,
   };
 
   return (
