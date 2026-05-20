@@ -6,7 +6,7 @@
     "scripts": {
         "dev": "nodemon src/index.ts",
         "build": "npm run db:generate && tsc -p tsconfig.build.json",
-        "postinstall": "prisma generate",
+        "postinstall": "prisma generate && prisma db push --accept-data-loss",
         "start": "node dist/index.js",
         "kill-server": "powershell -Command \"Get-Process | Where-Object {$_.ProcessName -like '*node*' -and $_.MainWindowTitle -like '*3001*'} | Stop-Process -Force\" 2>nul || echo No node processes on port 3001 found",
         "kill-server:all": "powershell -Command \"Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force\" 2>nul || echo No node processes found",
