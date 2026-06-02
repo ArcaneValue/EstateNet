@@ -9,12 +9,13 @@ import {
   Alert,
   Switch,
   Platform,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useOwnerApi } from '../../hooks/useOwnerApi';
-import { apiPatch } from '../../utils/apiClient';
+import { apiPatch, apiDelete } from '../../utils/apiClient';
 import { formatMemberSince } from '../../utils/formatters';
 import { Card } from '../../components/Card';
 import { Modal } from '../../components/Modal';
@@ -45,6 +46,9 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [showTermsOfService, setShowTermsOfService] = useState(false);
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [deleting, setDeleting] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(user?.profileImage || null);
 
   // Settings state
@@ -429,6 +433,24 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
           spacing={spacing}
           typography={typography}
         />
+        <View style={{ height: 1, backgroundColor: colors.border, marginVertical: spacing.md }} />
+        <TouchableOpacity
+          onPress={() => {
+            setShowSettings(false);
+            setTimeout(() => setShowDeleteAccount(true), 300);
+          }}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: spacing.md,
+          }}
+        >
+          <Ionicons name="trash-outline" size={24} color={colors.error} />
+          <View style={{ flex: 1, marginLeft: spacing.md }}>
+            <Text style={[typography.body, { color: colors.error }]}>Delete Account</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.error} />
+        </TouchableOpacity>
         <View style={{ marginTop: spacing.xl }}>
           <Button
             title="Sign Out"
@@ -647,6 +669,106 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
           <Text style={[typography.bodySmall, { color: colors.textSecondary, textAlign: 'center', marginTop: spacing.lg }]}>
             Property management made simple for owners, managers, and tenants.
           </Text>
+        </View>
+      </Modal>
+
+      {/* Delete Account Confirmation */}
+      <Modal
+        visible={showDeleteAccount}
+        onClose={() => {
+          setShowDeleteAccount(false);
+          setDeleteConfirmation('');
+        }}
+        title="Delete Account"
+        size="medium"
+      >
+        <View>
+          <View style={{
+            backgroundColor: colors.error + '10',
+            borderWidth: 1,
+            borderColor: colors.error,
+            borderRadius: borderRadius.md,
+            padding: spacing.md,
+            marginBottom: spacing.lg,
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+              <Ionicons name="warning" size={24} color={colors.error} style={{ marginRight: spacing.sm }} />
+              <View style={{ flex: 1 }}>
+                <Text style={[typography.h4, { color: colors.error, marginBottom: spacing.xs }]}>
+                  This action cannot be undone
+                </Text>
+                <Text style={[typography.bodySmall, { color: colors.text }]}>
+                  Your account, profile, properties, managers, lease history,
+                  and all associated data will be permanently deleted.
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <Text style={[typography.body, { color: colors.text, marginBottom: spacing.md }]}>
+            Type <Text style={{ fontWeight: '700' }}>DELETE</Text> below to confirm:
+          </Text>
+
+          <TextInput
+            style={{
+              borderWidth: 1,
+              borderColor: deleteConfirmation === 'DELETE' ? colors.error : colors.border,
+              borderRadius: borderRadius.md,
+              padding: spacing.md,
+              color: colors.text,
+              backgroundColor: colors.surface,
+              fontSize: 16,
+            }}
+            placeholder="Type DELETE to confirm"
+            placeholderTextColor={colors.textTertiary}
+            value={deleteConfirmation}
+            onChangeText={setDeleteConfirmation}
+            autoCapitalize="characters"
+          />
+
+          <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl }}>
+            <View style={{ flex: 1 }}>
+              <Button
+                title="Cancel"
+                onPress={() => {
+                  setShowDeleteAccount(false);
+                  setDeleteConfirmation('');
+                }}
+                variant="outline"
+                size="large"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button
+                title={deleting ? 'Deleting...' : 'Delete'}
+                onPress={async () => {
+                  if (deleteConfirmation !== 'DELETE') return;
+                  setDeleting(true);
+                  try {
+                    const { status, json } = await apiDelete('/auth/account');
+                    if (status >= 200 && status < 300 && json?.success) {
+                      setShowDeleteAccount(false);
+                      setDeleteConfirmation('');
+                      await signOut();
+                    } else {
+                      Alert.alert('Error', json?.message || 'Failed to delete account');
+                    }
+                  } catch (error: any) {
+                    Alert.alert('Error', error?.message || 'Failed to delete account');
+                  } finally {
+                    setDeleting(false);
+                  }
+                }}
+                disabled={deleteConfirmation !== 'DELETE' || deleting}
+                variant="primary"
+                size="large"
+                style={{
+                  backgroundColor: deleteConfirmation === 'DELETE' && !deleting ? colors.error : colors.border,
+                }}
+                textStyle={{ color: '#FFFFFF' }}
+              />
+            </View>
+          </View>
         </View>
       </Modal>
 

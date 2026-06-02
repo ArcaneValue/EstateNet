@@ -626,6 +626,91 @@ Please do not reply to this email.
       throw error;
     }
   }
+
+  async sendPolicyUpdateEmail(email: string, name: string, documentType: string, newVersion: string, effectiveDate: string): Promise<void> {
+    try {
+      const rateLimitKey = `policy_update_${email}_${documentType}_${newVersion}`;
+      if (!this.canSendEmail(rateLimitKey)) {
+        console.log(`[EmailService] Rate limit: Skipping duplicate policy update email for ${email}`);
+        return;
+      }
+
+      const docLabel = documentType === 'privacyPolicy' ? 'Privacy Policy' : 'Terms of Service';
+      const formattedDate = new Date(effectiveDate).toLocaleDateString('en-GB', {
+        day: 'numeric', month: 'long', year: 'numeric'
+      });
+
+      const subject = `[EstateNet] ${docLabel} Updated — Effective ${formattedDate}`;
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #1a73e8; color: white; padding: 20px; text-align: center; }
+            .content { background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; }
+            .footer { margin-top: 20px; padding: 20px; text-align: center; color: #777; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>${docLabel} Updated</h1>
+            </div>
+            <div class="content">
+              <p>Hello ${name},</p>
+              <p>EstateNet has updated its <strong>${docLabel}</strong> (version ${newVersion}).</p>
+              <p>The updated document will take effect on <strong>${formattedDate}</strong>.</p>
+              <p>You can review the changes by visiting your account settings in the EstateNet app.</p>
+              <p>By continuing to use EstateNet after ${formattedDate}, you agree to the updated ${docLabel}.</p>
+              <p>If you do not agree with these changes, you may delete your account or cease using the Service.</p>
+            </div>
+            <div class="footer">
+              <p>This is an automated notification from EstateNet.</p>
+              <p>Please do not reply to this email.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      const textContent = `
+${docLabel} Updated
+
+Hello ${name},
+
+EstateNet has updated its ${docLabel} (version ${newVersion}).
+
+The updated document will take effect on ${formattedDate}.
+
+You can review the changes by visiting your account settings in the EstateNet app.
+
+By continuing to use EstateNet after ${formattedDate}, you agree to the updated ${docLabel}.
+
+If you do not agree with these changes, you may delete your account or cease using the Service.
+
+---
+This is an automated notification from EstateNet.
+Please do not reply to this email.
+      `;
+
+      await this.getTransporter().sendMail({
+        from: process.env.SMTP_FROM || 'EstateNet <noreply@estatenet.com>',
+        to: email,
+        subject,
+        text: textContent,
+        html: htmlContent,
+      });
+
+      this.markEmailSent(rateLimitKey);
+      console.log(`[EmailService] Policy update email sent to ${email} for ${docLabel} v${newVersion}`);
+    } catch (error) {
+      console.error('[EmailService] Error sending policy update email:', error);
+      throw error;
+    }
+  }
 }
 
 export default new EmailService();

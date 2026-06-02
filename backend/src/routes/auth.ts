@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { setupAuthentication, login, getCurrentUser, registerManager, registerTenant, registerOwner } from '../controllers/authController';
+import { setupAuthentication, login, getCurrentUser, registerManager, registerTenant, registerOwner, deleteAccount } from '../controllers/authController';
 import { AdminAuthController } from '../controllers/adminAuthController';
 import { body, validationResult } from 'express-validator';
 import { authSetupValidation, loginValidation, managerRegisterValidation, tenantIdentityValidation, validateRequest } from '../middlewares/validation';
@@ -67,6 +67,12 @@ router.post('/login',
     loginValidation,
     validateRequest,
     login
+);
+
+// Delete account (protected route)
+router.delete('/account',
+    authenticateToken,
+    deleteAccount
 );
 
 // Get current user (protected route)

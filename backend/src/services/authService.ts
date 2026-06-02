@@ -345,6 +345,86 @@ export class AuthService {
         };
     }
 
+    async deleteAccount(userId: string) {
+        return await prisma.$transaction(async (tx: any) => {
+            const user = await tx.user.findUnique({
+                where: { id: userId },
+                select: { id: true, email: true, role: true, tenantId: true }
+            });
+
+            if (!user) {
+                throw new Error('User not found');
+            }
+
+            // Set Property.managerId to null where this user is manager
+            await tx.property.updateMany({
+                where: { managerId: userId },
+                data: { managerId: null }
+            });
+
+            // Set createdByOwnerId to null for managers created by this user
+            await tx.user.updateMany({
+                where: { createdByOwnerId: userId },
+                data: { createdByOwnerId: null }
+            });
+
+            // Handle TENANT role: clean up TenantIdentity chain
+            // (Lease has onDelete: Restrict on tenantIdentity, so we must
+            // delete leases and related records before TenantIdentity)
+            if (user.tenantId) {
+                // Delete payment claim verifications for this tenant's claims
+                const claims = await tx.paymentClaim.findMany({
+                    where: { tenantId: user.tenantId },
+                    select: { id: true }
+                });
+                const claimIds = claims.map((c: any) => c.id);
+                if (claimIds.length > 0) {
+                    await tx.paymentClaimVerification.deleteMany({
+                        where: { claimId: { in: claimIds } }
+                    });
+                }
+
+                // Delete payment claims for this tenant
+                await tx.paymentClaim.deleteMany({
+                    where: { tenantId: user.tenantId }
+                });
+
+                // Delete payments for this tenant
+                await tx.payment.deleteMany({
+                    where: { tenantId: user.tenantId }
+                });
+
+                // Delete tenant invitations for this tenant
+                await tx.tenantInvitation.deleteMany({
+                    where: { tenantId: user.tenantId }
+                });
+
+                // Delete leases for this tenant (needed due to Restrict constraint)
+                await tx.lease.deleteMany({
+                    where: { tenantId: user.tenantId }
+                });
+
+                // Delete TenantIdentity
+                await tx.tenantIdentity.delete({
+                    where: { tenantId: user.tenantId }
+                });
+            }
+
+            // Delete admin permissions for this user's email
+            await tx.adminPermission.deleteMany({
+                where: { email: user.email }
+            });
+
+            // Delete the user — schema cascades handle:
+            // messages, notifications, owned properties & their units/leases,
+            // owned OwnerManagerInvitations, forum posts/comments/upvotes,
+            // audit logs, TenantInvitations sent by this user
+            await tx.user.delete({
+                where: { id: userId }
+            });
+        });
+    }
+
     async getCurrentUser(userId: string) {
         const user = await prisma.user.findUnique({
             where: { id: userId },

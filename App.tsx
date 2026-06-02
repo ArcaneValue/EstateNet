@@ -1,13 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import * as Updates from 'expo-updates';
 import { ThemeProvider } from './src/theme/ThemeContext';
-import { AuthProvider } from './src/context/AuthContext';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { PropertyProvider } from './src/context/PropertyContext';
 import { TenantProvider } from './src/context/TenantContext';
 import { PaymentProvider } from './src/context/PaymentContext';
 import { LeaseProvider } from './src/context/LeaseContext';
-import { MessageProvider } from './src/context/MessageContext';
+import { MessageProvider } from './src/context/MessageProvider';
 import { NotificationProvider } from './src/context/NotificationContext';
 import { TutorialProvider } from './src/context/TutorialContext';
 import { FeedbackProvider } from './src/context/FeedbackContext';
@@ -15,6 +15,8 @@ import { AdminSessionProvider } from './src/context/AdminSessionContext';
 import { Navigation } from './src/navigation';
 import { useSessionTimeout } from './src/hooks/useSessionTimeout';
 import { useTutorialSync } from './src/hooks/useTutorialSync';
+import { LegalUpdateModal } from './src/components/LegalUpdateModal';
+import { apiGet } from './src/utils/apiClient';
 
 // Disable console logs in production builds for security
 if (!__DEV__) {
@@ -27,9 +29,56 @@ if (!__DEV__) {
 
 // Session timeout wrapper component
 const AppWithSessionTimeout = () => {
+  const { isAuthenticated, signOut } = useAuth();
+  const [pendingLegalDocs, setPendingLegalDocs] = useState<any[] | null>(null);
+
   useSessionTimeout();
   useTutorialSync(); // Sync tutorial flags from backend on login
-  return <Navigation />;
+
+  // Check for legal document updates when user is authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setPendingLegalDocs(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const checkLegalStatus = async () => {
+      try {
+        const { status, json } = await apiGet('/legal/status');
+        if (cancelled) return;
+        if (status >= 200 && status < 300 && json?.success) {
+          const docs: any[] = json.data?.documents || [];
+          const pending = docs.filter((d: any) => d.requiresAcceptance);
+          if (pending.length > 0) {
+            setPendingLegalDocs(pending);
+          }
+        }
+      } catch {
+        // Silently fail — legal check is non-critical
+      }
+    };
+
+    checkLegalStatus();
+
+    return () => { cancelled = true; };
+  }, [isAuthenticated]);
+
+  return (
+    <>
+      <Navigation />
+      <LegalUpdateModal
+        visible={pendingLegalDocs !== null && pendingLegalDocs.length > 0}
+        documents={pendingLegalDocs || []}
+        onComplete={() => setPendingLegalDocs(null)}
+        onLogout={async () => {
+          setPendingLegalDocs(null);
+          await signOut();
+        }}
+      />
+    </>
+  );
 };
 
 export default function App() {

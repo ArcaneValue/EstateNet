@@ -210,6 +210,31 @@ export const registerOwner = async (req: Request, res: Response): Promise<void> 
     }
 };
 
+export const deleteAccount = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated'
+            });
+            return;
+        }
+
+        await authService.deleteAccount(req.user.id);
+
+        res.json({
+            success: true,
+            message: 'Account deleted successfully'
+        });
+    } catch (error) {
+        console.error('Delete account error:', error);
+        res.status(500).json({
+            success: false,
+            message: error instanceof Error ? error.message : 'Internal server error'
+        });
+    }
+};
+
 export const getCurrentUser = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
         if (!req.user) {
