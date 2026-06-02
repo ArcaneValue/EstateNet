@@ -4,9 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth, UserRole } from '../../context/AuthContext';
 import { formatUGX, formatMemberSince } from '../../utils/formatters';
-import { apiPatch, apiDelete } from '../../utils/apiClient';
-import { usePayments } from '../../context/PaymentContext';
-import { useTenants } from '../../context/TenantContext';
+import { apiDelete } from '../../utils/apiClient';
 import { useProperties } from '../../context/PropertyContext';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
@@ -19,15 +17,12 @@ import * as ImagePicker from 'expo-image-picker';
 export const ProfileScreen: React.FC<any> = ({ navigation }) => {
     const { colors, spacing, typography, borderRadius, isDark, setTheme } = useTheme();
     const { user, signOut } = useAuth();
-    const { payments } = usePayments();
-    const { getTenantByTenantId } = useTenants();
     const { properties } = useProperties();
     const [showSettings, setShowSettings] = useState(false);
     const [showAccountInfo, setShowAccountInfo] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
     const [showAppearance, setShowAppearance] = useState(false);
-    const [showRecordedPayments, setShowRecordedPayments] = useState(false);
-    const [showReceiptHistory, setShowReceiptHistory] = useState(false);
+
     const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
     const [showTermsOfService, setShowTermsOfService] = useState(false);
     const [showDeleteAccount, setShowDeleteAccount] = useState(false);
@@ -43,11 +38,7 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
     const [notifyMessages, setNotifyMessages] = useState(true);
     const [notifyReminders, setNotifyReminders] = useState(true);
 
-    // Payout setup state
-    const [showPayoutSetup, setShowPayoutSetup] = useState(false);
-    const [payoutPhoneNumber, setPayoutPhoneNumber] = useState(user?.payoutPhoneNumber || '');
-    const [payoutNetwork, setPayoutNetwork] = useState(user?.payoutNetwork || 'MTN');
-    const [savingPayout, setSavingPayout] = useState(false);
+
 
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -68,53 +59,6 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
         }
     };
 
-    const savePayoutSetup = async () => {
-        if (!payoutPhoneNumber) {
-            Alert.alert('Error', 'Payout phone number is required');
-            return;
-        }
-
-        // Validate Uganda phone format
-        const phoneRegex = /^(\+2567|07)[0-9]{8}$/;
-        if (!phoneRegex.test(payoutPhoneNumber)) {
-            Alert.alert('Error', 'Invalid phone format. Use +2567XXXXXXXX or 07XXXXXXXX');
-            return;
-        }
-
-        setSavingPayout(true);
-        try {
-            const { status, json } = await apiPatch('/users/me', {
-                payoutPhoneNumber,
-                payoutNetwork
-            });
-
-            if (status === 200 && json?.success) {
-                Alert.alert('Success', 'Payout details updated successfully');
-                setShowPayoutSetup(false);
-                // Update user context if needed
-            } else {
-                // For development, show success even if API fails
-                if (__DEV__) {
-                    Alert.alert('Success (Dev Mode)', 'Payout details saved locally for testing');
-                    setShowPayoutSetup(false);
-                } else {
-                    Alert.alert('Error', json?.message || 'Failed to update payout details');
-                }
-            }
-        } catch (error) {
-            console.error('Save payout error:', error);
-            // For development, show success even if API fails
-            if (__DEV__) {
-                Alert.alert('Success (Dev Mode)', 'Payout details saved locally for testing');
-                setShowPayoutSetup(false);
-            } else {
-                Alert.alert('Error', 'Network error. Please try again.');
-            }
-        } finally {
-            setSavingPayout(false);
-        }
-    };
-
     // Stats for social media style - using real data
     const totalTenants = useMemo(() => {
         return properties.reduce((total, property) => {
@@ -130,12 +74,6 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
         { label: 'Tenants', value: totalTenants.toString() },
         { label: 'Rating', value: '0.0' }, // TODO: Implement real rating system
     ];
-
-    const sortedPayments = useMemo(() => {
-        return [...payments].sort(
-            (a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
-        );
-    }, [payments]);
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
@@ -362,17 +300,6 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
                         typography={typography}
                     />
                     <SettingItem
-                        icon="card-outline"
-                        label="Payout Setup"
-                        onPress={() => {
-                            setShowSettings(false);
-                            setTimeout(() => setShowPayoutSetup(true), 300);
-                        }}
-                        colors={colors}
-                        spacing={spacing}
-                        typography={typography}
-                    />
-                    <SettingItem
                         icon="notifications-outline"
                         label="Notifications"
                         onPress={() => {
@@ -389,28 +316,6 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
                         onPress={() => {
                             setShowSettings(false);
                             setTimeout(() => setShowAppearance(true), 300);
-                        }}
-                        colors={colors}
-                        spacing={spacing}
-                        typography={typography}
-                    />
-                    <SettingItem
-                        icon="receipt-outline"
-                        label="Recorded Payments"
-                        onPress={() => {
-                            setShowSettings(false);
-                            setTimeout(() => setShowRecordedPayments(true), 300);
-                        }}
-                        colors={colors}
-                        spacing={spacing}
-                        typography={typography}
-                    />
-                    <SettingItem
-                        icon="document-text-outline"
-                        label="Receipt History"
-                        onPress={() => {
-                            setShowSettings(false);
-                            setTimeout(() => setShowReceiptHistory(true), 300);
                         }}
                         colors={colors}
                         spacing={spacing}
@@ -439,24 +344,17 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
                         spacing={spacing}
                         typography={typography}
                     />
-                    <View style={{ height: 1, backgroundColor: colors.border, marginVertical: spacing.md }} />
-                    <TouchableOpacity
+                    <SettingItem
+                        icon="trash-outline"
+                        label="Delete Account"
                         onPress={() => {
                             setShowSettings(false);
                             setTimeout(() => setShowDeleteAccount(true), 300);
                         }}
-                        style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            paddingVertical: spacing.md,
-                        }}
-                    >
-                        <Ionicons name="trash-outline" size={24} color={colors.error} />
-                        <View style={{ flex: 1, marginLeft: spacing.md }}>
-                            <Text style={[typography.body, { color: colors.error }]}>Delete Account</Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={20} color={colors.error} />
-                    </TouchableOpacity>
+                        colors={{ ...colors, primary: colors.error, text: colors.error }}
+                        spacing={spacing}
+                        typography={typography}
+                    />
                     <View style={{ marginTop: spacing.xl }}>
                         <Button
                             title="Sign Out"
@@ -511,82 +409,6 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
                         variant="primary"
                         size="large"
                         style={{ marginTop: spacing.lg }}
-                    />
-                </View>
-            </Modal>
-
-            {/* Payout Setup Modal */}
-            <Modal
-                visible={showPayoutSetup}
-                onClose={() => setShowPayoutSetup(false)}
-                title="Payout Setup"
-                size="large"
-            >
-                <View>
-                    <Text style={[typography.body, { color: colors.text, marginBottom: spacing.md }]}>
-                        Configure your mobile money details to receive automatic payouts (98.5% of collected rent).
-                    </Text>
-
-                    <Input
-                        label="Payout Phone Number"
-                        placeholder="+256XXXXXXXXX or 07XXXXXXXX"
-                        value={payoutPhoneNumber}
-                        onChangeText={setPayoutPhoneNumber}
-                        keyboardType="phone-pad"
-                        icon={<Ionicons name="call-outline" size={20} color={colors.textSecondary} />}
-                        style={{ marginBottom: spacing.lg }}
-                    />
-
-                    <View style={{ marginBottom: spacing.lg }}>
-                        <Text style={[typography.body, { color: colors.text, marginBottom: spacing.sm }]}>
-                            Mobile Money Network
-                        </Text>
-                        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                            {['MTN', 'AIRTEL'].map((network) => (
-                                <TouchableOpacity
-                                    key={network}
-                                    style={[
-                                        {
-                                            flex: 1,
-                                            padding: spacing.sm,
-                                            borderRadius: 8,
-                                            borderWidth: 1,
-                                            borderColor: payoutNetwork === network ? colors.primary : colors.border,
-                                            backgroundColor: payoutNetwork === network ? colors.primary + '20' : colors.surface,
-                                            alignItems: 'center'
-                                        }
-                                    ]}
-                                    onPress={() => setPayoutNetwork(network)}
-                                >
-                                    <Text style={[
-                                        typography.body,
-                                        { color: payoutNetwork === network ? colors.primary : colors.text }
-                                    ]}>
-                                        {network}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    </View>
-
-                    <Card style={{ marginBottom: spacing.lg, backgroundColor: colors.warning + '20' }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                            <Ionicons name="information-circle-outline" size={20} color={colors.warning} style={{ marginRight: spacing.sm }} />
-                            <View style={{ flex: 1 }}>
-                                <Text style={[typography.bodySmall, { color: colors.warning }]}>
-                                    Payouts are processed automatically when tenants complete payments. You'll receive 98.5% of the collected amount (1.5% processing fee).
-                                </Text>
-                            </View>
-                        </View>
-                    </Card>
-
-                    <Button
-                        title={savingPayout ? "Saving..." : "Save Payout Details"}
-                        onPress={savePayoutSetup}
-                        variant="primary"
-                        size="large"
-                        loading={savingPayout}
-                        disabled={!payoutPhoneNumber || savingPayout}
                     />
                 </View>
             </Modal>
@@ -712,220 +534,6 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
                         Theme changes will apply across the app
                     </Text>
                 </View>
-            </Modal>
-
-            {/* Recorded Payments Modal */}
-            <Modal
-                visible={showRecordedPayments}
-                onClose={() => setShowRecordedPayments(false)}
-                title="Recorded Payments"
-                size="large"
-            >
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing.lg }}>
-                    {sortedPayments.length === 0 ? (
-                        <View style={{ paddingVertical: spacing.xl, alignItems: 'center' }}>
-                            <View style={{
-                                width: 72,
-                                height: 72,
-                                borderRadius: 36,
-                                backgroundColor: colors.primary + '15',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                marginBottom: spacing.md,
-                            }}>
-                                <Ionicons name="receipt-outline" size={32} color={colors.primary} />
-                            </View>
-                            <Text style={[typography.h4, { color: colors.text, textAlign: 'center' }]}>No payments yet</Text>
-                            <Text style={[typography.body, { color: colors.textSecondary, textAlign: 'center', marginTop: spacing.xs }]}
-                            >
-                                Payments recorded from the dashboard will appear here.
-                            </Text>
-                        </View>
-                    ) : (
-                        <View style={{ gap: spacing.md }}>
-                            {sortedPayments.map((p) => {
-                                const tenant = getTenantByTenantId(p.tenantId);
-                                const property = properties.find(prop => prop.id === p.propertyId);
-
-                                const paymentMethodLabel =
-                                    p.paymentMethod === 'estatenet'
-                                        ? 'EstateNet'
-                                        : p.paymentMethod === 'bank_transfer'
-                                            ? 'Bank Transfer'
-                                            : 'Cash';
-
-                                return (
-                                    <Card key={p.id} style={{ padding: spacing.lg }}>
-                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                            <View style={{ flex: 1, marginRight: spacing.md }}>
-                                                <Text style={[typography.h4, { color: colors.text }]}>
-                                                    UGX {p.amount.toLocaleString()}
-                                                </Text>
-                                                <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 2 }]}>
-                                                    {tenant?.name || `Tenant ID: ${p.tenantId}`}
-                                                </Text>
-                                                <Text style={[typography.bodySmall, { color: colors.textTertiary, marginTop: 2 }]}>
-                                                    {property?.name || 'Property'}{p.unitId ? ` · Unit ${p.unitId}` : ''}
-                                                </Text>
-                                            </View>
-
-                                            <View style={{
-                                                backgroundColor: colors.surface,
-                                                borderWidth: 1,
-                                                borderColor: colors.border,
-                                                paddingHorizontal: spacing.sm,
-                                                paddingVertical: spacing.xs,
-                                                borderRadius: borderRadius.full,
-                                            }}>
-                                                <Text style={{ fontSize: 11, fontWeight: '600', color: colors.textSecondary }}>
-                                                    {paymentMethodLabel}
-                                                </Text>
-                                            </View>
-                                        </View>
-
-                                        <View style={{ height: 1, backgroundColor: colors.divider, marginVertical: spacing.md }} />
-
-                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
-                                                {new Date(p.paymentDate).toLocaleString()}
-                                            </Text>
-                                            {p.notes ? (
-                                                <Text
-                                                    style={[typography.bodySmall, { color: colors.textSecondary, maxWidth: '60%', textAlign: 'right' }]}
-                                                    numberOfLines={1}
-                                                >
-                                                    {p.notes}
-                                                </Text>
-                                            ) : null}
-                                        </View>
-                                    </Card>
-                                );
-                            })}
-                        </View>
-                    )}
-                </ScrollView>
-            </Modal>
-
-            {/* Receipt History Modal */}
-            <Modal
-                visible={showReceiptHistory}
-                onClose={() => setShowReceiptHistory(false)}
-                title="Receipt History"
-                size="large"
-            >
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing.lg }}>
-                    {sortedPayments.length === 0 ? (
-                        <View style={{ paddingVertical: spacing.xl, alignItems: 'center' }}>
-                            <View style={{
-                                width: 72,
-                                height: 72,
-                                borderRadius: 36,
-                                backgroundColor: colors.primary + '15',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                marginBottom: spacing.md,
-                            }}>
-                                <Ionicons name="document-text-outline" size={32} color={colors.primary} />
-                            </View>
-                            <Text style={[typography.h4, { color: colors.text, textAlign: 'center' }]}>No receipts yet</Text>
-                            <Text style={[typography.body, { color: colors.textSecondary, textAlign: 'center', marginTop: spacing.xs }]}>
-                                Payment receipts will appear here once payments are recorded.
-                            </Text>
-                        </View>
-                    ) : (
-                        <View style={{ gap: spacing.md }}>
-                            {sortedPayments.map((p) => {
-                                const tenant = getTenantByTenantId(p.tenantId);
-                                const property = properties.find(prop => prop.id === p.propertyId);
-                                const receiptNumber = `RCP-${p.id.toUpperCase().slice(0, 6)}`;
-
-                                return (
-                                    <Card key={p.id} style={{ padding: spacing.lg }}>
-                                        {/* Receipt Header */}
-                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.md }}>
-                                            <View style={{ flex: 1 }}>
-                                                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Receipt No.</Text>
-                                                <Text style={[typography.h4, { color: colors.primary, marginTop: 2 }]}>
-                                                    {receiptNumber}
-                                                </Text>
-                                            </View>
-                                            <View style={{
-                                                backgroundColor: colors.success + '20',
-                                                paddingHorizontal: spacing.sm,
-                                                paddingVertical: spacing.xs,
-                                                borderRadius: borderRadius.full,
-                                            }}>
-                                                <Text style={{ fontSize: 11, fontWeight: '700', color: colors.success }}>
-                                                    PAID
-                                                </Text>
-                                            </View>
-                                        </View>
-
-                                        <View style={{ height: 1, backgroundColor: colors.divider, marginBottom: spacing.md }} />
-
-                                        {/* Amount */}
-                                        <View style={{ alignItems: 'center', marginBottom: spacing.md }}>
-                                            <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Amount Received</Text>
-                                            <Text style={[typography.h2, { color: colors.text, marginTop: spacing.xs }]}>
-                                                UGX {p.amount.toLocaleString()}
-                                            </Text>
-                                        </View>
-
-                                        <View style={{ height: 1, backgroundColor: colors.divider, marginBottom: spacing.md }} />
-
-                                        {/* Details Grid */}
-                                        <View style={{ gap: spacing.sm }}>
-                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                                                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>From</Text>
-                                                <Text style={[typography.body, { color: colors.text, fontWeight: '500' }]}>
-                                                    {tenant?.name || `Tenant ID: ${p.tenantId}`}
-                                                </Text>
-                                            </View>
-                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                                                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Property</Text>
-                                                <Text style={[typography.body, { color: colors.text, fontWeight: '500' }]}>
-                                                    {property?.name || 'N/A'}
-                                                </Text>
-                                            </View>
-                                            {p.unitId && (
-                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                                                    <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Unit</Text>
-                                                    <Text style={[typography.body, { color: colors.text, fontWeight: '500' }]}>
-                                                        {p.unitId}
-                                                    </Text>
-                                                </View>
-                                            )}
-                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                                                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Date</Text>
-                                                <Text style={[typography.body, { color: colors.text, fontWeight: '500' }]}>
-                                                    {new Date(p.paymentDate).toLocaleDateString()}
-                                                </Text>
-                                            </View>
-                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                                                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Method</Text>
-                                                <Text style={[typography.body, { color: colors.text, fontWeight: '500' }]}>
-                                                    {p.paymentMethod === 'estatenet' ? 'EstateNet' : p.paymentMethod === 'bank_transfer' ? 'Bank Transfer' : 'Cash'}
-                                                </Text>
-                                            </View>
-                                        </View>
-
-                                        {p.notes && (
-                                            <>
-                                                <View style={{ height: 1, backgroundColor: colors.divider, marginVertical: spacing.md }} />
-                                                <View>
-                                                    <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Notes</Text>
-                                                    <Text style={[typography.body, { color: colors.text, marginTop: 2 }]}>
-                                                        {p.notes}
-                                                    </Text>
-                                                </View>
-                                            </>
-                                        )}
-                                    </Card>
-                                );
-                            })}
-                        </View>
-                    )}
-                </ScrollView>
             </Modal>
 
             {/* Delete Account Confirmation */}

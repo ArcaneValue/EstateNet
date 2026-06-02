@@ -434,23 +434,17 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
           typography={typography}
         />
         <View style={{ height: 1, backgroundColor: colors.border, marginVertical: spacing.md }} />
-        <TouchableOpacity
+        <SettingItem
+          icon="trash-outline"
+          label="Delete Account"
           onPress={() => {
             setShowSettings(false);
             setTimeout(() => setShowDeleteAccount(true), 300);
           }}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingVertical: spacing.md,
-          }}
-        >
-          <Ionicons name="trash-outline" size={24} color={colors.error} />
-          <View style={{ flex: 1, marginLeft: spacing.md }}>
-            <Text style={[typography.body, { color: colors.error }]}>Delete Account</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.error} />
-        </TouchableOpacity>
+          colors={{ ...colors, primary: colors.error, text: colors.error }}
+          spacing={spacing}
+          typography={typography}
+        />
         <View style={{ marginTop: spacing.xl }}>
           <Button
             title="Sign Out"

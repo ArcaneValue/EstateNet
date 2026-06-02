@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import * as Updates from 'expo-updates';
+import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemeProvider } from './src/theme/ThemeContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { PropertyProvider } from './src/context/PropertyContext';
@@ -16,6 +18,7 @@ import { Navigation } from './src/navigation';
 import { useSessionTimeout } from './src/hooks/useSessionTimeout';
 import { useTutorialSync } from './src/hooks/useTutorialSync';
 import { LegalUpdateModal } from './src/components/LegalUpdateModal';
+import { WhatsNewModal } from './src/components/WhatsNewModal';
 import { apiGet } from './src/utils/apiClient';
 
 // Disable console logs in production builds for security
@@ -31,6 +34,7 @@ if (!__DEV__) {
 const AppWithSessionTimeout = () => {
   const { isAuthenticated, signOut } = useAuth();
   const [pendingLegalDocs, setPendingLegalDocs] = useState<any[] | null>(null);
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
 
   useSessionTimeout();
   useTutorialSync(); // Sync tutorial flags from backend on login
@@ -65,9 +69,36 @@ const AppWithSessionTimeout = () => {
     return () => { cancelled = true; };
   }, [isAuthenticated]);
 
+  // Show "What's New" modal on app version change
+  useEffect(() => {
+    const checkVersion = async () => {
+      try {
+        const currentVersion = Constants.expoConfig?.version || '1.0.0';
+        const lastVersion = await AsyncStorage.getItem('@estatenet_last_version');
+        if (lastVersion !== currentVersion) {
+          setShowWhatsNew(true);
+        }
+      } catch {
+        // Silently fail
+      }
+    };
+    checkVersion();
+  }, []);
+
+  const handleWhatsNewClose = async () => {
+    try {
+      const currentVersion = Constants.expoConfig?.version || '1.0.0';
+      await AsyncStorage.setItem('@estatenet_last_version', currentVersion);
+    } catch {
+      // Silently fail
+    }
+    setShowWhatsNew(false);
+  };
+
   return (
     <>
       <Navigation />
+      <WhatsNewModal visible={showWhatsNew} onClose={handleWhatsNewClose} />
       <LegalUpdateModal
         visible={pendingLegalDocs !== null && pendingLegalDocs.length > 0}
         documents={pendingLegalDocs || []}
