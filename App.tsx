@@ -7,7 +7,7 @@ import { PropertyProvider } from './src/context/PropertyContext';
 import { TenantProvider } from './src/context/TenantContext';
 import { PaymentProvider } from './src/context/PaymentContext';
 import { LeaseProvider } from './src/context/LeaseContext';
-import { MessageProvider } from './src/context/MessageProvider';
+import { MessageProvider } from './src/context/MessageContext';
 import { NotificationProvider } from './src/context/NotificationContext';
 import { TutorialProvider } from './src/context/TutorialContext';
 import { FeedbackProvider } from './src/context/FeedbackContext';
