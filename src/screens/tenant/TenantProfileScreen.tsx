@@ -513,10 +513,14 @@ export const TenantProfileScreen: React.FC<TenantProfileScreenProps> = ({ naviga
                     <Button
                         title="Save Changes"
                         onPress={async () => {
+                            if (!phone.trim()) {
+                                Alert.alert('Validation Error', 'Phone number is required');
+                                return;
+                            }
                             try {
                                 const payload: any = {
                                     name: name.trim(),
-                                    phoneNumber: phone.trim() || null,
+                                    phoneNumber: phone.trim(),
                                     profileImageUrl: profileImage,
                                 };
 

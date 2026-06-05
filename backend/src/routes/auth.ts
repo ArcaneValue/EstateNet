@@ -40,8 +40,9 @@ router.post('/register-tenant',
             .normalizeEmail(),
 
         body('phoneNumber')
-            .optional()
             .trim()
+            .notEmpty()
+            .withMessage('Phone number is required')
             .isLength({ min: 10, max: 20 })
             .withMessage('Phone number must be between 10 and 20 characters'),
 

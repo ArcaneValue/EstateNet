@@ -2,7 +2,7 @@
   "expo": {
     "name": "EstateNet",
     "slug": "estatenet",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -21,6 +21,7 @@
         "backgroundColor": "#1F3A5F"
       },
       "package": "com.estatenet.app",
+      "versionCode": 2,
       "buildToolsVersion": "34.0.0",
       "compileSdkVersion": 34,
       "targetSdkVersion": 34

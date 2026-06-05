@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth, UserRole } from '../../context/AuthContext';
 import { formatUGX, formatMemberSince } from '../../utils/formatters';
-import { apiDelete } from '../../utils/apiClient';
+import { apiPatch, apiDelete } from '../../utils/apiClient';
 import { useProperties } from '../../context/PropertyContext';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
@@ -39,6 +39,20 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
     const [notifyReminders, setNotifyReminders] = useState(true);
 
 
+
+    const handleSaveProfile = async () => {
+        if (!phone.trim()) {
+            Alert.alert('Validation Error', 'Phone number is required');
+            return;
+        }
+        const result = await apiPatch('/users/me', { name: name.trim(), phoneNumber: phone.trim() });
+        if (result.json?.success) {
+            Alert.alert('Success', 'Account information updated');
+            setShowAccountInfo(false);
+        } else {
+            Alert.alert('Error', result.json?.message || 'Failed to update account information');
+        }
+    };
 
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -402,10 +416,7 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
                     />
                     <Button
                         title="Save Changes"
-                        onPress={() => {
-                            Alert.alert('Success', 'Account information updated');
-                            setShowAccountInfo(false);
-                        }}
+                        onPress={handleSaveProfile}
                         variant="primary"
                         size="large"
                         style={{ marginTop: spacing.lg }}

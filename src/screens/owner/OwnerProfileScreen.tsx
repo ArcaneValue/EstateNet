@@ -101,6 +101,10 @@ export const OwnerProfileScreen: React.FC<OwnerProfileScreenProps> = ({ navigati
   ];
 
   const handleSaveProfile = async () => {
+    if (!phone.trim()) {
+      Alert.alert('Validation Error', 'Phone number is required');
+      return;
+    }
     const result = await apiPatch('/users/me', {
       name,
       phoneNumber: phone,

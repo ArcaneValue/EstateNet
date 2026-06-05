@@ -128,8 +128,15 @@ export const updateCurrentUser = async (req: AuthenticatedRequest, res: Response
       data.name = name.trim();
     }
 
-    if (typeof phoneNumber === 'string' || phoneNumber === null) {
-      data.phoneNumber = phoneNumber;
+    if (phoneNumber !== undefined) {
+      if (typeof phoneNumber !== 'string' || !phoneNumber.trim()) {
+        res.status(400).json({
+          success: false,
+          message: 'Phone number is required and cannot be empty',
+        });
+        return;
+      }
+      data.phoneNumber = phoneNumber.trim();
     }
 
     if (typeof profileImageUrl === 'string' || profileImageUrl === null) {
